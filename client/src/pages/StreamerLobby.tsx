@@ -237,7 +237,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         y: 100 + row * 85 + Math.random() * 20,
         maxHp: unitMaxHp,
         hp: unitMaxHp,
-        speed,
+        speed: v.speed || speed,
         attackPower: unitAttackPower,
         critChance: unitCritChance,
         critMult: unitCritMult,

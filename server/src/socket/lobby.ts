@@ -20,6 +20,7 @@ export interface LobbyViewer {
   lifesteal: number;
   reflect: number;
   cdr: number;
+  speed: number;
 }
 
 export interface LobbyState {
@@ -107,7 +108,8 @@ export const setupSocketHandlers = (io: Server) => {
               atkSpeed: charStats.atkSpeed,
               lifesteal: charStats.lifesteal,
               reflect: charStats.reflect,
-              cdr: charStats.cdr
+              cdr: charStats.cdr,
+              speed: charStats.moveSpeed
             };
 
             // Deduplicate viewers
@@ -246,7 +248,8 @@ export const setupSocketHandlers = (io: Server) => {
                 atkSpeed: charStats.atkSpeed,
                 lifesteal: charStats.lifesteal,
                 reflect: charStats.reflect,
-                cdr: charStats.cdr
+                cdr: charStats.cdr,
+                speed: charStats.moveSpeed
               };
 
               lobby.viewers = lobby.viewers.filter(v => v.userId !== user!.id);

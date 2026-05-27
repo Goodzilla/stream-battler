@@ -137,21 +137,61 @@ export const calculateCharacterStats = (
     attackPower *= 1.5;
     maxHp *= 0.7;
   }
+  if (passivesList.includes('r10_5')) { // Resolute Technique
+    attackPower *= 1.3;
+    critChance = 0;
+  }
+  if (passivesList.includes('r10_10')) { // Elemental Overload
+    attackPower *= 1.2;
+    critMult = 1.0;
+  }
   if (passivesList.includes('r10_16')) { // Iron Fortress
     reflect += 0.30;
-    moveSpeedPct -= 0.20;
+    moveSpeedPct -= 0.15;
+  }
+  if (passivesList.includes('r10_21')) { // Unwavering Stance
+    defMult += 0.50;
+    moveSpeedPct -= 0.10;
+  }
+  if (passivesList.includes('r10_26')) { // Juggernaut Bulwark
+    defense *= 2;
+    critChance = 0;
   }
   if (passivesList.includes('r10_32')) { // Vampiric Zeal
     lifesteal += 0.15;
     critChance = 0;
   }
+  if (passivesList.includes('r10_37')) { // Ghost Reaver
+    lifesteal *= 2;
+    maxHp *= 0.75;
+  }
+  if (passivesList.includes('r10_42')) { // Blood Magic
+    hpMult += 0.25;
+    cdr = 0;
+  }
   if (passivesList.includes('r10_48')) { // Alchemist Aura
     cdr *= 2;
-    attackPower *= 0.75;
+    attackPower *= 0.8;
   }
-  if (passivesList.includes('r10_64')) { // Juggernaut Bulwark
-    defense *= 2;
-    critChance = 0;
+  if (passivesList.includes('r10_53')) { // Conduit
+    cdr += 0.30;
+    attackPower *= 0.85;
+  }
+  if (passivesList.includes('r10_58')) { // Swift Reflexes
+    atkSpeedPct += 0.20;
+    defense *= 0.7;
+  }
+  if (passivesList.includes('r10_64')) { // Eagle Eye
+    critChance += 0.15;
+    maxHp *= 0.8;
+  }
+  if (passivesList.includes('r10_69')) { // Assassin Pact
+    critMult += 0.40;
+    defense *= 0.75;
+  }
+  if (passivesList.includes('r10_74')) { // Perfect Agility
+    critChance += 0.20;
+    cdr = 0;
   }
 
   // Apply final multipliers
@@ -266,8 +306,8 @@ export const generateRandomItem = (
     if (selectedTypes.has(affixOpt.type)) continue;
 
     selectedTypes.add(affixOpt.type);
-    const minVal = affixOpt.min * (1 + itemLevel * 0.1);
-    const maxVal = affixOpt.max * (1 + itemLevel * 0.15);
+    const minVal = affixOpt.min * (1 + itemLevel * 0.01);
+    const maxVal = affixOpt.max * (1 + itemLevel * 0.015);
     let rolledVal = minVal + Math.random() * (maxVal - minVal);
 
     // Format decimals appropriately
@@ -282,9 +322,7 @@ export const generateRandomItem = (
 
   // If Legendary, add unique legendary affix info to the names or descriptions
   if (rarity === 'LEGENDARY') {
-    const legEffect = LEGENDARY_EFFECTS[Math.floor(Math.random() * LEGENDARY_EFFECTS.length)];
     name = `Legendary ${name}`;
-    affixes.push({ type: `legendary_${legEffect.id}`, value: 1.0 }); // Value 1 indicates active
   } else {
     name = `${rarity.charAt(0) + rarity.slice(1).toLowerCase()} ${name}`;
   }

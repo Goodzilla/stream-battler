@@ -111,21 +111,61 @@ export const calculateCharacterStats = (
     attackPower *= 1.5;
     maxHp *= 0.7;
   }
+  if (passivesList.includes('r10_5')) { // Resolute Technique
+    attackPower *= 1.3;
+    critChance = 0;
+  }
+  if (passivesList.includes('r10_10')) { // Elemental Overload
+    attackPower *= 1.2;
+    critMult = 1.0;
+  }
   if (passivesList.includes('r10_16')) { // Iron Fortress
     reflect += 0.30;
-    moveSpeedPct -= 0.20;
+    moveSpeedPct -= 0.15;
+  }
+  if (passivesList.includes('r10_21')) { // Unwavering Stance
+    defMult += 0.50;
+    moveSpeedPct -= 0.10;
+  }
+  if (passivesList.includes('r10_26')) { // Juggernaut Bulwark
+    defense *= 2;
+    critChance = 0;
   }
   if (passivesList.includes('r10_32')) { // Vampiric Zeal
     lifesteal += 0.15;
     critChance = 0;
   }
+  if (passivesList.includes('r10_37')) { // Ghost Reaver
+    lifesteal *= 2;
+    maxHp *= 0.75;
+  }
+  if (passivesList.includes('r10_42')) { // Blood Magic
+    hpMult += 0.25;
+    cdr = 0;
+  }
   if (passivesList.includes('r10_48')) { // Alchemist Aura
     cdr *= 2;
-    attackPower *= 0.75;
+    attackPower *= 0.8;
   }
-  if (passivesList.includes('r10_64')) { // Juggernaut Bulwark
-    defense *= 2;
-    critChance = 0;
+  if (passivesList.includes('r10_53')) { // Conduit
+    cdr += 0.30;
+    attackPower *= 0.85;
+  }
+  if (passivesList.includes('r10_58')) { // Swift Reflexes
+    atkSpeedPct += 0.20;
+    defense *= 0.7;
+  }
+  if (passivesList.includes('r10_64')) { // Eagle Eye
+    critChance += 0.15;
+    maxHp *= 0.8;
+  }
+  if (passivesList.includes('r10_69')) { // Assassin Pact
+    critMult += 0.40;
+    defense *= 0.75;
+  }
+  if (passivesList.includes('r10_74')) { // Perfect Agility
+    critChance += 0.20;
+    cdr = 0;
   }
 
   maxHp = Math.round(maxHp * hpMult);

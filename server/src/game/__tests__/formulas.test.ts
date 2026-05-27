@@ -73,9 +73,9 @@ describe('ARPG Loot Generator', () => {
     expect(epic.affixes.length).toBe(3);
 
     const legendary = generateRandomItem(20, 'LEGENDARY', 'WEAPON', 'RANGER');
-    expect(legendary.affixes.length).toBe(5); // 4 normal + 1 legendary active
+    expect(legendary.affixes.length).toBe(4);
     expect(legendary.name.startsWith('Legendary')).toBe(true);
-    expect(legendary.affixes.some(a => a.type.startsWith('legendary_'))).toBe(true);
+    expect(legendary.affixes.some(a => a.type.startsWith('legendary_'))).toBe(false);
   });
 });
 

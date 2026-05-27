@@ -275,7 +275,7 @@ const buildPassiveTree = () => {
     type: 'start'
   };
 
-  const types: Array<'life' | 'atk' | 'crit' | 'speed' | 'def'> = ['life', 'atk', 'crit', 'speed', 'def'];
+  const types: Array<'life' | 'atk' | 'crit' | 'speed' | 'def'> = ['atk', 'def', 'life', 'speed', 'crit'];
   const labels = {
     life: { name: 'Vigor', desc: 'Max HP', val: 12 },
     atk: { name: 'Might', desc: 'Attack Power', val: 1.5 },
@@ -308,34 +308,89 @@ const buildPassiveTree = () => {
       ids.push(id);
 
       const angle = (i * Math.PI * 2) / config.count;
-      const isKeystone = config.r === 10 && (i % 16 === 0) && (i / 16 < 5);
+      const isKeystone = config.r === 10 && [0, 5, 10, 16, 21, 26, 32, 37, 42, 48, 53, 58, 64, 69, 74].includes(i);
 
       if (isKeystone) {
         let name = '';
         let desc = '';
         let type: 'life' | 'atk' | 'crit' | 'speed' | 'def' = 'atk';
         
-        const keystoneIdx = i / 16;
-        if (keystoneIdx === 0) {
-          name = 'Keystone: Glass Cannon';
-          desc = 'Allocates Glass Cannon: +50% Attack Power, -30% Maximum HP';
-          type = 'atk';
-        } else if (keystoneIdx === 1) {
-          name = 'Keystone: Iron Fortress';
-          desc = 'Allocates Iron Fortress: Reflect 30% damage, -20% Move Speed';
-          type = 'def';
-        } else if (keystoneIdx === 2) {
-          name = 'Keystone: Vampiric Zeal';
-          desc = 'Allocates Vampiric Zeal: Gain 15% Lifesteal, 0% Crit Chance';
-          type = 'life';
-        } else if (keystoneIdx === 3) {
-          name = 'Keystone: Alchemist Aura';
-          desc = 'Allocates Alchemist Aura: Double CDR (max 75%), -25% Attack Power';
-          type = 'speed';
-        } else {
-          name = 'Keystone: Juggernaut Bulwark';
-          desc = 'Allocates Juggernaut Bulwark: Double Defense Armor, 0% Crit Chance';
-          type = 'def';
+        switch (i) {
+          case 0:
+            name = 'Keystone: Glass Cannon';
+            desc = 'Allocates Glass Cannon: +50% Attack Power, -30% Maximum HP';
+            type = 'atk';
+            break;
+          case 5:
+            name = 'Keystone: Resolute Technique';
+            desc = 'Allocates Resolute Technique: +30% Attack Power, 0% Crit Chance';
+            type = 'atk';
+            break;
+          case 10:
+            name = 'Keystone: Elemental Overload';
+            desc = 'Allocates Elemental Overload: +20% Attack Power, Crit Multiplier is 1.0';
+            type = 'atk';
+            break;
+          case 16:
+            name = 'Keystone: Iron Fortress';
+            desc = 'Allocates Iron Fortress: Reflect 30% damage, -15% Move Speed';
+            type = 'def';
+            break;
+          case 21:
+            name = 'Keystone: Unwavering Stance';
+            desc = 'Allocates Unwavering Stance: +50% Defense, -10% Move Speed';
+            type = 'def';
+            break;
+          case 26:
+            name = 'Keystone: Juggernaut Bulwark';
+            desc = 'Allocates Juggernaut Bulwark: Double Defense Armor, 0% Crit Chance';
+            type = 'def';
+            break;
+          case 32:
+            name = 'Keystone: Vampiric Zeal';
+            desc = 'Allocates Vampiric Zeal: Gain 15% Lifesteal, 0% Crit Chance';
+            type = 'life';
+            break;
+          case 37:
+            name = 'Keystone: Ghost Reaver';
+            desc = 'Allocates Ghost Reaver: Double Lifesteal, -25% Max HP';
+            type = 'life';
+            break;
+          case 42:
+            name = 'Keystone: Blood Magic';
+            desc = 'Allocates Blood Magic: +25% Max HP, 0% Cooldown Reduction';
+            type = 'life';
+            break;
+          case 48:
+            name = 'Keystone: Alchemist Aura';
+            desc = 'Allocates Alchemist Aura: Double CDR, -20% Attack Power';
+            type = 'speed';
+            break;
+          case 53:
+            name = 'Keystone: Conduit';
+            desc = 'Allocates Conduit: +30% Cooldown Reduction, -15% Attack Power';
+            type = 'speed';
+            break;
+          case 58:
+            name = 'Keystone: Swift Reflexes';
+            desc = 'Allocates Swift Reflexes: +20% Attack Speed, -30% Defense';
+            type = 'speed';
+            break;
+          case 64:
+            name = 'Keystone: Eagle Eye';
+            desc = 'Allocates Eagle Eye: +15% Crit Chance, -20% Max HP';
+            type = 'crit';
+            break;
+          case 69:
+            name = 'Keystone: Assassin Pact';
+            desc = 'Allocates Assassin Pact: +40% Crit Multiplier, -25% Defense';
+            type = 'crit';
+            break;
+          case 74:
+            name = 'Keystone: Perfect Agility';
+            desc = 'Allocates Perfect Agility: +20% Crit Chance, 0% Cooldown Reduction';
+            type = 'crit';
+            break;
         }
 
         PASSIVE_SKILL_TREE[id] = {
@@ -349,7 +404,8 @@ const buildPassiveTree = () => {
           type
         };
       } else {
-        const type = types[(i + config.r) % types.length];
+        const sector = Math.floor((i / config.count) * 5) % 5;
+        const type = types[sector];
         const item = labels[type];
         const statKey = type === 'life' ? 'maxHp' : (type === 'atk' ? 'attackPower' : (type === 'crit' ? 'critChance' : (type === 'speed' ? 'atkSpeedPct' : 'defense')));
 
@@ -385,11 +441,13 @@ const buildPassiveTree = () => {
 
     ringIds[config.r] = ids;
 
-    for (let i = 0; i < config.count; i++) {
-      const currentId = ids[i];
-      const nextId = ids[(i + 1) % config.count];
-      PASSIVE_SKILL_TREE[currentId].connections.push(nextId);
-      PASSIVE_SKILL_TREE[nextId].connections.push(currentId);
+    if (config.r === 1 || config.r === 3 || config.r === 6) {
+      for (let i = 0; i < config.count; i++) {
+        const currentId = ids[i];
+        const nextId = ids[(i + 1) % config.count];
+        PASSIVE_SKILL_TREE[currentId].connections.push(nextId);
+        PASSIVE_SKILL_TREE[nextId].connections.push(currentId);
+      }
     }
   }
 };
