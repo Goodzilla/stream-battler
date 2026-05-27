@@ -38,6 +38,7 @@ export const setupSocketHandlers = (io: Server) => {
   io.on('connection', (socket: Socket) => {
     let currentLobby: string | null = null;
     let isStreamer = false;
+    let connectedUserId: string | null = null;
 
     // STREAMER: CREATE LOBBY
     socket.on('create-lobby', ({ streamerName, bossName, bossLevel }) => {
@@ -61,6 +62,7 @@ export const setupSocketHandlers = (io: Server) => {
 
     // VIEWER/STREAMER: JOIN LOBBY
     socket.on('join-lobby', async ({ streamerName, userId, username, displayName }) => {
+      connectedUserId = userId;
       const streamerKey = streamerName.toLowerCase();
       const roomName = `lobby_${streamerKey}`;
       currentLobby = roomName;
@@ -369,10 +371,14 @@ export const setupSocketHandlers = (io: Server) => {
                   let newLevel = character.level;
                   let xpNeeded = xpToNextLevel(newLevel);
 
-                  while (newXp >= xpNeeded) {
+                  while (newXp >= xpNeeded && newLevel < 100) {
                     newXp -= xpNeeded;
                     newLevel += 1;
                     xpNeeded = xpToNextLevel(newLevel);
+                  }
+                  if (newLevel >= 100) {
+                    newLevel = 100;
+                    newXp = 0;
                   }
 
                   await prisma.character.update({
@@ -415,13 +421,15 @@ export const setupSocketHandlers = (io: Server) => {
       if (isStreamer && currentLobby) {
         const streamerName = currentLobby.replace('lobby_', '');
         delete activeLobbies[streamerName];
+        io.to(currentLobby).emit('lobby-closed');
         io.emit('global-lobbies-update', Object.values(activeLobbies));
-      } else if (currentLobby) {
+      } else if (currentLobby && connectedUserId) {
         const streamerName = currentLobby.replace('lobby_', '');
         const lobby = activeLobbies[streamerName];
         if (lobby) {
-          lobby.viewers = lobby.viewers.filter(v => `lobby_${streamerName}` !== currentLobby);
+          lobby.viewers = lobby.viewers.filter(v => v.userId !== connectedUserId);
           io.to(currentLobby).emit('lobby-update', lobby);
+          io.emit('global-lobbies-update', Object.values(activeLobbies));
         }
       }
     });

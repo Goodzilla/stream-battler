@@ -177,7 +177,7 @@ export const PassiveSkillTree: React.FC<PassiveSkillTreeProps> = ({ character, o
     <div className="relative w-full h-[550px] bg-[#05080f] rounded-xl border border-white/5 overflow-hidden select-none">
       {/* HUD Info */}
       <div className="absolute top-4 left-4 z-10 flex flex-col gap-1 pointer-events-none">
-        <h4 className="m-0 text-white font-display text-sm tracking-wide">PASSIVE MATRIX</h4>
+        <h4 className="m-0 text-white font-display text-sm tracking-wide">PASSIVE SKILL TREE</h4>
         <div className="text-xs text-slate-400">
           Points Spent: <span className="text-[#00d8ff] font-bold">{spentPoints - 1}</span> / {maxPoints - 1}
         </div>
@@ -223,7 +223,10 @@ export const PassiveSkillTree: React.FC<PassiveSkillTreeProps> = ({ character, o
           {Object.values(PASSIVE_SKILL_TREE).map((node: SkillNode) => {
             const isAlloc = allocated.includes(node.id);
             const canAlloc = isConnectable(node.id) && pointsAvailable > 0;
-            const r = node.id === 'start' ? 16 : 10;
+            
+            const isKeystone = node.id.startsWith('r10_') && (parseInt(node.id.split('_')[1], 10) % 16 === 0);
+            const isNotable = node.name.includes('Notable') || node.name.startsWith('Grand');
+            const r = node.id === 'start' ? 16 : (isKeystone ? 18 : (isNotable ? 12 : 9));
 
             return (
               <g
@@ -234,17 +237,18 @@ export const PassiveSkillTree: React.FC<PassiveSkillTreeProps> = ({ character, o
                 onMouseLeave={() => setHoverNode(null)}
                 className="cursor-pointer"
               >
-                {/* Neon Glow Outer ring for notable Grand Nodes */}
-                {node.name.startsWith('Grand') && (
+                {/* Neon Glow Outer ring for notable Grand Nodes and Keystones */}
+                {(isNotable || isKeystone) && (
                   <circle
                     r={r + 6}
                     fill="none"
                     stroke={getNodeColor(node)}
-                    strokeWidth="1.5"
-                    strokeDasharray="4,2"
-                    opacity={isAlloc ? 0.7 : 0.25}
+                    strokeWidth={isKeystone ? "2" : "1.5"}
+                    strokeDasharray={isKeystone ? undefined : "4,2"}
+                    opacity={isAlloc ? 0.8 : 0.3}
                     style={{
-                      animation: isAlloc ? 'spin 10s linear infinite' : 'none'
+                      animation: isAlloc ? 'spin 10s linear infinite' : 'none',
+                      filter: isKeystone && isAlloc ? `drop-shadow(0 0 8px ${getNodeColor(node)})` : 'none'
                     }}
                   />
                 )}

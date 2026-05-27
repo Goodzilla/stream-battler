@@ -102,11 +102,36 @@ export const calculateCharacterStats = (
     if (e.moveSpeedPct) moveSpeedPct += e.moveSpeedPct;
     if (e.atkSpeedPct) atkSpeedPct += e.atkSpeedPct;
     if (e.cdr) cdr += e.cdr;
+    if (e.atkMultPct) atkMult += e.atkMultPct;
+    if (e.damagePct) atkMult += e.damagePct;
+  }
+
+  // Apply Keystones
+  if (passivesList.includes('r10_0')) { // Glass Cannon
+    attackPower *= 1.5;
+    maxHp *= 0.7;
+  }
+  if (passivesList.includes('r10_16')) { // Iron Fortress
+    reflect += 0.30;
+    moveSpeedPct -= 0.20;
+  }
+  if (passivesList.includes('r10_32')) { // Vampiric Zeal
+    lifesteal += 0.15;
+    critChance = 0;
+  }
+  if (passivesList.includes('r10_48')) { // Alchemist Aura
+    cdr *= 2;
+    attackPower *= 0.75;
+  }
+  if (passivesList.includes('r10_64')) { // Juggernaut Bulwark
+    defense *= 2;
+    critChance = 0;
   }
 
   maxHp = Math.round(maxHp * hpMult);
   attackPower = Math.round(attackPower * atkMult);
   defense = Math.round(defense * defMult);
+
 
   const finalAtkSpeed = Math.round(classConfig.baseAtkSpeed * (1 + atkSpeedPct) * 100) / 100;
   const finalMoveSpeed = Math.round(classConfig.baseMoveSpeed * (1 + moveSpeedPct));

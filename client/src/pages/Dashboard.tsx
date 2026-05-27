@@ -10,6 +10,54 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
+const formatAffix = (type: string, value: number): string => {
+  let label = type.replace('Pct', '').replace('_', ' ').toUpperCase();
+  if (type === 'maxHp') label = 'MAX HP';
+  if (type === 'attackPower') label = 'ATTACK POWER';
+  if (type === 'defense') label = 'DEFENSE';
+  if (type === 'critChance') label = 'CRIT CHANCE';
+  if (type === 'atkSpeedPct') label = 'ATTACK SPEED';
+  if (type === 'moveSpeedPct') label = 'MOVE SPEED';
+  if (type === 'lifesteal') label = 'LIFESTEAL';
+  if (type === 'reflect') label = 'REFLECT';
+  if (type === 'cdr') label = 'CDR';
+  
+  const percentTypes = ['critChance', 'atkSpeedPct', 'moveSpeedPct', 'lifesteal', 'reflect', 'cdr'];
+  if (percentTypes.includes(type)) {
+    return `+${Math.round(value * 100)}% ${label}`;
+  }
+  return `+${value} ${label}`;
+};
+
+const raidTiers = [
+  { id: 'tier1', name: 'Tier 1: Goblin Camp', bossName: 'Goblin King', level: 1 },
+  ...Array.from({ length: 20 }, (_, idx) => {
+    const level = (idx + 1) * 5;
+    const tierNum = idx + 2;
+    let name = `Tier ${tierNum}: Dragon Valley`;
+    let bossName = 'Inferno Dragon';
+    if (level <= 20) {
+      name = `Tier ${tierNum}: Goblin Camp`;
+      bossName = 'Goblin King';
+    } else if (level <= 40) {
+      name = `Tier ${tierNum}: Poison Caves`;
+      bossName = 'Slither King';
+    } else if (level <= 60) {
+      name = `Tier ${tierNum}: Orc Stronghold`;
+      bossName = 'Orc Chieftain';
+    } else if (level <= 80) {
+      name = `Tier ${tierNum}: Lich Tomb`;
+      bossName = 'Neon Lich';
+    }
+    return {
+      id: `tier${tierNum}`,
+      name,
+      bossName,
+      level
+    };
+  })
+];
+
 interface DashboardProps {
   user: any;
   character: any;
@@ -164,7 +212,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const handleSelectTalent = async (talentId: string) => {
     const currentTalents: string[] = JSON.parse(character.talents || '[]');
-    const match = talentId.match(/^t([1-4])_\d+$/);
+    const match = talentId.match(/^t(\d+)_\d+$/);
     if (!match) return;
     const tier = parseInt(match[1]);
 
@@ -457,7 +505,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
           
           {/* Emblem wireframe */}
           <div className="glass-panel p-6 border-white/5 bg-[#090e1a]/95 flex flex-col items-center shadow-lg relative">
-            <div className="absolute top-3 left-4 text-[9px] font-pixel text-slate-500 uppercase tracking-widest">[ Core Matrix ]</div>
             <CharacterVisualizer charClass={character.class} equippedItems={equipped} />
 
             {/* Attributes List */}
@@ -584,186 +631,214 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {activeTab === 'inventory' && (
             <div className="flex flex-col gap-6">
               
-              {/* Equipped items */}
-              <div className="glass-panel p-6 border-white/5 bg-black/25">
-                <h3 className="m-0 text-white font-display text-xs uppercase tracking-wider mb-4 text-neon-cyan">
-                  Equipped Gear
-                </h3>
-                <div className="grid grid-cols-3 gap-4">
-                  {['WEAPON', 'ARMOR', 'ACCESSORY'].map(slot => {
-                    const item = equipped.find((i: any) => i.slot === slot);
-                    return (
-                      <div
-                        key={slot}
-                        onClick={() => item && setSelectedItem(item)}
-                        className={`aspect-square rounded-xl flex flex-col items-center justify-center p-3 text-center border relative cursor-pointer transition duration-300 ${
-                          item
-                            ? `bg-black/50 border-white/15 hover:border-white/30 item-slot-glow rarity-${item.rarity}`
-                            : 'bg-black/20 border-white/5 border-dashed hover:bg-black/30'
-                        }`}
-                      >
-                        <span className="text-[9px] text-slate-500 font-pixel uppercase absolute top-2.5">
-                          {slot}
-                        </span>
-                        {item ? (
-                          <>
-                            <span className="text-xs font-display font-medium text-white mb-1 leading-snug mt-3">
-                              {item.name}
-                            </span>
-                            <span className="text-[9px] font-mono uppercase font-bold" style={{ color: `var(--rarity-${item.rarity.toLowerCase()})` }}>
-                              {item.rarity}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-[10px] font-mono text-slate-600 mt-2">EMPTY</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Backpack Stash */}
-              <div className="glass-panel p-6 border-white/5 bg-black/25">
-                <h3 className="m-0 text-white font-display text-xs uppercase tracking-wider mb-4 text-neon-cyan">
-                  Backpack Inventory Stash
-                </h3>
-                <div className="grid grid-cols-5 md:grid-cols-8 gap-3">
-                  {Array.from({ length: 30 }).map((_, idx) => {
-                    const item = inventory[idx];
-                    return (
-                      <div
-                        key={idx}
-                        onClick={() => item && setSelectedItem(item)}
-                        className={`aspect-square rounded-lg flex items-center justify-center border transition duration-300 relative ${
-                          item
-                            ? `bg-black/40 border-white/10 hover:border-white/20 cursor-pointer item-slot-glow rarity-${item.rarity}`
-                            : 'bg-black/10 border-white/5 border-dashed cursor-default'
-                        }`}
-                      >
-                        {item ? (
-                          <div className="flex flex-col items-center text-center p-1">
-                            <span className="text-[9px] text-white font-bold leading-tight truncate w-full max-w-[55px]">
-                              {item.name.split(' ').slice(-1)[0]}
-                            </span>
-                            <span className="text-[8px] font-mono text-slate-500 font-bold uppercase mt-0.5">
-                              Lvl {item.itemLevel}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-[8px] font-mono text-slate-700 select-none">{idx + 1}</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Inspect Gear Panel */}
-              {selectedItem && (
-                <div className="glass-panel p-6 border-white/10 bg-[#0c1221] shadow-2xl flex flex-col gap-4 relative">
-                  <button 
-                    onClick={() => setSelectedItem(null)}
-                    className="absolute top-4 right-4 text-slate-400 hover:text-white font-bold text-xs"
-                  >
-                    CLOSE [X]
-                  </button>
-                  
-                  <div>
-                    <span className="text-[8px] font-pixel text-slate-500 uppercase tracking-widest">[ Inspecting Stash Item ]</span>
-                    <h3 className="text-lg font-display font-black text-white m-0 mt-1 leading-none flex items-center gap-2">
-                      {selectedItem.name}
-                      <span className="text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 border rounded-full font-bold" 
-                            style={{
-                              borderColor: `var(--rarity-${selectedItem.rarity.toLowerCase()})`,
-                              color: `var(--rarity-${selectedItem.rarity.toLowerCase()})`,
-                              backgroundColor: `rgba(0,0,0,0.2)`
-                            }}>
-                        {selectedItem.rarity}
-                      </span>
+              {/* Split Equipped Gear slots & Backpack inventory grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                {/* Left Inspect Column: Stacked slots for Weapon, Armor, Accessory (4 cols) */}
+                <div className="lg:col-span-4 flex flex-col gap-4">
+                  <div className="glass-panel p-5 border-white/5 bg-black/25 flex flex-col gap-3.5 h-full">
+                    <h3 className="m-0 text-white font-display text-xs uppercase tracking-wider mb-2 text-neon-cyan">
+                      Equipped Gear
                     </h3>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 text-xs font-mono border-t border-white/5 pt-4">
-                    <div>
-                      <span className="text-slate-500 block">Item Slot:</span>
-                      <span className="text-white font-bold">{selectedItem.slot}</span>
-                    </div>
-                    <div>
-                      <span className="text-slate-500 block">Required Level:</span>
-                      <span className="text-white font-bold">lvl {selectedItem.itemLevel}</span>
-                    </div>
-                    {selectedItem.baseAttack > 0 && (
-                      <div>
-                        <span className="text-slate-500 block">Base Attack:</span>
-                        <span className="text-emerald-400 font-bold">+{selectedItem.baseAttack} Power</span>
-                      </div>
-                    )}
-                    {selectedItem.baseDefense > 0 && (
-                      <div>
-                        <span className="text-slate-500 block">Base Defense:</span>
-                        <span className="text-blue-400 font-bold">+{selectedItem.baseDefense} Armor</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Affixes list */}
-                  <div className="border-t border-white/5 pt-4 flex flex-col gap-2">
-                    <span className="text-[9px] font-pixel text-slate-500 uppercase tracking-wider">Rolled Enchantments</span>
-                    <div className="flex flex-col gap-1.5">
-                      {JSON.parse(selectedItem.affixes || '[]').map((aff: any, index: number) => (
-                        <div key={index} className="text-xs font-mono text-cyan-400 flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0" />
-                          <span>
-                            +{Math.round(aff.value * 100)}% {aff.type.replace('_', ' ').toUpperCase()}
-                          </span>
-                        </div>
-                      ))}
-                      {selectedItem.rarity === 'LEGENDARY' && (
-                        <div className="p-3 bg-yellow-950/20 border border-yellow-700/20 rounded-lg text-xs font-mono text-yellow-500 leading-relaxed mt-1">
-                          ★ Legendary Passive: {getLegendaryDescription(selectedItem.name)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Equip & Sell Actions */}
-                  <div className="border-t border-white/5 pt-5 flex gap-4 mt-2">
-                    {selectedItem.isEquipped ? (
-                      <button
-                        onClick={() => handleUnequipItem(selectedItem.id)}
-                        className="flex-1 py-2.5 bg-yellow-600/10 hover:bg-yellow-600 text-yellow-500 hover:text-black border border-yellow-500/40 hover:border-yellow-500 rounded text-xs font-display font-bold uppercase tracking-wider transition duration-300"
-                      >
-                        Unequip
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => handleEquipItem(selectedItem.id)}
-                          className="flex-1 py-2.5 bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-black border border-emerald-500/40 hover:border-emerald-500 rounded text-xs font-display font-bold uppercase tracking-wider transition duration-300"
+                    {['WEAPON', 'ARMOR', 'ACCESSORY'].map(slot => {
+                      const item = equipped.find((i: any) => i.slot === slot);
+                      return (
+                        <div
+                          key={slot}
+                          onClick={() => item && setSelectedItem(item)}
+                          className={`p-4 rounded-xl flex flex-col justify-between border cursor-pointer transition duration-300 min-h-[95px] relative ${
+                            item
+                              ? `bg-black/50 border-white/15 hover:border-white/30 item-slot-glow rarity-${item.rarity}`
+                              : 'bg-black/20 border-white/5 border-dashed hover:bg-black/30'
+                          }`}
+                          style={item ? {
+                            borderColor: `var(--rarity-${item.rarity.toLowerCase()})`,
+                            boxShadow: `0 0 10px rgba(var(--rarity-${item.rarity.toLowerCase()}-rgb), 0.15)`
+                          } : undefined}
                         >
-                          Equip Gear
-                        </button>
-                        <button
-                          onClick={() => handleDismantleItem(selectedItem.id)}
-                          className="px-6 py-2.5 bg-red-950/40 hover:bg-red-600 text-red-400 hover:text-white border border-red-800/40 hover:border-red-600 rounded text-xs font-display font-bold uppercase tracking-wider transition duration-300"
-                        >
-                          Sell Item
-                        </button>
-                      </>
-                    )}
+                          <div className="flex justify-between items-start">
+                            <span className="text-[9px] text-slate-500 font-pixel uppercase">
+                              {slot}
+                            </span>
+                            {item && (
+                              <span className="text-[8px] font-mono uppercase font-bold" style={{ color: `var(--rarity-${item.rarity.toLowerCase()})` }}>
+                                {item.rarity}
+                              </span>
+                            )}
+                          </div>
+                          {item ? (
+                            <div className="mt-1 flex flex-col">
+                              <span className="text-xs font-display font-bold text-white leading-snug">
+                                {item.name}
+                              </span>
+                              <div className="text-[9px] font-mono text-slate-400 mt-1 flex flex-wrap gap-x-2 gap-y-0.5">
+                                {item.baseAttack > 0 && <span className="text-emerald-400">+{item.baseAttack} Atk</span>}
+                                {item.baseDefense > 0 && <span className="text-blue-400">+{item.baseDefense} Def</span>}
+                                {(typeof item.affixes === 'string' ? JSON.parse(item.affixes) : item.affixes).map((aff: any, i: number) => (
+                                  <span key={i} className="text-cyan-400">{formatAffix(aff.type, aff.value)}</span>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] font-mono text-slate-600 mt-2">EMPTY SLOT</span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-              )}
 
-              {/* Class Talents */}
+                {/* Right Column: Backpack Inventory Stash grid (8 cols) */}
+                <div className="lg:col-span-8 flex flex-col gap-6">
+                  <div className="glass-panel p-5 border-white/5 bg-black/25">
+                    <h3 className="m-0 text-white font-display text-xs uppercase tracking-wider mb-4 text-neon-cyan">
+                      Backpack Inventory Stash
+                    </h3>
+                    <div className="grid grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-3">
+                      {Array.from({ length: 30 }).map((_, idx) => {
+                        const item = inventory[idx];
+                        return (
+                          <div
+                            key={idx}
+                            onClick={() => item && setSelectedItem(item)}
+                            className={`aspect-square rounded-lg flex flex-col items-center justify-center border transition duration-300 relative ${
+                              item
+                                ? `bg-black/40 border-white/10 hover:border-white/20 cursor-pointer item-slot-glow rarity-${item.rarity} p-1`
+                                : 'bg-black/10 border-white/5 border-dashed cursor-default'
+                            }`}
+                            style={item ? {
+                              borderColor: `var(--rarity-${item.rarity.toLowerCase()})`
+                            } : undefined}
+                          >
+                            {item ? (
+                              <div className="flex flex-col items-center text-center w-full">
+                                <span className="text-[9px] text-white font-bold leading-tight truncate w-full px-0.5">
+                                  {item.name.split(' ').slice(-1)[0]}
+                                </span>
+                                <span className="text-[8px] font-mono text-slate-500 font-bold uppercase mt-0.5">
+                                  Lvl {item.itemLevel}
+                                </span>
+                                <span className="text-[8px] font-pixel text-slate-600 uppercase mt-0.5 scale-90">
+                                  {item.slot[0]}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-[8px] font-mono text-slate-700 select-none">{idx + 1}</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Inspect Selected Gear Tooltip/Detail Panel */}
+                  {selectedItem && (
+                    <div className="glass-panel p-6 border-white/10 bg-[#0c1221] shadow-2xl flex flex-col gap-4 relative animate-scaleUp">
+                      <button 
+                        onClick={() => setSelectedItem(null)}
+                        className="absolute top-4 right-4 text-slate-400 hover:text-white font-bold text-xs"
+                      >
+                        CLOSE [X]
+                      </button>
+                      
+                      <div>
+                        <span className="text-[8px] font-pixel text-slate-500 uppercase tracking-widest">[ Inspecting Gear Item ]</span>
+                        <h3 className="text-lg font-display font-black text-white m-0 mt-1 leading-none flex items-center gap-2">
+                          {selectedItem.name}
+                          <span className="text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 border rounded-full font-bold" 
+                                style={{
+                                  borderColor: `var(--rarity-${selectedItem.rarity.toLowerCase()})`,
+                                  color: `var(--rarity-${selectedItem.rarity.toLowerCase()})`,
+                                  backgroundColor: `rgba(0,0,0,0.2)`
+                                }}>
+                            {selectedItem.rarity}
+                          </span>
+                        </h3>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 text-xs font-mono border-t border-white/5 pt-4">
+                        <div>
+                          <span className="text-slate-500 block">Item Slot:</span>
+                          <span className="text-white font-bold">{selectedItem.slot}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block">Required Level:</span>
+                          <span className="text-white font-bold">lvl {selectedItem.itemLevel}</span>
+                        </div>
+                        {selectedItem.baseAttack > 0 && (
+                          <div>
+                            <span className="text-slate-500 block">Base Attack:</span>
+                            <span className="text-emerald-400 font-bold">+{selectedItem.baseAttack} Power</span>
+                          </div>
+                        )}
+                        {selectedItem.baseDefense > 0 && (
+                          <div>
+                            <span className="text-slate-500 block">Base Defense:</span>
+                            <span className="text-blue-400 font-bold">+{selectedItem.baseDefense} Armor</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Affixes list formatted */}
+                      <div className="border-t border-white/5 pt-4 flex flex-col gap-2">
+                        <span className="text-[9px] font-pixel text-slate-500 uppercase tracking-wider">Rolled Enchantments</span>
+                        <div className="flex flex-col gap-1.5">
+                          {(typeof selectedItem.affixes === 'string' ? JSON.parse(selectedItem.affixes || '[]') : selectedItem.affixes || []).map((aff: any, index: number) => (
+                            <div key={index} className="text-xs font-mono text-cyan-400 flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0" />
+                              <span>
+                                {formatAffix(aff.type, aff.value)}
+                              </span>
+                            </div>
+                          ))}
+                          {selectedItem.rarity === 'LEGENDARY' && (
+                            <div className="p-3 bg-yellow-950/20 border border-yellow-700/20 rounded-lg text-xs font-mono text-yellow-500 leading-relaxed mt-1">
+                              ★ Legendary Passive: {getLegendaryDescription(selectedItem.name)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Equip & Sell Actions */}
+                      <div className="border-t border-white/5 pt-5 flex gap-4 mt-2">
+                        {selectedItem.isEquipped ? (
+                          <button
+                            onClick={() => handleUnequipItem(selectedItem.id)}
+                            className="flex-1 py-2.5 bg-yellow-600/10 hover:bg-yellow-600 text-yellow-500 hover:text-black border border-yellow-500/40 hover:border-yellow-500 rounded text-xs font-display font-bold uppercase tracking-wider transition duration-300"
+                          >
+                            Unequip
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleEquipItem(selectedItem.id)}
+                              className="flex-1 py-2.5 bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-black border border-emerald-500/40 hover:border-emerald-500 rounded text-xs font-display font-bold uppercase tracking-wider transition duration-300"
+                            >
+                              Equip Gear
+                            </button>
+                            <button
+                              onClick={() => handleDismantleItem(selectedItem.id)}
+                              className="px-6 py-2.5 bg-red-950/40 hover:bg-red-600 text-red-400 hover:text-white border border-red-800/40 hover:border-red-600 rounded text-xs font-display font-bold uppercase tracking-wider transition duration-300"
+                            >
+                              Sell Item
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+
+              {/* Class Talents up to Level 100 (Tiers 1-20) */}
               <div className="glass-panel p-6 border-white/5 bg-black/25">
                 <h3 className="m-0 text-white font-display text-xs uppercase tracking-wider mb-4 text-neon-cyan">
                   Class Talents
                 </h3>
                 
-                <div className="flex flex-col gap-4">
-                  {[1, 2, 3, 4].map(tier => {
+                <div className="flex flex-col gap-4 max-h-[600px] overflow-y-auto pr-2">
+                  {Array.from({ length: 20 }, (_, idx) => idx + 1).map(tier => {
                     const reqLevel = tier * 5;
                     const isUnlocked = character.level >= reqLevel;
                     const tierTalents = Object.values(talentList).filter(
@@ -895,7 +970,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                               {shopItem.baseAttack > 0 && <span className="text-emerald-400">+{shopItem.baseAttack} Attack</span>}
                               {shopItem.baseDefense > 0 && <span className="text-blue-400">+{shopItem.baseDefense} Defense</span>}
                               {shopItem.affixes && (typeof shopItem.affixes === 'string' ? JSON.parse(shopItem.affixes) : shopItem.affixes).map((aff: any, i: number) => (
-                                <span key={i} className="text-cyan-400/80">+{Math.round(aff.value * 100)}% {aff.type.replace('_', ' ')}</span>
+                                <span key={i} className="text-cyan-400/80">{formatAffix(aff.type, aff.value)}</span>
                               ))}
                             </div>
                           </div>
@@ -967,11 +1042,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
           {activeTab === 'solo' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
-                { name: 'Forest of Trials', level: 1, desc: 'A dense wood where monsters roam. Ideal for level 1 characters.' },
-                { name: 'Neon Caves', level: 5, desc: 'Glowing crystal tunnels. Watch out for rapid neon bats.' },
-                { name: 'Obsidian Ruins', level: 10, desc: 'Cursed obsidian pillars and flame skeletons.' },
-                { name: 'Cyber Core Engine', level: 15, desc: 'A complex web of cables and robotic drones.' },
-                { name: 'Volcanic Rift', level: 20, desc: 'Lava flows, magma giants, and epic materials.' }
+                { name: 'Forest of Trials', level: 1, desc: 'A dense wood where goblins roam. Ideal for starters.' },
+                { name: 'Neon Caves', level: 15, desc: 'Glowing crystal tunnels with swift venomous serpents.' },
+                { name: 'Obsidian Ruins', level: 35, desc: 'Cursed obsidian pillars and heavy orc raiders.' },
+                { name: 'Lich Crypt', level: 55, desc: 'A dark, cold maze guarded by ancient skeleton acolyths.' },
+                { name: 'Volcanic Caldera', level: 75, desc: 'Lava flows, magma giants, and legendary fire dragons.' },
+                { name: 'Abyssal Maw', level: 90, desc: 'The final frontier. Face the strongest challenges here.' }
               ].map(zone => {
                 const isUnderlevel = character.level < zone.level;
                 return (
@@ -1031,13 +1107,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       onChange={e => {
                         const tierId = e.target.value;
                         setSelectedRaidTier(tierId);
-                        const tier = [
-                          { id: 'tier1', name: 'Tier 1: Goblin Camp', bossName: 'Goblin King', level: 1 },
-                          { id: 'tier2', name: 'Tier 2: Poison Caves', bossName: 'Slither King', level: 5 },
-                          { id: 'tier3', name: 'Tier 3: Orc Stronghold', bossName: 'Orc Chieftain', level: 10 },
-                          { id: 'tier4', name: 'Tier 4: Lich Tomb', bossName: 'Neon Lich', level: 15 },
-                          { id: 'tier5', name: 'Tier 5: Dragon Valley', bossName: 'Inferno Dragon', level: 20 }
-                        ].find(t => t.id === tierId);
+                        const tier = raidTiers.find(t => t.id === tierId);
                         if (tier) {
                           setBossName(tier.bossName);
                           setBossLevel(String(tier.level));
@@ -1045,11 +1115,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       }}
                       className="w-full px-3 py-2 bg-black/60 border border-white/10 rounded text-xs text-white focus:outline-none focus:border-neon-cyan font-mono"
                     >
-                      <option value="tier1">Tier 1: Goblin Camp (Lvl 1 - Goblin King)</option>
-                      <option value="tier2">Tier 2: Poison Caves (Lvl 5 - Slither King)</option>
-                      <option value="tier3">Tier 3: Orc Stronghold (Lvl 10 - Orc Chieftain)</option>
-                      <option value="tier4">Tier 4: Lich Tomb (Lvl 15 - Neon Lich)</option>
-                      <option value="tier5">Tier 5: Dragon Valley (Lvl 20 - Inferno Dragon)</option>
+                      {raidTiers.map(tier => (
+                        <option key={tier.id} value={tier.id}>
+                          {tier.name} (Lvl {tier.level} - {tier.bossName})
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div className="w-44">

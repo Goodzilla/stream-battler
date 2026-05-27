@@ -189,7 +189,8 @@ export const drawPixelSprite = (
   spriteName: string,
   pixelSize: number = 2.5,
   isFacingLeft: boolean = false,
-  classColor: string = '#00d8ff'
+  classColor: string = '#00d8ff',
+  flashColor?: string
 ) => {
   const grid = SPRITES[spriteName.toUpperCase()] || SPRITES.GOBLIN;
   const rows = grid.length;
@@ -216,7 +217,7 @@ export const drawPixelSprite = (
         case 'o': color = '#f97316'; break; // orange
       }
 
-      ctx.fillStyle = color;
+      ctx.fillStyle = flashColor || color;
       const drawCol = isFacingLeft ? (cols - 1 - c) : c;
       ctx.fillRect(
         Math.floor(startX + drawCol * pixelSize),

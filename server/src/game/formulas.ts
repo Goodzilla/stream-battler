@@ -128,6 +128,30 @@ export const calculateCharacterStats = (
     if (e.moveSpeedPct) moveSpeedPct += e.moveSpeedPct;
     if (e.atkSpeedPct) atkSpeedPct += e.atkSpeedPct;
     if (e.cdr) cdr += e.cdr;
+    if (e.atkMultPct) atkMult += e.atkMultPct;
+    if (e.damagePct) atkMult += e.damagePct;
+  }
+
+  // 5. Apply Keystones
+  if (passivesList.includes('r10_0')) { // Glass Cannon
+    attackPower *= 1.5;
+    maxHp *= 0.7;
+  }
+  if (passivesList.includes('r10_16')) { // Iron Fortress
+    reflect += 0.30;
+    moveSpeedPct -= 0.20;
+  }
+  if (passivesList.includes('r10_32')) { // Vampiric Zeal
+    lifesteal += 0.15;
+    critChance = 0;
+  }
+  if (passivesList.includes('r10_48')) { // Alchemist Aura
+    cdr *= 2;
+    attackPower *= 0.75;
+  }
+  if (passivesList.includes('r10_64')) { // Juggernaut Bulwark
+    defense *= 2;
+    critChance = 0;
   }
 
   // Apply final multipliers
@@ -227,11 +251,18 @@ export const generateRandomItem = (
     { type: 'cdr', weight: 0.5, min: 0.02, max: 0.05 }
   ];
 
+  let filteredPool = affixPool;
+  if (slot === 'WEAPON') {
+    filteredPool = affixPool.filter(a => ['attackPower', 'critChance', 'atkSpeedPct', 'lifesteal'].includes(a.type));
+  } else if (slot === 'ARMOR') {
+    filteredPool = affixPool.filter(a => ['maxHp', 'defense', 'moveSpeedPct', 'reflect'].includes(a.type));
+  }
+
   const affixes: Array<{ type: string; value: number }> = [];
   const selectedTypes = new Set<string>();
 
-  while (affixes.length < affixCount && selectedTypes.size < affixPool.length) {
-    const affixOpt = affixPool[Math.floor(Math.random() * affixPool.length)];
+  while (affixes.length < affixCount && selectedTypes.size < filteredPool.length) {
+    const affixOpt = filteredPool[Math.floor(Math.random() * filteredPool.length)];
     if (selectedTypes.has(affixOpt.type)) continue;
 
     selectedTypes.add(affixOpt.type);

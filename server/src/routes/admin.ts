@@ -39,10 +39,14 @@ adminRouter.post('/grant-xp', async (req: Request, res: Response) => {
     let newLevel = activeChar.level;
     let xpNeeded = xpToNextLevel(newLevel);
 
-    while (newXp >= xpNeeded) {
+    while (newXp >= xpNeeded && newLevel < 100) {
       newXp -= xpNeeded;
       newLevel += 1;
       xpNeeded = xpToNextLevel(newLevel);
+    }
+    if (newLevel >= 100) {
+      newLevel = 100;
+      newXp = 0;
     }
 
     await prisma.character.update({

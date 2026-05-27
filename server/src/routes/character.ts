@@ -207,7 +207,7 @@ characterRouter.post('/select-talents', async (req: Request, res: Response) => {
     const chosenTiers = new Set<number>();
 
     for (const talentId of talents) {
-      const match = talentId.match(/^t([1-4])_\d+$/);
+      const match = talentId.match(/^t(\d+)_\d+$/);
       if (!match) continue;
 
       const tier = parseInt(match[1]);
@@ -274,10 +274,14 @@ characterRouter.post('/report-solo-battle', async (req: Request, res: Response) 
     let newLevel = activeChar.level;
     let xpNeeded = xpToNextLevel(newLevel);
 
-    while (newXp >= xpNeeded) {
+    while (newXp >= xpNeeded && newLevel < 100) {
       newXp -= xpNeeded;
       newLevel += 1;
       xpNeeded = xpToNextLevel(newLevel);
+    }
+    if (newLevel >= 100) {
+      newLevel = 100;
+      newXp = 0;
     }
 
     // 2. Update Gold and generate new shop Stock on User

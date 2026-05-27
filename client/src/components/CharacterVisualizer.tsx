@@ -7,23 +7,8 @@ interface CharacterVisualizerProps {
   equippedItems: any[];
 }
 
-export const CharacterVisualizer: React.FC<CharacterVisualizerProps> = ({ charClass, equippedItems }) => {
+export const CharacterVisualizer: React.FC<CharacterVisualizerProps> = ({ charClass }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-  const weapon = equippedItems.find(item => item.slot === 'WEAPON');
-  const armor = equippedItems.find(item => item.slot === 'ARMOR');
-  const accessory = equippedItems.find(item => item.slot === 'ACCESSORY');
-
-  const getRarityColor = (rarity: string) => {
-    switch (rarity) {
-      case 'COMMON': return '#8e8e93';
-      case 'UNCOMMON': return '#34c759';
-      case 'RARE': return '#007aff';
-      case 'EPIC': return '#af52de';
-      case 'LEGENDARY': return '#ff9500';
-      default: return '#8e8e93';
-    }
-  };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -36,17 +21,28 @@ export const CharacterVisualizer: React.FC<CharacterVisualizerProps> = ({ charCl
     let time = 0;
 
     // Particle pool
-    const particles: Array<{ angle: number; speed: number; radius: number; size: number; color: string }> = [];
+    const particles: Array<{ x: number; y: number; speedY: number; size: number; alpha: number; maxLife: number; life: number; color: string }> = [];
     const classColor = CLASSES[charClass]?.color || '#ffffff';
 
-    for (let i = 0; i < 20; i++) {
-      particles.push({
-        angle: Math.random() * Math.PI * 2,
-        speed: 0.01 + Math.random() * 0.015,
-        radius: 35 + Math.random() * 25,
-        size: 0.5 + Math.random() * 1.5,
-        color: Math.random() < 0.6 ? classColor : '#ffffff'
-      });
+    const createParticle = () => {
+      return {
+        x: Math.random() * canvas.width,
+        y: canvas.height + 10,
+        speedY: 0.4 + Math.random() * 0.8,
+        size: 1 + Math.random() * 2,
+        alpha: 0.1 + Math.random() * 0.4,
+        maxLife: 100 + Math.random() * 100,
+        life: 0,
+        color: Math.random() < 0.7 ? classColor : '#ffffff'
+      };
+    };
+
+    // Pre-populate particles
+    for (let i = 0; i < 25; i++) {
+      const p = createParticle();
+      p.y = Math.random() * canvas.height;
+      p.life = Math.random() * p.maxLife;
+      particles.push(p);
     }
 
     const draw = () => {
@@ -56,90 +52,43 @@ export const CharacterVisualizer: React.FC<CharacterVisualizerProps> = ({ charCl
       const cx = canvas.width / 2;
       const cy = canvas.height / 2;
 
-      // 1. Draw glowing lines linking slots to center
-      ctx.lineWidth = 1;
-      const slotsAngle = {
-        weapon: 330 * (Math.PI / 180),
-        armor: 210 * (Math.PI / 180),
-        accessory: 90 * (Math.PI / 180)
-      };
+      // 1. Draw glowing background aura
+      const grad = ctx.createRadialGradient(cx, cy, 10, cx, cy, 90);
+      grad.addColorStop(0, `${classColor}20`);
+      grad.addColorStop(1, 'transparent');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 90, 0, Math.PI * 2);
+      ctx.fill();
 
-      const drawLink = (angle: number, rarity?: string) => {
-        const rad = 65 + Math.sin(time / 25 + angle) * 3;
-        const targetX = cx + rad * Math.cos(angle);
-        const targetY = cy + rad * Math.sin(angle);
+      // 2. Draw Floating Sparks
+      particles.forEach((p, idx) => {
+        p.y -= p.speedY;
+        p.life += 1;
+        
+        // Horizontal drift
+        p.x += Math.sin(time / 20 + idx) * 0.15;
 
-        ctx.strokeStyle = rarity ? getRarityColor(rarity) : 'rgba(255, 255, 255, 0.08)';
-        ctx.shadowColor = rarity ? getRarityColor(rarity) : 'transparent';
-        ctx.shadowBlur = rarity ? 8 : 0;
-        ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.lineTo(targetX, targetY);
-        ctx.stroke();
-      };
+        // Reset if dead or out of bounds
+        if (p.life >= p.maxLife || p.y < -10) {
+          particles[idx] = createParticle();
+          return;
+        }
 
-      drawLink(slotsAngle.weapon, weapon?.rarity);
-      drawLink(slotsAngle.armor, armor?.rarity);
-      drawLink(slotsAngle.accessory, accessory?.rarity);
-
-      // Reset shadows
-      ctx.shadowBlur = 0;
-
-      // 2. Draw Orbiting Particles
-      particles.forEach(p => {
-        p.angle += p.speed;
-        const px = cx + p.radius * Math.cos(p.angle);
-        const py = cy + p.radius * Math.sin(p.angle);
-
+        const ratio = 1 - p.life / p.maxLife;
         ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.alpha * ratio;
         ctx.beginPath();
-        ctx.arc(px, py, p.size, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
       });
+      ctx.globalAlpha = 1.0;
 
-      // 3. Draw Character Core Emblem (Pixel-Art Sprite)
-      const coreColor = CLASSES[charClass]?.color || '#ffffff';
-      ctx.shadowBlur = 0; // Ensure clean pixel art rendering
-      drawPixelSprite(ctx, cx, cy, charClass, 2.8, false, coreColor);
-
-      // 4. Draw Floating Slots
-      const drawSlot = (angle: number, label: string, item?: any) => {
-        const rad = 65 + Math.sin(time / 25 + angle) * 3;
-        const sx = cx + rad * Math.cos(angle);
-        const sy = cy + rad * Math.sin(angle);
-
-        const rColor = item ? getRarityColor(item.rarity) : 'rgba(255, 255, 255, 0.08)';
-
-        // Draw Slot background
-        ctx.fillStyle = 'rgba(10, 15, 25, 0.9)';
-        ctx.strokeStyle = rColor;
-        ctx.lineWidth = 1.5;
-        ctx.shadowColor = item ? rColor : 'transparent';
-        ctx.shadowBlur = item ? 10 : 0;
-
-        ctx.beginPath();
-        ctx.arc(sx, sy, 18, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.shadowBlur = 0; // Reset
-
-        // Draw Slot icon or letter
-        ctx.fillStyle = item ? '#ffffff' : 'rgba(255, 255, 255, 0.25)';
-        ctx.font = '10px Orbitron, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-
-        if (item) {
-          ctx.fillText(label.substring(0, 1), sx, sy);
-        } else {
-          ctx.fillText(label, sx, sy);
-        }
-      };
-
-      drawSlot(slotsAngle.weapon, 'W', weapon);
-      drawSlot(slotsAngle.armor, 'A', armor);
-      drawSlot(slotsAngle.accessory, 'R', accessory);
+      // 3. Draw Character Core (Pixel-Art Sprite) with idle bobbing
+      const bounceY = Math.sin(time / 18) * 5;
+      
+      ctx.shadowBlur = 0; // Reset shadow
+      drawPixelSprite(ctx, cx, cy - 5 + bounceY, charClass, 6.2, false, classColor);
 
       animFrameId = requestAnimationFrame(draw);
     };
@@ -149,10 +98,11 @@ export const CharacterVisualizer: React.FC<CharacterVisualizerProps> = ({ charCl
     return () => {
       cancelAnimationFrame(animFrameId);
     };
-  }, [charClass, weapon, armor, accessory]);
+  }, [charClass]);
 
   return (
-    <div className="flex items-center justify-center p-3 glass-panel border-white/5 bg-black/20 rounded-full w-48 h-48 mx-auto relative shadow-2xl">
+    <div className="flex items-center justify-center p-2 glass-panel border-white/5 bg-black/30 rounded-2xl w-52 h-52 mx-auto relative shadow-2xl overflow-hidden">
+      {/* Visualizer canvas */}
       <canvas ref={canvasRef} width="200" height="200" className="w-full h-full block" />
     </div>
   );

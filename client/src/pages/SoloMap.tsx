@@ -37,6 +37,9 @@ interface CombatUnit {
   // States
   stunTimer: number;
   isHealer?: boolean;
+  // Juice
+  flashTimer?: number;
+  flashColor?: string;
 }
 
 interface VisualParticle {
@@ -68,6 +71,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
+  const [currentMapLevel, setCurrentMapLevel] = useState(mapLevel);
   const [battleState, setBattleState] = useState<'PREP' | 'FIGHTING' | 'VICTORY' | 'DEFEAT'>('PREP');
   const [wave, setWave] = useState(1);
   const [xpEarned, setXpEarned] = useState(0);
@@ -89,6 +93,8 @@ export const SoloMap: React.FC<SoloMapProps> = ({
     playerDamageDealt: number;
     playerDamageTaken: number;
     playerHealingDone: number;
+    shakeTimer: number;
+    shakeIntensity: number;
   }>({
     units: [],
     particles: [],
@@ -100,7 +106,9 @@ export const SoloMap: React.FC<SoloMapProps> = ({
     battleState: 'PREP',
     playerDamageDealt: 0,
     playerDamageTaken: 0,
-    playerHealingDone: 0
+    playerHealingDone: 0,
+    shakeTimer: 0,
+    shakeIntensity: 0
   });
 
   const equipped = character.items.filter((item: any) => item.isEquipped);
@@ -121,8 +129,8 @@ export const SoloMap: React.FC<SoloMapProps> = ({
       id: 'player',
       isPlayer: true,
       name: character.user.displayName,
-      x: 100,
-      y: 200,
+      x: 150,
+      y: 300,
       maxHp: stats.maxHp,
       hp: stats.maxHp,
       speed: stats.moveSpeed,
@@ -151,7 +159,9 @@ export const SoloMap: React.FC<SoloMapProps> = ({
       battleState: 'FIGHTING',
       playerDamageDealt: 0,
       playerDamageTaken: 0,
-      playerHealingDone: 0
+      playerHealingDone: 0,
+      shakeTimer: 0,
+      shakeIntensity: 0
     };
 
     setWave(1);
@@ -167,8 +177,8 @@ export const SoloMap: React.FC<SoloMapProps> = ({
   // Spawn enemy wave
   const spawnEnemies = (waveNum: number) => {
     const enemyCount = 2 + waveNum;
-    const baseEnemyHp = 30 + mapLevel * 12 + waveNum * 5;
-    const baseEnemyAtk = 4 + mapLevel * 1.5 + waveNum * 0.8;
+    const baseEnemyHp = Math.round(30 + currentMapLevel * 15 + Math.pow(currentMapLevel, 2) * 0.8 + waveNum * 5);
+    const baseEnemyAtk = Math.round(4 + currentMapLevel * 1.2 + Math.pow(currentMapLevel, 1.8) * 0.05 + waveNum * 0.8);
 
     const newEnemies: CombatUnit[] = [];
 
@@ -176,33 +186,36 @@ export const SoloMap: React.FC<SoloMapProps> = ({
       let name = `Goblin Scout`;
       let spriteType = 'GOBLIN';
 
-      if (mapLevel < 5) {
+      if (currentMapLevel <= 20) {
         name = i % 2 === 0 ? `Goblin Scout v${waveNum}` : `Goblin Raider v${waveNum}`;
         spriteType = 'GOBLIN';
-      } else if (mapLevel < 10) {
+      } else if (currentMapLevel <= 40) {
         name = i % 2 === 0 ? `Spitting Adder v${waveNum}` : `Slither Viper v${waveNum}`;
         spriteType = 'SNAKE';
-      } else if (mapLevel < 15) {
+      } else if (currentMapLevel <= 60) {
         name = i % 2 === 0 ? `Orc Grunt v${waveNum}` : `Orc Berserker v${waveNum}`;
         spriteType = 'ORC';
-      } else {
+      } else if (currentMapLevel <= 80) {
         name = i % 2 === 0 ? `Skeletal Guard v${waveNum}` : `Lich Acolyte v${waveNum}`;
         spriteType = 'LICH';
+      } else {
+        name = i % 2 === 0 ? `Young Drake v${waveNum}` : `Lava Dragon v${waveNum}`;
+        spriteType = 'DRAGON';
       }
 
       newEnemies.push({
         id: `enemy_${waveNum}_${i}`,
         isPlayer: false,
         name,
-        x: 600 + Math.random() * 120,
-        y: 80 + (i * 300) / enemyCount + (Math.random() * 20 - 10),
+        x: 950 + Math.random() * 150,
+        y: 100 + (i * 400) / enemyCount + (Math.random() * 30 - 15),
         maxHp: baseEnemyHp,
         hp: baseEnemyHp,
-        speed: 55 + mapLevel * 2,
+        speed: 55 + currentMapLevel * 2,
         attackPower: baseEnemyAtk,
         critChance: 0.05,
         critMult: 1.5,
-        atkSpeed: 0.75 + mapLevel * 0.02,
+        atkSpeed: 0.75 + currentMapLevel * 0.02,
         attackRange: 35,
         color: '#ff3b30', // glowing enemy neon red
         atkTimer: Math.random() * 1.5, // stagger attack times
@@ -235,16 +248,16 @@ export const SoloMap: React.FC<SoloMapProps> = ({
   const addExplosion = (x: number, y: number, color: string, count = 12) => {
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const sp = 1 + Math.random() * 3;
+      const sp = 2 + Math.random() * 4;
       stateRef.current.particles.push({
         x,
         y,
         vx: Math.cos(angle) * sp,
         vy: Math.sin(angle) * sp,
         color,
-        size: 1 + Math.random() * 2,
+        size: 1.5 + Math.random() * 2.5,
         alpha: 1.0,
-        life: 30 + Math.random() * 20
+        life: 40 + Math.random() * 30
       });
     }
   };
@@ -263,7 +276,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
           xpGained,
           goldGained,
           countOfKills: kills,
-          mapLevel
+          mapLevel: currentMapLevel
         })
       });
 
@@ -292,8 +305,22 @@ export const SoloMap: React.FC<SoloMapProps> = ({
       const dt = Math.min(0.05, (time - lastTime) / 1000); // Caps DT to prevent huge jumps on tab changes
       lastTime = time;
 
+      const s = stateRef.current;
+
+      // Screen shake duration tick
+      if (s.shakeTimer > 0) {
+        s.shakeTimer -= dt;
+      }
+
+      ctx.save();
+      if (s.shakeTimer > 0) {
+        const dx = (Math.random() - 0.5) * s.shakeIntensity;
+        const dy = (Math.random() - 0.5) * s.shakeIntensity;
+        ctx.translate(dx, dy);
+      }
+
       // Draw themed background based on map level
-      if (mapLevel < 5) {
+      if (currentMapLevel <= 20) {
         // Grassy forest
         ctx.fillStyle = '#08170e';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -302,7 +329,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
           ctx.fillRect((i * 47) % canvas.width, (i * 31) % canvas.height, 8, 3);
           ctx.fillRect((i * 47) % canvas.width + 3, (i * 31) % canvas.height - 3, 2, 6);
         }
-      } else if (mapLevel < 10) {
+      } else if (currentMapLevel <= 40) {
         // Poison Caves
         ctx.fillStyle = '#0d0714';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -317,7 +344,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
           ctx.fill();
           ctx.fillStyle = '#a855f7';
         }
-      } else if (mapLevel < 15) {
+      } else if (currentMapLevel <= 60) {
         // Ancient Ruins
         ctx.fillStyle = '#171412';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -328,6 +355,18 @@ export const SoloMap: React.FC<SoloMapProps> = ({
         }
         for (let y = 0; y < canvas.height; y += 60) {
           ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+        }
+      } else if (currentMapLevel <= 80) {
+        // Crypt theme
+        ctx.fillStyle = '#090a0f';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'rgba(14, 165, 233, 0.05)';
+        for (let i = 0; i < 5; i++) {
+          const px = 100 + i * 140;
+          ctx.fillRect(px, 0, 40, canvas.height);
+          ctx.fillStyle = 'rgba(14, 165, 233, 0.15)';
+          ctx.fillRect(px + 10, 0, 20, canvas.height);
+          ctx.fillStyle = 'rgba(14, 165, 233, 0.05)';
         }
       } else {
         // Volcano Lava River
@@ -342,8 +381,6 @@ export const SoloMap: React.FC<SoloMapProps> = ({
         ctx.closePath();
         ctx.fill();
       }
-
-      const s = stateRef.current;
 
       if (s.battleState === 'FIGHTING') {
         const player = s.units.find(u => u.isPlayer);
@@ -366,6 +403,13 @@ export const SoloMap: React.FC<SoloMapProps> = ({
             spawnEnemies(s.wave);
           }
         } else {
+          // Update unit hit flash timers
+          s.units.forEach(unit => {
+            if (unit.flashTimer && unit.flashTimer > 0) {
+              unit.flashTimer -= dt;
+            }
+          });
+
           // 1. UPDATE PLAYERS & ENEMIES
           s.units.forEach(unit => {
             if (unit.stunTimer > 0) {
@@ -422,6 +466,14 @@ export const SoloMap: React.FC<SoloMapProps> = ({
                   const finalDmg = Math.max(1, Math.round(rawDmg - (target.isPlayer ? stats.defense : 0) * 0.1));
 
                   target.hp = Math.max(0, target.hp - finalDmg);
+                  target.flashTimer = 0.1;
+                  target.flashColor = target.isPlayer ? '#ffffff' : '#ff3b30';
+
+                  if (isCrit) {
+                    s.shakeTimer = 0.15;
+                    s.shakeIntensity = 6;
+                  }
+
                   if (unit.isPlayer) {
                     s.playerDamageDealt += finalDmg;
                   } else {
@@ -436,7 +488,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
                   ctx.lineTo(target.x, target.y);
                   ctx.stroke();
 
-                  addExplosion(target.x, target.y, unit.color, 4);
+                  addExplosion(target.x, target.y, unit.color, 12);
                   addFloatingText(target.x, target.y - 10, `${finalDmg}`, isCrit ? '#ff9500' : '#ffffff', isCrit);
 
                   // Rogue poison talent proc
@@ -444,8 +496,10 @@ export const SoloMap: React.FC<SoloMapProps> = ({
                   if (unit.isPlayer && unit.classType === 'ROGUE' && selectedTalents.includes('t1_2') && isCrit) {
                     // Poison triggers extra floating poison dots
                     setTimeout(() => {
-                      if (target) {
+                      if (target && target.hp > 0) {
                         target.hp = Math.max(0, target.hp - 10);
+                        target.flashTimer = 0.1;
+                        target.flashColor = '#af52de';
                         s.playerDamageDealt += 10;
                         addFloatingText(target.x, target.y - 20, '10 (Poison)', '#af52de');
                       }
@@ -456,6 +510,8 @@ export const SoloMap: React.FC<SoloMapProps> = ({
                   if (unit.isPlayer && stats.lifesteal > 0) {
                     const heal = Math.round(finalDmg * stats.lifesteal);
                     unit.hp = Math.min(unit.maxHp, unit.hp + heal);
+                    unit.flashTimer = 0.1;
+                    unit.flashColor = '#34c759';
                     s.playerHealingDone += heal;
                   }
 
@@ -463,6 +519,8 @@ export const SoloMap: React.FC<SoloMapProps> = ({
                   if (target.isPlayer && stats.reflect > 0) {
                     const refl = Math.round(finalDmg * stats.reflect);
                     unit.hp = Math.max(0, unit.hp - refl);
+                    unit.flashTimer = 0.1;
+                    unit.flashColor = '#af52de';
                     s.playerDamageDealt += refl;
                     addFloatingText(unit.x, unit.y - 12, `${refl} (Reflect)`, '#af52de');
                   }
@@ -480,12 +538,20 @@ export const SoloMap: React.FC<SoloMapProps> = ({
                     target.stunTimer = 1.5;
                     const dmg = Math.round(unit.attackPower * 2.0);
                     target.hp = Math.max(0, target.hp - dmg);
+                    target.flashTimer = 0.1;
+                    target.flashColor = '#ffffff';
+                    s.shakeTimer = 0.25;
+                    s.shakeIntensity = 8;
                     s.playerDamageDealt += dmg;
                     addFloatingText(target.x, target.y - 20, `${dmg} (Shield Bash Stun!)`, '#ff3b30');
                   } else if (unit.classType === 'MAGE') {
                     // Fireball AoE: hit target and adjacent enemies
                     const dmg = Math.round(unit.attackPower * 2.5);
                     target.hp = Math.max(0, target.hp - dmg);
+                    target.flashTimer = 0.1;
+                    target.flashColor = '#ff9500';
+                    s.shakeTimer = 0.35;
+                    s.shakeIntensity = 10;
                     s.playerDamageDealt += dmg;
                     addFloatingText(target.x, target.y - 25, `${dmg} (Fireball AoE)`, '#00d8ff', true);
                     
@@ -494,6 +560,8 @@ export const SoloMap: React.FC<SoloMapProps> = ({
                       if (e.id !== target!.id && getDistance(target!, e) < 100) {
                         const spl = Math.round(dmg * 0.6);
                         e.hp = Math.max(0, e.hp - spl);
+                        e.flashTimer = 0.1;
+                        e.flashColor = '#ff9500';
                         s.playerDamageDealt += spl;
                         addFloatingText(e.x, e.y - 15, `${spl}`, '#00d8ff');
                       }
@@ -502,6 +570,10 @@ export const SoloMap: React.FC<SoloMapProps> = ({
                     // Holy Nova: heal player, damage all enemies in range
                     const heal = Math.round(stats.healPower * 3.0);
                     unit.hp = Math.min(unit.maxHp, unit.hp + heal);
+                    unit.flashTimer = 0.15;
+                    unit.flashColor = '#ffcc00';
+                    s.shakeTimer = 0.15;
+                    s.shakeIntensity = 4;
                     s.playerHealingDone += heal;
                     addFloatingText(unit.x, unit.y - 20, `+${heal} (Holy Nova)`, '#ffcc00');
 
@@ -509,6 +581,8 @@ export const SoloMap: React.FC<SoloMapProps> = ({
                       if (getDistance(unit, e) < 140) {
                         const dmg = Math.round(unit.attackPower * 1.5);
                         e.hp = Math.max(0, e.hp - dmg);
+                        e.flashTimer = 0.1;
+                        e.flashColor = '#ffcc00';
                         s.playerDamageDealt += dmg;
                         addFloatingText(e.x, e.y - 15, `${dmg}`, '#ffcc00');
                       }
@@ -520,6 +594,10 @@ export const SoloMap: React.FC<SoloMapProps> = ({
                       setTimeout(() => {
                         if (target && target.hp > 0) {
                           target.hp = Math.max(0, target.hp - dmg);
+                          target.flashTimer = 0.08;
+                          target.flashColor = '#af52de';
+                          s.shakeTimer = 0.12;
+                          s.shakeIntensity = 4;
                           s.playerDamageDealt += dmg;
                           addFloatingText(target.x + (Math.random() * 20 - 10), target.y - 15, `${dmg}`, '#af52de');
                         }
@@ -528,9 +606,13 @@ export const SoloMap: React.FC<SoloMapProps> = ({
                   } else if (unit.classType === 'RANGER') {
                     // Arrow Rain AoE
                     const dmg = Math.round(unit.attackPower * 1.8);
+                    s.shakeTimer = 0.25;
+                    s.shakeIntensity = 7;
                     enemies.forEach(e => {
                       if (getDistance(target!, e) < 80) {
                         e.hp = Math.max(0, e.hp - dmg);
+                        e.flashTimer = 0.1;
+                        e.flashColor = '#34c759';
                         s.playerDamageDealt += dmg;
                         addFloatingText(e.x, e.y - 15, `${dmg} (Arrow Rain)`, '#34c759');
                       }
@@ -538,10 +620,10 @@ export const SoloMap: React.FC<SoloMapProps> = ({
                   }
                 }
               } else {
-                // Seek target
+                // Seek target (and clamp boundary to 1200x600 canvas resolution)
                 const nextPos = seek(unit, target, unit.speed, dt);
-                unit.x = nextPos.x + steerX;
-                unit.y = nextPos.y + steerY;
+                unit.x = Math.max(25, Math.min(1175, nextPos.x + steerX));
+                unit.y = Math.max(25, Math.min(575, nextPos.y + steerY));
               }
             }
           });
@@ -553,8 +635,8 @@ export const SoloMap: React.FC<SoloMapProps> = ({
                 s.kills += 1;
                 setTotalKills(s.kills);
                 // Accumulate loot XP/gold
-                s.xpGained += mapLevel * 15;
-                s.goldGained += mapLevel * 1;
+                s.xpGained += currentMapLevel * 15;
+                s.goldGained += currentMapLevel * 1;
                 addExplosion(u.x, u.y, '#ff3b30', 25);
               }
               return false;
@@ -566,11 +648,13 @@ export const SoloMap: React.FC<SoloMapProps> = ({
 
       // 2. RENDER UNITS
       s.units.forEach(unit => {
+        const uFlash = (unit.flashTimer && unit.flashTimer > 0) ? unit.flashColor : undefined;
+
         // Draw the 2D retro pixel-art sprite
         if (unit.isPlayer) {
-          drawPixelSprite(ctx, unit.x, unit.y, unit.classType || 'WARRIOR', 2.4, false, unit.color);
+          drawPixelSprite(ctx, unit.x, unit.y, unit.classType || 'WARRIOR', 2.8, false, unit.color, uFlash);
         } else {
-          drawPixelSprite(ctx, unit.x, unit.y, (unit as any).spriteType || 'GOBLIN', 2.4, true);
+          drawPixelSprite(ctx, unit.x, unit.y, (unit as any).spriteType || 'GOBLIN', 2.8, true, undefined, uFlash);
         }
 
         // Stunned indicator (circles above head)
@@ -578,7 +662,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
           ctx.strokeStyle = '#007aff';
           ctx.lineWidth = 1;
           ctx.beginPath();
-          ctx.arc(unit.x, unit.y - 22, 3, 0, Math.PI * 2);
+          ctx.arc(unit.x, unit.y - 25, 3, 0, Math.PI * 2);
           ctx.stroke();
         }
 
@@ -588,13 +672,13 @@ export const SoloMap: React.FC<SoloMapProps> = ({
         ctx.fillStyle = '#94a3b8';
         ctx.font = '9px font-display, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(unit.name, unit.x, unit.y - 28);
+        ctx.fillText(unit.name, unit.x, unit.y - 32);
 
         // Health Bar
-        const barW = 28;
-        const barH = 3.5;
+        const barW = 32;
+        const barH = 4;
         const bx = unit.x - barW / 2;
-        const by = unit.y - 22;
+        const by = unit.y - 25;
 
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
         ctx.fillRect(bx, by, barW, barH);
@@ -608,7 +692,9 @@ export const SoloMap: React.FC<SoloMapProps> = ({
       s.particles = s.particles.filter(p => {
         p.x += p.vx;
         p.y += p.vy;
-        p.alpha -= 0.02;
+        p.vx *= 0.95; // apply drag
+        p.vy *= 0.95;
+        p.alpha -= 0.015; // fade out smoothly
         p.life -= 1;
 
         ctx.fillStyle = p.color;
@@ -634,6 +720,8 @@ export const SoloMap: React.FC<SoloMapProps> = ({
         return ft.life > 0;
       });
 
+      ctx.restore(); // Restore shake matrix
+
       animId = requestAnimationFrame(loop);
     };
 
@@ -642,7 +730,86 @@ export const SoloMap: React.FC<SoloMapProps> = ({
     return () => {
       cancelAnimationFrame(animId);
     };
-  }, [mapLevel]);
+  }, [mapLevel, battleState]);
+
+  if (battleState === 'FIGHTING') {
+    return (
+      <div className="fixed inset-0 bg-[#06080d] z-40 flex flex-col overflow-hidden select-none">
+        {/* Widescreen Header */}
+        <div className="h-14 border-b border-white/5 bg-[#090e1a] px-6 flex items-center justify-between">
+          <span className="text-xs text-slate-400 font-display flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            SOLO ARENA: LEVEL {currentMapLevel} (WAVE {wave} / 3)
+          </span>
+
+          <button
+            onClick={onBackToDashboard}
+            className="flex items-center gap-2 text-[10px] font-display font-semibold uppercase tracking-wider text-slate-400 hover:text-white transition border border-white/10 hover:border-white/20 px-3 py-1.5 rounded-lg bg-black/25"
+          >
+            <ArrowLeft size={12} />
+            Abandon Run
+          </button>
+        </div>
+
+        {/* Split Main Body */}
+        <div className="flex-grow flex flex-row overflow-hidden">
+          {/* Left Canvas Port */}
+          <div className="flex-grow relative flex items-center justify-center p-4 bg-[#030407]">
+            <canvas
+              ref={canvasRef}
+              width="1200"
+              height="600"
+              className="w-full h-full max-w-full max-h-full object-contain block"
+            />
+          </div>
+
+          {/* Right Live Recap Sidebar */}
+          <div className="w-80 border-l border-white/5 bg-[#090e1a]/95 flex flex-col p-4 gap-4 overflow-y-auto">
+            <h4 className="m-0 text-white font-display text-xs tracking-wider uppercase border-b border-white/5 pb-2">
+              Live Battle Stats
+            </h4>
+
+            {/* Live Metrics Table */}
+            <div className="bg-[#0b0f19]/95 border border-white/10 rounded-xl p-3 flex flex-col gap-2 font-mono text-[11px] text-slate-300">
+              <div className="flex justify-between border-b border-white/5 pb-1 text-slate-500">
+                <span>Metric</span>
+                <span>Value</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Damage Dealt:</span>
+                <span className="text-orange-400 font-bold">{stateRef.current.playerDamageDealt}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Healing Done:</span>
+                <span className="text-emerald-400 font-bold">{stateRef.current.playerHealingDone}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Damage Taken:</span>
+                <span className="text-blue-400 font-bold">{stateRef.current.playerDamageTaken}</span>
+              </div>
+            </div>
+
+            <div className="flex-grow" />
+
+            <div className="flex flex-col gap-2 text-xs text-slate-400 border-t border-white/5 pt-4">
+              <div className="flex justify-between">
+                <span>Monsters Slain:</span>
+                <span className="text-white font-bold">{totalKills}</span>
+              </div>
+              <div className="flex justify-between font-mono text-[11px] text-slate-300">
+                <span>XP Gained:</span>
+                <span className="text-emerald-400 font-bold">+{totalKills * currentMapLevel * 15}</span>
+              </div>
+              <div className="flex justify-between font-bold">
+                <span>Gold salvaged:</span>
+                <span className="text-yellow-400 font-bold">+{totalKills * currentMapLevel * 1}g</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div ref={containerRef} className="max-w-4xl mx-auto py-8 px-4 flex flex-col gap-6">
@@ -657,7 +824,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
         </button>
 
         <span className="text-xs text-slate-400 font-display">
-          SOLO STAGE: LEVEL {mapLevel}
+          SOLO STAGE: LEVEL {currentMapLevel}
         </span>
       </div>
 
@@ -666,17 +833,35 @@ export const SoloMap: React.FC<SoloMapProps> = ({
         {/* Canvas Battlefield */}
         <div className="md:col-span-3 flex flex-col gap-4">
           <div className="relative border border-white/5 rounded-xl overflow-hidden shadow-2xl bg-[#06080d]">
-            <canvas ref={canvasRef} width="760" height="400" className="w-full block aspect-[760/400]" />
+            <canvas ref={canvasRef} width="1200" height="600" className="w-full block aspect-[1200/600]" />
 
-            {/* Preparation Overlay */}
+            {/* Preparation Overlay with stage level slider up to level 100 */}
             {battleState === 'PREP' && (
-              <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-4 text-center">
+              <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center gap-4 text-center p-6">
                 <h3 className="m-0 text-white font-display text-lg tracking-wider">
                   PREPARATION LOBBY
                 </h3>
                 <p className="text-xs text-slate-400 max-w-sm leading-relaxed">
-                  Your character is ready. Click below to begin the autobattle loop. Defeat 3 waves of enemies to secure your gold, XP, and potential loot drops!
+                  Adjust the arena difficulty stage before launching. Defeat 3 waves of enemies to secure your gold, XP, and potential loot drops!
                 </p>
+                <div className="w-64 my-2">
+                  <div className="flex justify-between text-xs text-slate-400 font-mono mb-1">
+                    <span>STAGE LEVEL:</span>
+                    <span className="text-cyan-400 font-bold">Lvl {currentMapLevel}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="100"
+                    value={currentMapLevel}
+                    onChange={e => setCurrentMapLevel(parseInt(e.target.value))}
+                    className="w-full accent-cyan-500 cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[9px] text-slate-600 font-mono mt-0.5">
+                    <span>Lvl 1</span>
+                    <span>Lvl 100</span>
+                  </div>
+                </div>
                 <button
                   onClick={initBattle}
                   className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-display font-bold uppercase tracking-wider text-xs flex items-center gap-2 transition duration-300"
@@ -684,109 +869,6 @@ export const SoloMap: React.FC<SoloMapProps> = ({
                   <Play size={14} />
                   Start Battle
                 </button>
-              </div>
-            )}
-
-            {/* Summary Overlay (Victory / Defeat) */}
-            {(battleState === 'VICTORY' || battleState === 'DEFEAT') && (
-              <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center p-6 text-center select-none animate-fadeIn">
-                <h3
-                  className={`m-0 font-display text-2xl tracking-widest ${
-                    battleState === 'VICTORY' ? 'text-emerald-400' : 'text-red-500'
-                  }`}
-                >
-                  {battleState === 'VICTORY' ? 'STAGE CLEAR' : 'CHARACTER DEFEATED'}
-                </h3>
-                <p className="text-slate-500 text-[10px] uppercase font-display tracking-widest mt-1 mb-6">
-                  {battleState === 'VICTORY' ? 'Farming completed successfully!' : 'Character fell in battle.'}
-                </p>
-
-                {reporting ? (
-                  <div className="text-slate-400 text-xs italic">Syncing loot drop outcomes with server database...</div>
-                ) : (
-                  <div className="flex flex-col items-center gap-6 w-full max-w-sm">
-                    {/* Performance Recap Table */}
-                    <div className="w-full bg-[#0b0f19]/95 border border-white/10 rounded-xl p-4 flex flex-col gap-3 select-none">
-                      <span className="text-[10px] font-pixel text-neon-cyan uppercase tracking-widest text-left">[ COMBAT STATS RECAP ]</span>
-                      
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-[11px] font-mono text-slate-300 border-collapse">
-                          <thead>
-                            <tr className="border-b border-white/10 text-slate-500 text-left">
-                              <th className="pb-2 font-normal uppercase tracking-wider">Character</th>
-                              <th className="pb-2 font-normal uppercase tracking-wider text-right">DPS (Dealt)</th>
-                              <th className="pb-2 font-normal uppercase tracking-wider text-right">Healing</th>
-                              <th className="pb-2 font-normal uppercase tracking-wider text-right">Tanked</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr className="border-b border-white/5 last:border-0 text-left">
-                              <td className="py-2 text-white font-bold flex items-center gap-1.5">
-                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: CLASSES[character.class]?.color }} />
-                                {character.user.displayName}
-                              </td>
-                              <td className="py-2 text-right text-orange-400 font-bold">{stateRef.current.playerDamageDealt}</td>
-                              <td className="py-2 text-right text-emerald-400 font-bold">{stateRef.current.playerHealingDone}</td>
-                              <td className="py-2 text-right text-blue-400 font-bold">{stateRef.current.playerDamageTaken}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                      
-                      <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-white/5 text-xs text-slate-400">
-                        <div className="flex justify-between">
-                          <span>Monsters Slain:</span>
-                          <span className="text-white font-bold">{totalKills}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>XP Earned:</span>
-                          <span className="text-emerald-400 font-bold">+{xpEarned} XP</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Gold Salvaged:</span>
-                          <span className="text-yellow-400 font-bold">+{goldEarned} Gold</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Dropped items */}
-                    {itemsDropped.length > 0 && (
-                      <div className="w-full">
-                        <span className="block text-[9px] font-display text-slate-500 uppercase tracking-widest mb-2">
-                          Loot Drops Discovered ({itemsDropped.length}):
-                        </span>
-                        <div className="flex justify-center gap-3">
-                          {itemsDropped.map((item, idx) => (
-                            <div
-                              key={idx}
-                              className={`px-3 py-2 bg-[#0b0f19] border rounded-lg text-xs font-semibold item-slot-glow rarity-${item.rarity}`}
-                            >
-                              <div className="text-white leading-tight font-display">{item.name}</div>
-                              <div className="text-[9px] text-slate-500 uppercase font-mono mt-0.5">
-                                {item.slot} | Level {item.itemLevel}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="flex gap-4 w-full">
-                      <button
-                        onClick={initBattle}
-                        className="flex-1 py-2.5 border border-white/10 hover:bg-white/5 text-white rounded text-xs font-display font-bold uppercase tracking-wider transition"
-                      >
-                        Fight Again
-                      </button>
-                      <button
-                        onClick={onBackToDashboard}
-                        className="flex-1 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded text-xs font-display font-bold uppercase tracking-wider transition"
-                      >
-                        Dashboard
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -808,12 +890,12 @@ export const SoloMap: React.FC<SoloMapProps> = ({
               <span className="text-white font-bold">{totalKills}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">XP Accumulation:</span>
-              <span className="text-emerald-400 font-bold">+{totalKills * mapLevel * 15}</span>
+              <span className="text-slate-400">XP Gained:</span>
+              <span className="text-emerald-400 font-bold">+{totalKills * currentMapLevel * 15}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-slate-400">Gold Accumulation:</span>
-              <span className="text-yellow-400 font-bold">+{totalKills * mapLevel * 1}</span>
+              <span className="text-slate-400">Gold Gained:</span>
+              <span className="text-yellow-400 font-bold">+{totalKills * currentMapLevel * 1}</span>
             </div>
 
             <div className="p-3 bg-yellow-950/20 border border-yellow-900/20 text-yellow-500 rounded-lg leading-relaxed flex gap-2">
@@ -825,6 +907,112 @@ export const SoloMap: React.FC<SoloMapProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Fullscreen Results Modal */}
+      {(battleState === 'VICTORY' || battleState === 'DEFEAT') && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 overflow-y-auto flex items-center justify-center p-4 md:p-8 select-none animate-fadeIn">
+          <div className="bg-[#0b0f19]/95 border border-white/10 rounded-2xl p-6 md:p-8 max-w-xl w-full max-h-[90vh] overflow-y-auto flex flex-col items-center shadow-2xl relative animate-scaleUp">
+            
+            <h3
+              className={`m-0 font-display text-2xl tracking-widest ${
+                battleState === 'VICTORY' ? 'text-emerald-400' : 'text-red-500'
+              }`}
+            >
+              {battleState === 'VICTORY' ? 'STAGE CLEAR' : 'CHARACTER DEFEATED'}
+            </h3>
+            <p className="text-slate-500 text-[10px] uppercase font-display tracking-widest mt-1 mb-6">
+              {battleState === 'VICTORY' ? 'Farming completed successfully!' : 'Character fell in battle.'}
+            </p>
+
+            {reporting ? (
+              <div className="text-slate-400 text-xs italic py-4">Syncing loot drop outcomes with server database...</div>
+            ) : (
+              <div className="flex flex-col items-center gap-6 w-full">
+                {/* Performance Recap Table */}
+                <div className="w-full bg-[#05070a] border border-white/5 rounded-xl p-4 flex flex-col gap-3">
+                  <span className="text-[10px] font-pixel text-neon-cyan uppercase tracking-widest text-left">[ COMBAT STATS RECAP ]</span>
+                  
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[11px] font-mono text-slate-300 border-collapse">
+                      <thead>
+                        <tr className="border-b border-white/10 text-slate-500 text-left">
+                          <th className="pb-2 font-normal uppercase tracking-wider">Character</th>
+                          <th className="pb-2 font-normal uppercase tracking-wider text-right">DPS (Dealt)</th>
+                          <th className="pb-2 font-normal uppercase tracking-wider text-right">Healing</th>
+                          <th className="pb-2 font-normal uppercase tracking-wider text-right">Tanked</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b border-white/5 last:border-0 text-left">
+                          <td className="py-2 text-white font-bold flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: CLASSES[character.class]?.color }} />
+                            {character.user.displayName}
+                          </td>
+                          <td className="py-2 text-right text-orange-400 font-bold">{stateRef.current.playerDamageDealt}</td>
+                          <td className="py-2 text-right text-emerald-400 font-bold">{stateRef.current.playerHealingDone}</td>
+                          <td className="py-2 text-right text-blue-400 font-bold">{stateRef.current.playerDamageTaken}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-white/5 text-xs text-slate-400">
+                    <div className="flex justify-between">
+                      <span>Monsters Slain:</span>
+                      <span className="text-white font-bold">{totalKills}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>XP Earned:</span>
+                      <span className="text-emerald-400 font-bold">+{xpEarned} XP</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Gold Salvaged:</span>
+                      <span className="text-yellow-400 font-bold">+{goldEarned} Gold</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dropped items */}
+                {itemsDropped.length > 0 && (
+                  <div className="w-full">
+                    <span className="block text-[9px] font-display text-slate-500 uppercase tracking-widest mb-2 text-left">
+                      Loot Drops Discovered ({itemsDropped.length}):
+                    </span>
+                    <div className="flex flex-wrap justify-center gap-3">
+                      {itemsDropped.map((item, idx) => (
+                        <div
+                          key={idx}
+                          className={`px-3 py-2 bg-[#05070a] border rounded-lg text-xs font-semibold item-slot-glow rarity-${item.rarity}`}
+                        >
+                          <div className="text-white leading-tight font-display">{item.name}</div>
+                          <div className="text-[9px] text-slate-500 uppercase font-mono mt-0.5">
+                            {item.slot} | Level {item.itemLevel}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-4 w-full mt-4">
+                  <button
+                    onClick={initBattle}
+                    className="flex-1 py-2.5 border border-white/10 hover:bg-white/5 text-white rounded text-xs font-display font-bold uppercase tracking-wider transition"
+                  >
+                    Fight Again
+                  </button>
+                  <button
+                    onClick={onBackToDashboard}
+                    className="flex-1 py-2.5 bg-[#00d8ff] hover:bg-cyan-500 text-black rounded text-xs font-display font-bold uppercase tracking-wider transition font-bold"
+                  >
+                    Dashboard
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

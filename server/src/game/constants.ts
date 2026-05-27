@@ -165,6 +165,91 @@ export const TALENTS: Record<string, Record<string, TalentConfig>> = {
   }
 };
 
+const buildTalents = () => {
+  const classes = ['WARRIOR', 'MAGE', 'CLERIC', 'ROGUE', 'RANGER'];
+  for (const cls of classes) {
+    if (!TALENTS[cls]) {
+      TALENTS[cls] = {};
+    }
+    for (let tier = 5; tier <= 20; tier++) {
+      const isOdd = tier % 2 !== 0;
+
+      if (isOdd) {
+        // Odd: Offensive
+        const atkVal = 0.05 + (tier - 5) * 0.015;
+        TALENTS[cls][`t${tier}_1`] = {
+          id: `t${tier}_1`,
+          name: `Heroic Might Tier ${tier}`,
+          description: `+${Math.round(atkVal * 100)}% Attack Power`,
+          tier,
+          effects: { atkMultPct: atkVal }
+        };
+
+        if (cls === 'ROGUE' || cls === 'RANGER') {
+          const critVal = 0.02 + (tier - 5) * 0.005;
+          TALENTS[cls][`t${tier}_2`] = {
+            id: `t${tier}_2`,
+            name: `Deadly Precision Tier ${tier}`,
+            description: `+${Math.round(critVal * 100)}% Crit Chance`,
+            tier,
+            effects: { critChance: critVal }
+          };
+        } else {
+          const speedVal = 0.04 + (tier - 5) * 0.01;
+          TALENTS[cls][`t${tier}_2`] = {
+            id: `t${tier}_2`,
+            name: `Swift Strikes Tier ${tier}`,
+            description: `+${Math.round(speedVal * 100)}% Attack Speed`,
+            tier,
+            effects: { atkSpeedPct: speedVal }
+          };
+        }
+      } else {
+        // Even: Defensive/Utility
+        const hpVal = 0.06 + (tier - 5) * 0.015;
+        TALENTS[cls][`t${tier}_1`] = {
+          id: `t${tier}_1`,
+          name: `Colossus Core Tier ${tier}`,
+          description: `+${Math.round(hpVal * 100)}% Max HP`,
+          tier,
+          effects: { maxHpPct: hpVal }
+        };
+
+        if (cls === 'CLERIC') {
+          const cdrVal = 0.03 + (tier - 5) * 0.008;
+          TALENTS[cls][`t${tier}_2`] = {
+            id: `t${tier}_2`,
+            name: `Divine Focus Tier ${tier}`,
+            description: `+${Math.round(cdrVal * 100)}% Cooldown Reduction`,
+            tier,
+            effects: { cdr: cdrVal }
+          };
+        } else if (cls === 'WARRIOR') {
+          const defVal = 0.05 + (tier - 5) * 0.015;
+          TALENTS[cls][`t${tier}_2`] = {
+            id: `t${tier}_2`,
+            name: `Indomitable Aegis Tier ${tier}`,
+            description: `+${Math.round(defVal * 100)}% Defense Armor`,
+            tier,
+            effects: { defensePct: defVal }
+          };
+        } else {
+          const lifeVal = 0.02 + (tier - 5) * 0.005;
+          TALENTS[cls][`t${tier}_2`] = {
+            id: `t${tier}_2`,
+            name: `Vampiric Touch Tier ${tier}`,
+            description: `+${Math.round(lifeVal * 100)}% Lifesteal`,
+            tier,
+            effects: { lifesteal: lifeVal }
+          };
+        }
+      }
+    }
+  }
+};
+buildTalents();
+
+
 export interface SkillNode {
   id: string;
   name: string;
@@ -188,7 +273,6 @@ export const PASSIVE_SKILL_TREE: Record<string, SkillNode> = {};
 // Helper to fill the tree programmatically so we don't write 37 huge blocks manually,
 // but still maintain a deterministic structure.
 const buildPassiveTree = () => {
-  // Start node
   PASSIVE_SKILL_TREE['start'] = {
     id: 'start',
     name: 'Character Origin',
@@ -209,108 +293,113 @@ const buildPassiveTree = () => {
     def: { name: 'Bulwark', desc: 'Defense', val: 1.2 }
   };
 
-  // Ring 1: Radius 120, 6 nodes
-  const ring1Ids: string[] = [];
-  for (let i = 0; i < 6; i++) {
-    const angle = (i * Math.PI) / 3; // 60 degrees each
-    const id = `r1_${i}`;
-    ring1Ids.push(id);
-    const type = types[i % types.length];
-    const item = labels[type];
-    const statKey = type === 'life' ? 'maxHp' : (type === 'atk' ? 'attackPower' : (type === 'crit' ? 'critChance' : (type === 'speed' ? 'atkSpeedPct' : 'defense')));
+  const ringConfigs = [
+    { r: 1, radius: 80, count: 8, scalar: 1.0 },
+    { r: 2, radius: 160, count: 16, scalar: 1.2 },
+    { r: 3, radius: 240, count: 24, scalar: 1.5 },
+    { r: 4, radius: 320, count: 32, scalar: 1.8 },
+    { r: 5, radius: 400, count: 40, scalar: 3.0, isNotable: true },
+    { r: 6, radius: 480, count: 48, scalar: 2.2 },
+    { r: 7, radius: 560, count: 56, scalar: 2.5 },
+    { r: 8, radius: 640, count: 64, scalar: 2.8 },
+    { r: 9, radius: 720, count: 72, scalar: 4.0, isNotable: true },
+    { r: 10, radius: 800, count: 80, scalar: 3.2 }
+  ];
 
-    PASSIVE_SKILL_TREE[id] = {
-      id,
-      name: `${item.name} Tier 1`,
-      description: `+${item.val}${type === 'speed' || type === 'crit' ? '%' : ''} ${item.desc}`,
-      x: Math.round(500 + 130 * Math.cos(angle)),
-      y: Math.round(500 + 130 * Math.sin(angle)),
-      stats: { [statKey]: item.val },
-      connections: ['start'],
-      type
-    };
-    PASSIVE_SKILL_TREE['start'].connections.push(id);
-  }
+  const ringIds: Record<number, string[]> = { 0: ['start'] };
 
-  // Interconnect Ring 1
-  for (let i = 0; i < 6; i++) {
-    const nextIdx = (i + 1) % 6;
-    PASSIVE_SKILL_TREE[`r1_${i}`].connections.push(`r1_${nextIdx}`);
-    PASSIVE_SKILL_TREE[`r1_${nextIdx}`].connections.push(`r1_${i}`);
-  }
+  for (const config of ringConfigs) {
+    const ids: string[] = [];
+    const parentIds = ringIds[config.r - 1];
 
-  // Ring 2: Radius 250, 12 nodes
-  const ring2Ids: string[] = [];
-  for (let i = 0; i < 12; i++) {
-    const angle = (i * Math.PI) / 6; // 30 degrees each
-    const id = `r2_${i}`;
-    ring2Ids.push(id);
-    const type = types[(i + 1) % types.length];
-    const item = labels[type];
-    const statKey = type === 'life' ? 'maxHp' : (type === 'atk' ? 'attackPower' : (type === 'crit' ? 'critChance' : (type === 'speed' ? 'atkSpeedPct' : 'defense')));
+    for (let i = 0; i < config.count; i++) {
+      const id = `r${config.r}_${i}`;
+      ids.push(id);
 
-    // Increase values on ring 2
-    const scalar = 1.5;
-    const value = Math.round(item.val * scalar * 10) / 10;
+      const angle = (i * Math.PI * 2) / config.count;
+      const isKeystone = config.r === 10 && (i % 16 === 0) && (i / 16 < 5);
 
-    // Nearest ring 1 node to connect to
-    const nearestR1Idx = Math.floor(i / 2) % 6;
-    const parentId = `r1_${nearestR1Idx}`;
+      if (isKeystone) {
+        let name = '';
+        let desc = '';
+        let type: 'life' | 'atk' | 'crit' | 'speed' | 'def' = 'atk';
+        
+        const keystoneIdx = i / 16;
+        if (keystoneIdx === 0) {
+          name = 'Keystone: Glass Cannon';
+          desc = 'Allocates Glass Cannon: +50% Attack Power, -30% Maximum HP';
+          type = 'atk';
+        } else if (keystoneIdx === 1) {
+          name = 'Keystone: Iron Fortress';
+          desc = 'Allocates Iron Fortress: Reflect 30% damage, -20% Move Speed';
+          type = 'def';
+        } else if (keystoneIdx === 2) {
+          name = 'Keystone: Vampiric Zeal';
+          desc = 'Allocates Vampiric Zeal: Gain 15% Lifesteal, 0% Crit Chance';
+          type = 'life';
+        } else if (keystoneIdx === 3) {
+          name = 'Keystone: Alchemist Aura';
+          desc = 'Allocates Alchemist Aura: Double CDR (max 75%), -25% Attack Power';
+          type = 'speed';
+        } else {
+          name = 'Keystone: Juggernaut Bulwark';
+          desc = 'Allocates Juggernaut Bulwark: Double Defense Armor, 0% Crit Chance';
+          type = 'def';
+        }
 
-    PASSIVE_SKILL_TREE[id] = {
-      id,
-      name: `${item.name} Tier 2`,
-      description: `+${value}${type === 'speed' || type === 'crit' ? '%' : ''} ${item.desc}`,
-      x: Math.round(500 + 260 * Math.cos(angle)),
-      y: Math.round(500 + 260 * Math.sin(angle)),
-      stats: { [statKey]: value },
-      connections: [parentId],
-      type
-    };
-    PASSIVE_SKILL_TREE[parentId].connections.push(id);
-  }
+        PASSIVE_SKILL_TREE[id] = {
+          id,
+          name,
+          description: desc,
+          x: Math.round(500 + config.radius * Math.cos(angle)),
+          y: Math.round(500 + config.radius * Math.sin(angle)),
+          stats: {},
+          connections: [],
+          type
+        };
+      } else {
+        const type = types[(i + config.r) % types.length];
+        const item = labels[type];
+        const statKey = type === 'life' ? 'maxHp' : (type === 'atk' ? 'attackPower' : (type === 'crit' ? 'critChance' : (type === 'speed' ? 'atkSpeedPct' : 'defense')));
 
-  // Interconnect Ring 2
-  for (let i = 0; i < 12; i++) {
-    const nextIdx = (i + 1) % 12;
-    PASSIVE_SKILL_TREE[`r2_${i}`].connections.push(`r2_${nextIdx}`);
-    PASSIVE_SKILL_TREE[`r2_${nextIdx}`].connections.push(`r2_${i}`);
-  }
+        let value = item.val * config.scalar;
+        if (type === 'crit' || type === 'speed') {
+          value = Math.round(value * 1000) / 1000;
+        } else {
+          value = Math.round(value * 10) / 10;
+        }
 
-  // Ring 3: Radius 380, 18 nodes (Major / Notable nodes at outer rim)
-  for (let i = 0; i < 18; i++) {
-    const angle = (i * Math.PI) / 9; // 20 degrees each
-    const id = `r3_${i}`;
-    const type = types[(i + 2) % types.length];
-    const item = labels[type];
-    const statKey = type === 'life' ? 'maxHp' : (type === 'atk' ? 'attackPower' : (type === 'crit' ? 'critChance' : (type === 'speed' ? 'atkSpeedPct' : 'defense')));
+        const tierName = config.isNotable ? 'Notable' : `Tier ${config.r}`;
+        const suffix = config.isNotable ? ' (Notable)' : '';
+        const displayVal = (type === 'crit' || type === 'speed') ? `${Math.round(value * 1000) / 10}%` : `${value}`;
 
-    // High stats for outer notable nodes
-    const scalar = 3.0;
-    const value = Math.round(item.val * scalar * 10) / 10;
+        PASSIVE_SKILL_TREE[id] = {
+          id,
+          name: `${item.name} ${tierName}`,
+          description: `+${displayVal} ${item.desc}${suffix}`,
+          x: Math.round(500 + config.radius * Math.cos(angle)),
+          y: Math.round(500 + config.radius * Math.sin(angle)),
+          stats: { [statKey]: value },
+          connections: [],
+          type
+        };
+      }
 
-    // Connect to nearest ring 2 node
-    const nearestR2Idx = Math.floor((i * 12) / 18) % 12;
-    const parentId = `r2_${nearestR2Idx}`;
+      const parentIdx = Math.floor((i * parentIds.length) / config.count) % parentIds.length;
+      const parentId = parentIds[parentIdx];
+      
+      PASSIVE_SKILL_TREE[id].connections.push(parentId);
+      PASSIVE_SKILL_TREE[parentId].connections.push(id);
+    }
 
-    PASSIVE_SKILL_TREE[id] = {
-      id,
-      name: `Grand ${item.name} Node`,
-      description: `+${value}${type === 'speed' || type === 'crit' ? '%' : ''} ${item.desc} (Notable)`,
-      x: Math.round(500 + 390 * Math.cos(angle)),
-      y: Math.round(500 + 390 * Math.sin(angle)),
-      stats: { [statKey]: value },
-      connections: [parentId],
-      type
-    };
-    PASSIVE_SKILL_TREE[parentId].connections.push(id);
-  }
+    ringIds[config.r] = ids;
 
-  // Interconnect Ring 3 in groups
-  for (let i = 0; i < 18; i++) {
-    const nextIdx = (i + 1) % 18;
-    PASSIVE_SKILL_TREE[`r3_${i}`].connections.push(`r3_${nextIdx}`);
-    PASSIVE_SKILL_TREE[`r3_${nextIdx}`].connections.push(`r3_${i}`);
+    for (let i = 0; i < config.count; i++) {
+      const currentId = ids[i];
+      const nextId = ids[(i + 1) % config.count];
+      PASSIVE_SKILL_TREE[currentId].connections.push(nextId);
+      PASSIVE_SKILL_TREE[nextId].connections.push(currentId);
+    }
   }
 };
 

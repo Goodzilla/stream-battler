@@ -46,13 +46,27 @@ interface RaidUnit {
   damageDealt?: number;
   healingDone?: number;
   damageTaken?: number;
+  // Juice
+  flashTimer?: number;
+  flashColor?: string;
+}
+
+interface VisualParticle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  color: string;
+  size: number;
+  alpha: number;
+  life: number;
 }
 
 const getBossSprite = (level: number) => {
-  if (level < 5) return 'GOBLIN';
-  if (level < 10) return 'SNAKE';
-  if (level < 15) return 'ORC';
-  if (level < 20) return 'LICH';
+  if (level <= 20) return 'GOBLIN';
+  if (level <= 40) return 'SNAKE';
+  if (level <= 60) return 'ORC';
+  if (level <= 80) return 'LICH';
   return 'DRAGON';
 };
 
@@ -69,22 +83,49 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
   const [battleState, setBattleState] = useState<'LOBBY' | 'FIGHTING' | 'VICTORY' | 'DEFEAT'>('LOBBY');
   const [rewardsList, setRewardsList] = useState<any | null>(null);
   const [recapStats, setRecapStats] = useState<any[] | null>(null);
+  const [recapTick, setRecapTick] = useState(0);
+  void recapTick;
+
 
   const stateRef = useRef<{
     units: RaidUnit[];
     projectiles: any[];
     damageTexts: any[];
+    particles: VisualParticle[];
     bossMaxHp: number;
     battleState: 'LOBBY' | 'FIGHTING' | 'VICTORY' | 'DEFEAT';
+    shakeTimer: number;
+    shakeIntensity: number;
   }>({
     units: [],
     projectiles: [],
     damageTexts: [],
+    particles: [],
     bossMaxHp: 100,
-    battleState: 'LOBBY'
+    battleState: 'LOBBY',
+    shakeTimer: 0,
+    shakeIntensity: 0
   });
 
   const streamerName = user.username;
+
+  // Trigger particles
+  const addExplosion = (x: number, y: number, color: string, count = 12) => {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const sp = 2 + Math.random() * 4;
+      stateRef.current.particles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * sp,
+        vy: Math.sin(angle) * sp,
+        color,
+        size: 1.5 + Math.random() * 2.5,
+        alpha: 1.0,
+        life: 40 + Math.random() * 30
+      });
+    }
+  };
 
   useEffect(() => {
     if (!socket) return;
@@ -136,8 +177,6 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
 
     // 1. Build Viewer Units
     const playerUnits: RaidUnit[] = viewersList.map((v: any, index: number) => {
-      // Base stats derived from class, level
-      // Warriors have high HP, Rogues fast speed, etc.
       let baseHp = 130 + v.level * 15;
       let baseAtk = 15 + v.level * 2;
       let speed = 90;
@@ -186,16 +225,16 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
       const unitAtkSpeed = v.atkSpeed !== undefined ? v.atkSpeed : (v.charClass === 'ROGUE' ? 1.4 : (v.charClass === 'RANGER' ? 1.1 : 0.8));
       const unitCdr = v.cdr !== undefined ? v.cdr : 0;
 
-      // Add simple offset row positions
-      const row = index % 3;
-      const col = Math.floor(index / 3);
+      // Add simple offset row positions for 1200x600 coordinate grid
+      const row = index % 5;
+      const col = Math.floor(index / 5);
 
       return {
         id: v.userId,
         isPlayer: true,
         name: v.displayName,
-        x: 80 - col * 40 + Math.random() * 10,
-        y: 120 + row * 80 + Math.random() * 20,
+        x: 150 - col * 50 + Math.random() * 15,
+        y: 100 + row * 85 + Math.random() * 20,
         maxHp: unitMaxHp,
         hp: unitMaxHp,
         speed,
@@ -221,17 +260,18 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
     });
 
     // 2. Build Giant Boss Unit
-    const bossHp = 300 + viewersList.length * 300 + bossLevel * 120;
+    const bossHp = Math.round(300 + viewersList.length * 500 + bossLevel * 150 + Math.pow(bossLevel, 2) * 12);
+    const bossAtk = Math.round(8 + bossLevel * 2 + Math.pow(bossLevel, 1.8) * 0.06);
     const bossUnit: RaidUnit = {
       id: 'boss',
       isPlayer: false,
       name: bossName,
-      x: 620,
-      y: 200,
+      x: 1000,
+      y: 300,
       maxHp: bossHp,
       hp: bossHp,
       speed: 40,
-      attackPower: 8 + bossLevel * 2,
+      attackPower: bossAtk,
       critChance: 0.05,
       critMult: 1.5,
       atkSpeed: 0.6,
@@ -251,8 +291,11 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
       units: [...playerUnits, bossUnit],
       projectiles: [],
       damageTexts: [],
+      particles: [],
       bossMaxHp: bossHp,
-      battleState: 'FIGHTING'
+      battleState: 'FIGHTING',
+      shakeTimer: 0,
+      shakeIntensity: 0
     };
   };
 
@@ -268,13 +311,33 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
     let animId: number;
     let emitTimer = 0;
     let lastTime = performance.now();
+    let frameCount = 0;
 
     const loop = (time: number) => {
       const dt = Math.min(0.05, (time - lastTime) / 1000);
       lastTime = time;
 
+      frameCount++;
+      if (frameCount % 15 === 0) {
+        setRecapTick(f => f + 1);
+      }
+
+      const s = stateRef.current;
+
+      // Screen shake duration tick
+      if (s.shakeTimer > 0) {
+        s.shakeTimer -= dt;
+      }
+
+      ctx.save();
+      if (s.shakeTimer > 0) {
+        const dx = (Math.random() - 0.5) * s.shakeIntensity;
+        const dy = (Math.random() - 0.5) * s.shakeIntensity;
+        ctx.translate(dx, dy);
+      }
+
       // Draw themed background based on boss level
-      if (bossLevel < 5) {
+      if (bossLevel <= 20) {
         // Grassy forest
         ctx.fillStyle = '#08170e';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -283,7 +346,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
           ctx.fillRect((i * 47) % canvas.width, (i * 31) % canvas.height, 8, 3);
           ctx.fillRect((i * 47) % canvas.width + 3, (i * 31) % canvas.height - 3, 2, 6);
         }
-      } else if (bossLevel < 10) {
+      } else if (bossLevel <= 40) {
         // Poison Caves
         ctx.fillStyle = '#0d0714';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -298,7 +361,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
           ctx.fill();
           ctx.fillStyle = '#a855f7';
         }
-      } else if (bossLevel < 15) {
+      } else if (bossLevel <= 60) {
         // Ancient Ruins
         ctx.fillStyle = '#171412';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -310,7 +373,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         for (let y = 0; y < canvas.height; y += 60) {
           ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
         }
-      } else if (bossLevel < 20) {
+      } else if (bossLevel <= 80) {
         // Crypt theme
         ctx.fillStyle = '#090a0f';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -335,8 +398,6 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         ctx.closePath();
         ctx.fill();
       }
-
-      const s = stateRef.current;
 
       const boss = s.units.find(u => !u.isPlayer);
       const livingPlayers = s.units.filter(u => u.isPlayer && u.hp > 0);
@@ -398,29 +459,33 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
       }
 
       if (s.battleState === 'FIGHTING' && boss && boss.hp > 0) {
+        // Update unit hit flash timers
+        s.units.forEach(unit => {
+          if (unit.flashTimer && unit.flashTimer > 0) {
+            unit.flashTimer -= dt;
+          }
+        });
+
         // 1. UPDATE PLAYERS
         allPlayers.forEach(p => {
-          if (p.hp <= 0) return; // Stays in array, but dead players can't act
+          if (p.hp <= 0) return;
 
           if (p.stunTimer > 0) {
             p.stunTimer -= dt;
             return;
           }
 
-          // Clerics check healths first
           let target: RaidUnit | null = null;
           if (p.isHealer) {
-            // Find lowest hp player
             let lowestHp = 9.9;
             allPlayers.forEach(other => {
-              if (other.hp <= 0) return; // Only heal living allies!
+              if (other.hp <= 0) return;
               const pct = other.hp / other.maxHp;
               if (pct < lowestHp) {
                 lowestHp = pct;
                 target = other;
               }
             });
-            // If everyone healthy, target boss
             if (lowestHp > 0.85) target = boss;
           } else {
             target = boss;
@@ -435,7 +500,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
             let steerX = 0;
             let steerY = 0;
             allPlayers.forEach(other => {
-              if (other.hp <= 0) return; // Ignore dead players for collision steer
+              if (other.hp <= 0) return;
               if (other.id !== p.id) {
                 if (getDistance(p, other) < 22) {
                   const dir = getDirection(other, p);
@@ -456,19 +521,29 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                   const finalHeal = Math.round(p.attackPower * (isCrit ? p.critMult : 1.0) * 0.8);
                   target.hp = Math.min(target.maxHp, target.hp + finalHeal);
                   p.healingDone = (p.healingDone || 0) + finalHeal;
+                  target.flashTimer = 0.1;
+                  target.flashColor = '#ffcc00';
 
-                  // visual beam
                   s.projectiles.push({ fx: p.x, fy: p.y, tx: target.x, ty: target.y, color: '#ffcc00', life: 8 });
                   s.damageTexts.push({ x: target.x, y: target.y - 12, text: `+${finalHeal}`, color: '#ffcc00', life: 40 });
+                  addExplosion(target.x, target.y, '#ffcc00', 8);
                 } else {
                   // Damage boss
                   const isCrit = Math.random() < p.critChance;
                   const finalDmg = Math.round(p.attackPower * (isCrit ? p.critMult : 1.0));
                   target.hp = Math.max(0, target.hp - finalDmg);
                   p.damageDealt = (p.damageDealt || 0) + finalDmg;
+                  target.flashTimer = 0.1;
+                  target.flashColor = '#ff3b30';
+
+                  if (isCrit) {
+                    s.shakeTimer = 0.15;
+                    s.shakeIntensity = 6;
+                  }
 
                   s.projectiles.push({ fx: p.x, fy: p.y, tx: target.x, ty: target.y, color: p.color, life: 6 });
                   s.damageTexts.push({ x: target.x + (Math.random() * 40 - 20), y: target.y - 20 - (Math.random() * 20), text: `${finalDmg}`, color: isCrit ? '#ff9500' : '#ffffff', life: 45, isCrit });
+                  addExplosion(target.x, target.y, p.color, 12);
 
                   // Apply lifesteal
                   if (p.lifesteal && p.lifesteal > 0) {
@@ -484,56 +559,79 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                 p.skillTimer = p.activeSkillCd;
 
                 if (p.classType === 'WARRIOR') {
-                  // Stun boss
                   boss.stunTimer = 1.5;
                   const dmg = Math.round(p.attackPower * 2.0);
                   boss.hp = Math.max(0, boss.hp - dmg);
                   p.damageDealt = (p.damageDealt || 0) + dmg;
+                  boss.flashTimer = 0.1;
+                  boss.flashColor = '#ffffff';
+                  s.shakeTimer = 0.25;
+                  s.shakeIntensity = 8;
                   s.damageTexts.push({ x: boss.x, y: boss.y - 40, text: `${dmg} (Stun Shield!)`, color: '#ff3b30', life: 50, isCrit: true });
+                  addExplosion(boss.x, boss.y, '#ffffff', 20);
                 } else if (p.classType === 'MAGE') {
-                  // Meteor
                   const dmg = Math.round(p.attackPower * 3.0);
                   boss.hp = Math.max(0, boss.hp - dmg);
                   p.damageDealt = (p.damageDealt || 0) + dmg;
+                  boss.flashTimer = 0.1;
+                  boss.flashColor = '#ff9500';
+                  s.shakeTimer = 0.35;
+                  s.shakeIntensity = 10;
                   s.damageTexts.push({ x: boss.x + (Math.random() * 30 - 15), y: boss.y - 30, text: `${dmg} (Fireball AoE)`, color: '#00d8ff', life: 50, isCrit: true });
+                  addExplosion(boss.x, boss.y, '#ff9500', 30);
                 } else if (p.classType === 'CLERIC') {
-                  // Heal group, hit boss
                   allPlayers.forEach(pl => {
-                    if (pl.hp <= 0) return; // Only heal living allies!
+                    if (pl.hp <= 0) return;
                     const heal = Math.round(p.attackPower * 1.5);
                     pl.hp = Math.min(pl.maxHp, pl.hp + heal);
                     p.healingDone = (p.healingDone || 0) + heal;
+                    pl.flashTimer = 0.15;
+                    pl.flashColor = '#ffcc00';
                     s.damageTexts.push({ x: pl.x, y: pl.y - 12, text: `+${heal}`, color: '#ffcc00', life: 40 });
                   });
                   const dmg = Math.round(p.attackPower * 1.0);
                   boss.hp = Math.max(0, boss.hp - dmg);
                   p.damageDealt = (p.damageDealt || 0) + dmg;
+                  boss.flashTimer = 0.1;
+                  boss.flashColor = '#ffcc00';
+                  s.shakeTimer = 0.15;
+                  s.shakeIntensity = 4;
                   s.damageTexts.push({ x: boss.x, y: boss.y - 30, text: `${dmg} (Nova)`, color: '#ffcc00', life: 40 });
+                  addExplosion(p.x, p.y, '#ffcc00', 25);
+                  addExplosion(boss.x, boss.y, '#ffcc00', 12);
                 } else if (p.classType === 'ROGUE') {
-                  // Blade dance
                   const dmg = Math.round(p.attackPower * 0.75);
                   for (let strike = 0; strike < 5; strike++) {
                     setTimeout(() => {
                       if (boss && boss.hp > 0) {
                         boss.hp = Math.max(0, boss.hp - dmg);
                         p.damageDealt = (p.damageDealt || 0) + dmg;
+                        boss.flashTimer = 0.08;
+                        boss.flashColor = '#af52de';
+                        s.shakeTimer = 0.12;
+                        s.shakeIntensity = 4;
                         s.damageTexts.push({ x: boss.x + (Math.random() * 40 - 20), y: boss.y - 20, text: `${dmg}`, color: '#af52de', life: 35 });
+                        addExplosion(boss.x, boss.y, '#af52de', 10);
                       }
                     }, strike * 100);
                   }
                 } else if (p.classType === 'RANGER') {
-                  // Arrow Rain
                   const dmg = Math.round(p.attackPower * 2.0);
                   boss.hp = Math.max(0, boss.hp - dmg);
                   p.damageDealt = (p.damageDealt || 0) + dmg;
+                  boss.flashTimer = 0.1;
+                  boss.flashColor = '#34c759';
+                  s.shakeTimer = 0.25;
+                  s.shakeIntensity = 7;
                   s.damageTexts.push({ x: boss.x, y: boss.y - 30, text: `${dmg} (Arrow Rain)`, color: '#34c759', life: 45 });
+                  addExplosion(boss.x, boss.y, '#34c759', 20);
                 }
               }
             } else {
-              // Seek target
+              // Seek target (and clamp boundaries to 1200x600 resolution)
               const nextPos = seek(p, target, p.speed, dt);
-              p.x = nextPos.x + steerX;
-              p.y = nextPos.y + steerY;
+              p.x = Math.max(25, Math.min(1175, nextPos.x + steerX));
+              p.y = Math.max(25, Math.min(575, nextPos.y + steerY));
             }
           }
         });
@@ -542,11 +640,10 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         if (boss.stunTimer > 0) {
           boss.stunTimer -= dt;
         } else {
-          // Boss seeks nearest player
           let target: RaidUnit | null = null;
           let minDist = 9999;
           allPlayers.forEach(p => {
-            if (p.hp <= 0) return; // Only target living players!
+            if (p.hp <= 0) return;
             const dist = getDistance(boss, p);
             if (dist < minDist) {
               minDist = dist;
@@ -561,60 +658,67 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
             const dist = getDistance(boss, target);
 
             if (dist <= boss.attackRange) {
-              // Swipe swipe
               if (boss.atkTimer <= 0) {
                 boss.atkTimer = 1.0 / boss.atkSpeed;
 
-                // Swipe hit target and anyone nearby
                 allPlayers.forEach(p => {
-                  if (p.hp <= 0) return; // Only hit living players!
+                  if (p.hp <= 0) return;
                   if (getDistance(boss, p) <= boss.attackRange + 20) {
                     const dmg = Math.max(1, Math.round(boss.attackPower - (p.defense || 0) * 0.1));
                     p.hp = Math.max(0, p.hp - dmg);
                     p.damageTaken = (p.damageTaken || 0) + dmg;
+                    p.flashTimer = 0.1;
+                    p.flashColor = '#ffffff';
                     s.damageTexts.push({ x: p.x, y: p.y - 12, text: `${dmg}`, color: '#ff3b30', life: 40 });
+                    addExplosion(p.x, p.y, '#ff3b30', 12);
 
-                    // Reflect
                     if (p.reflect && p.reflect > 0) {
                       const refl = Math.round(dmg * p.reflect);
                       boss.hp = Math.max(0, boss.hp - refl);
                       p.damageDealt = (p.damageDealt || 0) + refl;
+                      boss.flashTimer = 0.1;
+                      boss.flashColor = '#ff3b30';
                       s.damageTexts.push({ x: boss.x + (Math.random() * 40 - 20), y: boss.y - 20, text: `${refl} (Reflect)`, color: '#af52de', life: 40 });
                     }
                   }
                 });
               }
 
-              // Active laser attack
               if (boss.skillTimer <= 0) {
                 boss.skillTimer = boss.activeSkillCd;
 
-                // Fire broad laser arc
                 ctx.strokeStyle = '#ff9500';
                 ctx.lineWidth = 15;
                 ctx.beginPath(); ctx.moveTo(boss.x, boss.y); ctx.lineTo(50, boss.y + (Math.random() * 200 - 100)); ctx.stroke();
 
+                s.shakeTimer = 0.4;
+                s.shakeIntensity = 12;
+
                 allPlayers.forEach(p => {
-                  if (p.hp <= 0) return; // Only hit living players!
+                  if (p.hp <= 0) return;
                   const dmg = Math.max(1, Math.round(boss.attackPower * 2.2 - (p.defense || 0) * 0.1));
                   p.hp = Math.max(0, p.hp - dmg);
                   p.damageTaken = (p.damageTaken || 0) + dmg;
+                  p.flashTimer = 0.15;
+                  p.flashColor = '#ff9500';
                   s.damageTexts.push({ x: p.x, y: p.y - 16, text: `${dmg} (Laser Arc!)`, color: '#ff9500', life: 55, isCrit: true });
+                  addExplosion(p.x, p.y, '#ff9500', 15);
 
-                  // Reflect
                   if (p.reflect && p.reflect > 0) {
                     const refl = Math.round(dmg * p.reflect);
                     boss.hp = Math.max(0, boss.hp - refl);
                     p.damageDealt = (p.damageDealt || 0) + refl;
+                    boss.flashTimer = 0.1;
+                    boss.flashColor = '#ff3b30';
                     s.damageTexts.push({ x: boss.x + (Math.random() * 40 - 20), y: boss.y - 20, text: `${refl} (Reflect)`, color: '#af52de', life: 40 });
                   }
                 });
               }
             } else {
-              // Seek target
+              // Seek target (and clamp boundaries to 1200x600 resolution)
               const nextPos = seek(boss, target, boss.speed, dt);
-              boss.x = nextPos.x;
-              boss.y = nextPos.y;
+              boss.x = Math.max(25, Math.min(1175, nextPos.x));
+              boss.y = Math.max(25, Math.min(575, nextPos.y));
             }
           }
         }
@@ -622,19 +726,20 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
 
       // 3. DRAW COMBAT SCENE
       s.units.forEach(unit => {
-        if (unit.hp <= 0) return; // Only draw living units!
+        if (unit.hp <= 0) return;
 
         const isB = !unit.isPlayer;
         const r = isB ? 44 : 16;
+        const uFlash = (unit.flashTimer && unit.flashTimer > 0) ? unit.flashColor : undefined;
 
         // Render retro 2D pixel-art sprite
         if (unit.isPlayer) {
-          drawPixelSprite(ctx, unit.x, unit.y, unit.classType || 'WARRIOR', 2.4, false, unit.color);
+          drawPixelSprite(ctx, unit.x, unit.y, unit.classType || 'WARRIOR', 2.4, false, unit.color, uFlash);
         } else {
-          drawPixelSprite(ctx, unit.x, unit.y, unit.classType || 'GOBLIN', 5.5, true, unit.color);
+          drawPixelSprite(ctx, unit.x, unit.y, unit.classType || 'GOBLIN', 5.5, true, unit.color, uFlash);
         }
 
-        // Stunned indicator (circles above head)
+        // Stunned indicator
         if (unit.stunTimer > 0) {
           ctx.strokeStyle = '#007aff';
           ctx.lineWidth = 1;
@@ -643,7 +748,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
           ctx.stroke();
         }
 
-        ctx.shadowBlur = 0; // Reset
+        ctx.shadowBlur = 0;
 
         // Name
         ctx.fillStyle = '#94a3b8';
@@ -665,7 +770,26 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         ctx.fillRect(bx, by, barW * hpPct, barH);
       });
 
-      // 4. DRAW PROJECTILE LINES
+      // 4. DRAW PARTICLES
+      s.particles = s.particles.filter(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vx *= 0.95;
+        p.vy *= 0.95;
+        p.alpha -= 0.015;
+        p.life -= 1;
+
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = Math.max(0, p.alpha);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+
+        return p.life > 0 && p.alpha > 0;
+      });
+      ctx.globalAlpha = 1.0;
+
+      // 5. DRAW PROJECTILE LINES
       s.projectiles = s.projectiles.filter(p => {
         p.life -= 1;
         ctx.strokeStyle = p.color;
@@ -677,7 +801,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         return p.life > 0;
       });
 
-      // 5. DRAW DAMAGE TEXTS
+      // 6. DRAW DAMAGE TEXTS
       s.damageTexts = s.damageTexts.filter(ft => {
         ft.y -= 0.5;
         ft.life -= 1;
@@ -688,7 +812,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         return ft.life > 0;
       });
 
-      // 6. EMIT COORDINATES TO VIEWERS (SOCKET SYNC - capped at 20 FPS)
+      // 7. EMIT COORDINATES TO VIEWERS
       emitTimer += dt;
       if (emitTimer >= 0.05 && s.battleState === 'FIGHTING') {
         emitTimer = 0;
@@ -703,7 +827,10 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
             maxHp: u.maxHp,
             color: u.color,
             isPlayer: u.isPlayer,
-            classType: u.classType
+            classType: u.classType,
+            damageDealt: u.damageDealt,
+            healingDone: u.healingDone,
+            damageTaken: u.damageTaken
           })),
           projectiles: s.projectiles.map(p => ({ fx: p.fx, fy: p.fy, tx: p.tx, ty: p.ty, color: p.color })),
           damageTexts: s.damageTexts.map(dt => ({ x: dt.x, y: dt.y, text: dt.text, color: dt.color, isCrit: dt.isCrit }))
@@ -712,6 +839,8 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         socket?.emit('streamer-state-update', { streamerName, snapshot });
       }
 
+      ctx.restore();
+
       animId = requestAnimationFrame(loop);
     };
 
@@ -719,8 +848,129 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
     return () => cancelAnimationFrame(animId);
   }, [battleState]);
 
+  if (battleState === 'FIGHTING') {
+    const bossUnit = stateRef.current.units.find(u => !u.isPlayer);
+    const bossHp = bossUnit?.hp || 0;
+    const livingPlayers = stateRef.current.units.filter(u => u.isPlayer && u.hp > 0).length;
+    const totalPlayers = stateRef.current.units.filter(u => u.isPlayer).length;
+
+    return (
+      <div className="fixed inset-0 bg-[#06080d] z-40 flex flex-col overflow-hidden select-none animate-fadeIn">
+        {/* Widescreen Header */}
+        <div className="h-14 border-b border-white/5 bg-[#090e1a] px-6 flex items-center justify-between">
+          <span className="text-xs text-slate-400 font-display flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-purple-500 animate-ping" />
+            STREAMER RAID FIGHT: {bossName.toUpperCase()} (LEVEL {bossLevel})
+          </span>
+
+          <button
+            onClick={() => {
+              socket?.emit('streamer-raid-end', {
+                streamerName,
+                success: false,
+                bossName,
+                bossLevel,
+                recapStats: []
+              });
+              setBattleState('LOBBY');
+            }}
+            className="flex items-center gap-2 text-[10px] font-display font-semibold uppercase tracking-wider text-slate-400 hover:text-white transition border border-white/10 hover:border-white/20 px-3 py-1.5 rounded-lg bg-black/25"
+          >
+            <ArrowLeft size={12} />
+            Abandon Raid
+          </button>
+        </div>
+
+        {/* Split Main Body */}
+        <div className="flex-grow flex flex-row overflow-hidden">
+          {/* Left Canvas Port */}
+          <div className="flex-grow relative flex items-center justify-center p-4 bg-[#030407]">
+            <canvas
+              ref={canvasRef}
+              width="1200"
+              height="600"
+              className="w-full h-full max-w-full max-h-full object-contain block"
+            />
+          </div>
+
+          {/* Right Live Recap Sidebar */}
+          <div className="w-80 border-l border-white/5 bg-[#090e1a]/95 flex flex-col p-4 gap-4 overflow-y-auto">
+            <h4 className="m-0 text-white font-display text-xs tracking-wider uppercase border-b border-white/5 pb-2">
+              Raid Live Stats
+            </h4>
+
+            {/* Live Metrics List */}
+            <div className="flex-grow overflow-y-auto flex flex-col gap-2 pr-1">
+              {stateRef.current.units
+                .filter(u => u.isPlayer)
+                .map(p => {
+                  const dmg = p.damageDealt || 0;
+                  const heal = p.healingDone || 0;
+                  const taken = p.damageTaken || 0;
+                  return (
+                    <div
+                      key={p.id}
+                      className="bg-[#0b0f19]/80 border border-white/5 rounded-lg p-2.5 flex flex-col gap-1 text-[10px] font-mono animate-fadeIn"
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="font-bold text-white flex items-center gap-1.5 truncate max-w-[120px]">
+                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+                          {p.name}
+                        </span>
+                        {p.hp <= 0 && (
+                          <span className="text-[9px] bg-red-950/40 text-red-500 border border-red-950 px-1 rounded uppercase font-bold">
+                            DEAD
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex justify-between text-slate-400 mt-1">
+                        <span>Dmg: <strong className="text-orange-400">{dmg}</strong></span>
+                        <span>Heal: <strong className="text-emerald-400">{heal}</strong></span>
+                        <span>Tanked: <strong className="text-blue-400">{taken}</strong></span>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            <div className="flex flex-col gap-2 text-xs text-slate-400 border-t border-white/5 pt-4">
+              <div className="flex justify-between">
+                <span>Total Viewers:</span>
+                <span className="text-white font-bold">{totalPlayers}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Living Party:</span>
+                <span className="text-emerald-400 font-bold">
+                  {livingPlayers} / {totalPlayers}
+                </span>
+              </div>
+              
+              {/* Boss health bar */}
+              <div className="flex flex-col gap-1 border-t border-white/5 pt-2">
+                <div className="flex justify-between font-bold text-slate-300">
+                  <span>Boss Health:</span>
+                  <span className="text-orange-400">
+                    {bossHp} / {stateRef.current.bossMaxHp}
+                  </span>
+                </div>
+                <div className="w-full bg-black/60 rounded-full h-2 overflow-hidden border border-white/5">
+                  <div
+                    className="bg-orange-500 h-full transition-all duration-100"
+                    style={{
+                      width: `${Math.max(0, (bossHp / stateRef.current.bossMaxHp) * 100)}%`
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-6xl mx-auto py-8 px-4 flex flex-col gap-6 select-none">
+    <div className="max-w-6xl mx-auto py-8 px-4 flex flex-col gap-6 select-none animate-fadeIn">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/5 pb-4">
         <button
@@ -740,14 +990,14 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
       <div className="grid md:grid-cols-3 gap-6 items-start">
         {/* Lobby Details / Battlefield */}
         <div className="md:col-span-2 flex flex-col gap-6">
-          {battleState === 'LOBBY' ? (
+          {battleState === 'LOBBY' && (
             <div className="glass-panel p-6 border-white/5 bg-[#0b0f19]">
               <h3 className="m-0 text-white font-display text-base tracking-wider uppercase mb-2 flex items-center gap-1.5">
                 <Users size={18} className="text-purple-400" />
                 Raid Lobby: #{streamerName.toUpperCase()}
               </h3>
               <p className="text-xs text-slate-400 leading-relaxed mb-6">
-                Waiting for viewers. Tell your chat to type <span className="text-[#af52de] font-bold">!join</span> to enter the battle field! Or add mock viewers on the right console.
+                Waiting for viewers. Tell your chat to type <span className="text-[#af52de] font-bold">!join</span> to enter the battlefield! Or add mock viewers on the right console.
               </p>
 
               <div className="flex flex-col gap-2 border-y border-white/5 py-4 my-6 text-xs text-slate-400">
@@ -775,135 +1025,6 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                   Start Raid Fight
                 </button>
               </div>
-            </div>
-          ) : battleState === 'FIGHTING' ? (
-            <div className="border border-white/5 rounded-xl overflow-hidden shadow-2xl bg-[#06080d]">
-              <canvas ref={canvasRef} width="760" height="400" className="w-full block aspect-[760/400]" />
-            </div>
-          ) : (
-            // Results screen (VICTORY / DEFEAT)
-            <div className="glass-panel p-6 border-white/5 text-center flex flex-col items-center">
-              <div
-                className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 ${
-                  battleState === 'VICTORY'
-                    ? 'bg-emerald-950/20 text-emerald-400 border border-emerald-900/30'
-                    : 'bg-red-950/20 text-red-400 border border-red-900/30'
-                }`}
-              >
-                {battleState === 'VICTORY' ? <Skull size={24} /> : <ShieldAlert size={24} />}
-              </div>
-              <h3
-                className={`m-0 font-display text-2xl tracking-widest ${
-                  battleState === 'VICTORY' ? 'text-emerald-400' : 'text-red-500'
-                }`}
-              >
-                {battleState === 'VICTORY' ? 'RAID VICTORY!' : 'RAID DEFEATED'}
-              </h3>
-              <p className="text-slate-500 text-[10px] uppercase font-display tracking-widest mt-1 mb-6">
-                Raid ended successfully. Lobby rewards have been distributed.
-              </p>
-
-              {/* MVP Crown and detailed stats table */}
-              {recapStats && recapStats.length > 0 && (
-                <div className="w-full max-w-xl mb-6">
-                  {/* MVP Crown Block */}
-                  <div className="bg-gradient-to-r from-yellow-950/35 via-yellow-900/20 to-yellow-950/35 border border-yellow-500/30 rounded-xl p-5 mb-5 text-center relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-500/5 rounded-full blur-xl pointer-events-none" />
-                    <span className="text-yellow-400 text-3xl block mb-1">👑</span>
-                    <span className="text-[10px] font-pixel text-yellow-400 uppercase tracking-widest">[ Raid MVP ]</span>
-                    <h4 className="m-0 text-white font-display text-base font-extrabold uppercase mt-1">
-                      {recapStats[0].name}
-                    </h4>
-                    <p className="text-[10px] text-slate-400 mt-1 uppercase font-mono">
-                      Class: <span style={{ color: recapStats[0].color }} className="font-bold">{recapStats[0].classType}</span> | Score: <span className="text-yellow-400 font-bold">{Math.round(recapStats[0].score)}</span>
-                    </p>
-                    <div className="flex justify-center gap-6 mt-3 pt-3 border-t border-white/5 text-[11px] font-mono text-slate-300">
-                      <div>
-                        <span className="text-slate-500 block text-[9px] uppercase tracking-wider">Damage</span>
-                        <span className="text-orange-400 font-bold">{recapStats[0].damageDealt}</span>
-                      </div>
-                      <div className="border-l border-white/5 pl-6">
-                        <span className="text-slate-500 block text-[9px] uppercase tracking-wider">Healing</span>
-                        <span className="text-emerald-400 font-bold">{recapStats[0].healingDone}</span>
-                      </div>
-                      <div className="border-l border-white/5 pl-6">
-                        <span className="text-slate-500 block text-[9px] uppercase tracking-wider">Tanked</span>
-                        <span className="text-blue-400 font-bold">{recapStats[0].damageTaken}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Detailed Performance Table */}
-                  <div className="bg-[#0b0f19]/95 border border-white/10 rounded-xl p-4 flex flex-col gap-3 text-left">
-                    <span className="text-[10px] font-pixel text-neon-cyan uppercase tracking-widest">[ COMBAT STATS RECAP ]</span>
-                    
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-[11px] font-mono text-slate-300 border-collapse">
-                        <thead>
-                          <tr className="border-b border-white/10 text-slate-500 text-left">
-                            <th className="pb-2 font-normal uppercase tracking-wider">Participant</th>
-                            <th className="pb-2 font-normal uppercase tracking-wider text-right">DPS (Dealt)</th>
-                            <th className="pb-2 font-normal uppercase tracking-wider text-right">Healing</th>
-                            <th className="pb-2 font-normal uppercase tracking-wider text-right">Tanked</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {recapStats.map((p, idx) => (
-                            <tr key={idx} className="border-b border-white/5 last:border-0">
-                              <td className="py-2 text-white font-bold flex items-center gap-1.5">
-                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
-                                {p.name}
-                                {idx === 0 && <span className="text-yellow-400 text-[10px]" title="MVP">👑</span>}
-                              </td>
-                              <td className="py-2 text-right text-orange-400 font-bold">{p.damageDealt}</td>
-                              <td className="py-2 text-right text-emerald-400 font-bold">{p.healingDone}</td>
-                              <td className="py-2 text-right text-blue-400 font-bold">{p.damageTaken}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {rewardsList && Object.keys(rewardsList).length > 0 && (
-                <div className="w-full max-w-md bg-[#0b0f19] border border-white/5 rounded-xl p-4 text-xs text-slate-400 text-left flex flex-col gap-3 mb-6">
-                  <span className="block text-[9px] font-display text-slate-500 uppercase tracking-widest border-b border-white/5 pb-2">
-                    Loot Rewards Distribution list:
-                  </span>
-                  <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto pr-2">
-                    {Object.entries(rewardsList).map(([userId, rew]: [string, any]) => {
-                      const viewer = lobby?.viewers.find((v: any) => v.userId === userId);
-                      return (
-                        <div key={userId} className="flex justify-between items-center py-1 border-b border-white/5 last:border-0">
-                          <span className="font-bold text-white">{viewer?.displayName || 'Viewer'}</span>
-                          <div className="flex gap-3 text-[10px] font-mono">
-                            <span className="text-emerald-400">+{rew.xp}xp</span>
-                            <span className="text-yellow-400">+{rew.gold}g</span>
-                            {rew.itemDropped && (
-                              <span className="text-orange-400 font-bold border border-orange-500/20 px-1 rounded bg-orange-950/10">
-                                {rew.itemDropped.rarity} {rew.itemDropped.name}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              <button
-                onClick={() => {
-                  setBattleState('LOBBY');
-                  setRewardsList(null);
-                  setRecapStats(null);
-                }}
-                className="px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs font-display font-bold uppercase tracking-wider transition"
-              >
-                Reset Lobby Room
-              </button>
             </div>
           )}
 
@@ -948,6 +1069,137 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
           <TwitchConsole streamerName={streamerName} socket={socket} />
         </div>
       </div>
+
+      {/* Viewport independent Fullscreen Results Modal */}
+      {(battleState === 'VICTORY' || battleState === 'DEFEAT') && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 overflow-y-auto flex items-center justify-center p-4 md:p-8 select-none animate-fadeIn">
+          <div className="bg-[#0b0f19]/95 border border-white/10 rounded-2xl p-6 md:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto flex flex-col items-center shadow-2xl relative animate-scaleUp">
+            
+            <div
+              className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 ${
+                battleState === 'VICTORY'
+                  ? 'bg-emerald-950/20 text-emerald-400 border border-emerald-900/30'
+                  : 'bg-red-950/20 text-red-400 border border-red-900/30'
+              }`}
+            >
+              {battleState === 'VICTORY' ? <Skull size={24} /> : <ShieldAlert size={24} />}
+            </div>
+
+            <h3
+              className={`m-0 font-display text-2xl tracking-widest ${
+                battleState === 'VICTORY' ? 'text-emerald-400' : 'text-red-500'
+              }`}
+            >
+              {battleState === 'VICTORY' ? 'RAID VICTORY!' : 'RAID DEFEATED'}
+            </h3>
+            <p className="text-slate-500 text-[10px] uppercase font-display tracking-widest mt-1 mb-6">
+              Raid ended successfully. Lobby rewards have been distributed.
+            </p>
+
+            {/* MVP Crown and detailed stats table */}
+            {recapStats && recapStats.length > 0 && (
+              <div className="w-full max-w-xl mb-6">
+                {/* MVP Crown Block */}
+                <div className="bg-gradient-to-r from-yellow-950/35 via-yellow-900/20 to-yellow-950/35 border border-yellow-500/30 rounded-xl p-5 mb-5 text-center relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-500/5 rounded-full blur-xl pointer-events-none" />
+                  <span className="text-yellow-400 text-3xl block mb-1">👑</span>
+                  <span className="text-[10px] font-pixel text-yellow-400 uppercase tracking-widest">[ Raid MVP ]</span>
+                  <h4 className="m-0 text-white font-display text-base font-extrabold uppercase mt-1">
+                    {recapStats[0].name}
+                  </h4>
+                  <p className="text-[10px] text-slate-400 mt-1 uppercase font-mono">
+                    Class: <span style={{ color: recapStats[0].color }} className="font-bold">{recapStats[0].classType}</span> | Score: <span className="text-yellow-400 font-bold">{Math.round(recapStats[0].score)}</span>
+                  </p>
+                  <div className="flex justify-center gap-6 mt-3 pt-3 border-t border-white/5 text-[11px] font-mono text-slate-300">
+                    <div>
+                      <span className="text-slate-500 block text-[9px] uppercase tracking-wider">Damage</span>
+                      <span className="text-orange-400 font-bold">{recapStats[0].damageDealt}</span>
+                    </div>
+                    <div className="border-l border-white/5 pl-6">
+                      <span className="text-slate-500 block text-[9px] uppercase tracking-wider">Healing</span>
+                      <span className="text-emerald-400 font-bold">{recapStats[0].healingDone}</span>
+                    </div>
+                    <div className="border-l border-white/5 pl-6">
+                      <span className="text-slate-500 block text-[9px] uppercase tracking-wider">Tanked</span>
+                      <span className="text-blue-400 font-bold">{recapStats[0].damageTaken}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Detailed Performance Table */}
+                <div className="bg-[#05070a] border border-white/5 rounded-xl p-4 flex flex-col gap-3 text-left">
+                  <span className="text-[10px] font-pixel text-neon-cyan uppercase tracking-widest">[ COMBAT STATS RECAP ]</span>
+                  
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[11px] font-mono text-slate-300 border-collapse">
+                      <thead>
+                        <tr className="border-b border-white/10 text-slate-500 text-left">
+                          <th className="pb-2 font-normal uppercase tracking-wider">Participant</th>
+                          <th className="pb-2 font-normal uppercase tracking-wider text-right">DPS (Dealt)</th>
+                          <th className="pb-2 font-normal uppercase tracking-wider text-right">Healing</th>
+                          <th className="pb-2 font-normal uppercase tracking-wider text-right">Tanked</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recapStats.map((p, idx) => (
+                          <tr key={idx} className="border-b border-white/5 last:border-0">
+                            <td className="py-2 text-white font-bold flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+                              {p.name}
+                              {idx === 0 && <span className="text-yellow-400 text-[10px]" title="MVP">👑</span>}
+                            </td>
+                            <td className="py-2 text-right text-orange-400 font-bold">{p.damageDealt}</td>
+                            <td className="py-2 text-right text-emerald-400 font-bold">{p.healingDone}</td>
+                            <td className="py-2 text-right text-blue-400 font-bold">{p.damageTaken}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {rewardsList && Object.keys(rewardsList).length > 0 && (
+              <div className="w-full max-w-md bg-[#05070a] border border-white/5 rounded-xl p-4 text-xs text-slate-400 text-left flex flex-col gap-3 mb-6">
+                <span className="block text-[9px] font-display text-slate-500 uppercase tracking-widest border-b border-white/5 pb-2">
+                  Loot Rewards Distribution list:
+                </span>
+                <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto pr-2">
+                  {Object.entries(rewardsList).map(([userId, rew]: [string, any]) => {
+                    const viewer = lobby?.viewers.find((v: any) => v.userId === userId);
+                    return (
+                      <div key={userId} className="flex justify-between items-center py-1 border-b border-white/5 last:border-0">
+                        <span className="font-bold text-white">{viewer?.displayName || 'Viewer'}</span>
+                        <div className="flex gap-3 text-[10px] font-mono">
+                          <span className="text-emerald-400">+{rew.xp}xp</span>
+                          <span className="text-yellow-400">+{rew.gold}g</span>
+                          {rew.itemDropped && (
+                            <span className="text-orange-400 font-bold border border-orange-500/20 px-1 rounded bg-orange-950/10">
+                              {rew.itemDropped.rarity} {rew.itemDropped.name}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => {
+                setBattleState('LOBBY');
+                setRewardsList(null);
+                setRecapStats(null);
+              }}
+              className="px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs font-display font-bold uppercase tracking-wider transition mt-6 w-full"
+            >
+              Reset Lobby Room
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

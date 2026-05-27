@@ -71,7 +71,7 @@ test.describe('Stream Raiders Clone - E2E Raid Test Flow', () => {
     await viewerPage.click('button:has-text("Lobbies & Raids")');
 
     // Wait for the active lobby card to appear and click Join Raid
-    const joinBtn = viewerPage.locator('button:has-text("Join Raid")');
+    const joinBtn = viewerPage.locator('div.rounded-xl').filter({ has: viewerPage.locator('span', { hasText: 'streamer_admin' }) }).locator('button:has-text("Join Raid")');
     await expect(joinBtn).toBeVisible({ timeout: 10000 });
     await joinBtn.click();
 

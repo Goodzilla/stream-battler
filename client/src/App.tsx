@@ -162,7 +162,7 @@ export default function App() {
 
       {/* Footer */}
       <footer className="py-4 border-t border-white/5 text-center text-[10px] text-slate-600 font-display select-none">
-        © 2026 Antigravity Inc. All rights reserved.
+        @Heikob on twitch
       </footer>
     </div>
   );
