@@ -44,8 +44,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // Active Lobbies state
   const [lobbies, setLobbies] = useState<any[]>([]);
-  const [bossName, setBossName] = useState('Viper the Cyber Snake');
-  const [bossLevel, setBossLevel] = useState('10');
+  const [selectedRaidTier, setSelectedRaidTier] = useState('tier1');
+  const [bossName, setBossName] = useState('Goblin King');
+  const [bossLevel, setBossLevel] = useState('1');
 
   // Synchronize gold when user object updates
   useEffect(() => {
@@ -1021,27 +1022,43 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </p>
 
                 <div className="flex flex-wrap gap-4 items-end mb-6">
-                  <div className="flex-1 min-w-[200px]">
+                  <div className="flex-1 min-w-[220px]">
                     <label className="block text-[10px] font-display text-slate-400 uppercase tracking-wide mb-1.5">
-                      Raid Boss Name
+                      Select Raid Challenge Tier
                     </label>
-                    <input
-                      type="text"
-                      value={bossName}
-                      onChange={e => setBossName(e.target.value)}
-                      className="w-full px-3 py-2 bg-black/60 border border-white/10 rounded text-xs text-white focus:outline-none focus:border-neon-cyan"
-                    />
+                    <select
+                      value={selectedRaidTier}
+                      onChange={e => {
+                        const tierId = e.target.value;
+                        setSelectedRaidTier(tierId);
+                        const tier = [
+                          { id: 'tier1', name: 'Tier 1: Goblin Camp', bossName: 'Goblin King', level: 1 },
+                          { id: 'tier2', name: 'Tier 2: Poison Caves', bossName: 'Slither King', level: 5 },
+                          { id: 'tier3', name: 'Tier 3: Orc Stronghold', bossName: 'Orc Chieftain', level: 10 },
+                          { id: 'tier4', name: 'Tier 4: Lich Tomb', bossName: 'Neon Lich', level: 15 },
+                          { id: 'tier5', name: 'Tier 5: Dragon Valley', bossName: 'Inferno Dragon', level: 20 }
+                        ].find(t => t.id === tierId);
+                        if (tier) {
+                          setBossName(tier.bossName);
+                          setBossLevel(String(tier.level));
+                        }
+                      }}
+                      className="w-full px-3 py-2 bg-black/60 border border-white/10 rounded text-xs text-white focus:outline-none focus:border-neon-cyan font-mono"
+                    >
+                      <option value="tier1">Tier 1: Goblin Camp (Lvl 1 - Goblin King)</option>
+                      <option value="tier2">Tier 2: Poison Caves (Lvl 5 - Slither King)</option>
+                      <option value="tier3">Tier 3: Orc Stronghold (Lvl 10 - Orc Chieftain)</option>
+                      <option value="tier4">Tier 4: Lich Tomb (Lvl 15 - Neon Lich)</option>
+                      <option value="tier5">Tier 5: Dragon Valley (Lvl 20 - Inferno Dragon)</option>
+                    </select>
                   </div>
-                  <div className="w-24">
+                  <div className="w-44">
                     <label className="block text-[10px] font-display text-slate-400 uppercase tracking-wide mb-1.5">
-                      Boss Level
+                      Raid Boss Target
                     </label>
-                    <input
-                      type="number"
-                      value={bossLevel}
-                      onChange={e => setBossLevel(e.target.value)}
-                      className="w-full px-3 py-2 bg-black/60 border border-white/10 rounded text-xs text-white focus:outline-none focus:border-neon-cyan"
-                    />
+                    <div className="w-full px-3 py-2 bg-black/40 border border-white/5 rounded text-xs text-slate-300 font-bold font-mono">
+                      {bossName} (Lvl {bossLevel})
+                    </div>
                   </div>
                   <button
                     onClick={handleCreateLobby}

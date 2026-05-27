@@ -282,7 +282,7 @@ export const setupSocketHandlers = (io: Server) => {
     });
 
     // STREAMER: END RAID (VICTORY / DEFEAT) - Awards gold to User and items to User backpack
-    socket.on('streamer-raid-end', async ({ streamerName, success, bossName, bossLevel }) => {
+    socket.on('streamer-raid-end', async ({ streamerName, success, bossName, bossLevel, recapStats }) => {
       const streamerKey = streamerName.toLowerCase();
       const roomName = `lobby_${streamerKey}`;
       const lobby = activeLobbies[streamerKey];
@@ -401,7 +401,7 @@ export const setupSocketHandlers = (io: Server) => {
             }
           }
 
-          io.to(roomName).emit('raid-ended', { success, rewards });
+          io.to(roomName).emit('raid-ended', { success, rewards, recapStats });
           io.to(roomName).emit('lobby-update', lobby);
           io.emit('global-lobbies-update', Object.values(activeLobbies));
         } catch (err) {

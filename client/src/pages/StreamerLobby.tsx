@@ -4,6 +4,8 @@ import { TwitchConsole } from '../components/TwitchConsole';
 import { getDistance, getDirection, seek } from '../game/physics';
 import { ArrowLeft, Play, Users, Skull, ShieldAlert } from 'lucide-react';
 import { CLASSES } from '../game/constants';
+import confetti from 'canvas-confetti';
+import { drawPixelSprite } from '../game/sprites';
 
 interface StreamerLobbyProps {
   user: any;
@@ -40,7 +42,19 @@ interface RaidUnit {
   defense?: number;
   lifesteal?: number;
   reflect?: number;
+  // Combat stats tracking
+  damageDealt?: number;
+  healingDone?: number;
+  damageTaken?: number;
 }
+
+const getBossSprite = (level: number) => {
+  if (level < 5) return 'GOBLIN';
+  if (level < 10) return 'SNAKE';
+  if (level < 15) return 'ORC';
+  if (level < 20) return 'LICH';
+  return 'DRAGON';
+};
 
 export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
   user,
@@ -54,6 +68,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
   const [lobby, setLobby] = useState<any | null>(null);
   const [battleState, setBattleState] = useState<'LOBBY' | 'FIGHTING' | 'VICTORY' | 'DEFEAT'>('LOBBY');
   const [rewardsList, setRewardsList] = useState<any | null>(null);
+  const [recapStats, setRecapStats] = useState<any[] | null>(null);
 
   const stateRef = useRef<{
     units: RaidUnit[];
@@ -88,6 +103,10 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
     const handleRaidEnded = (results: any) => {
       setBattleState(results.success ? 'VICTORY' : 'DEFEAT');
       setRewardsList(results.rewards);
+      setRecapStats(results.recapStats || null);
+      if (results.success) {
+        confetti({ particleCount: 80, spread: 90, origin: { y: 0.6 } });
+      }
     };
 
     socket.on('lobby-update', handleLobbyUpdate);
@@ -194,7 +213,10 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         isHealer: v.charClass === 'CLERIC',
         defense: v.defense || 0,
         lifesteal: v.lifesteal || 0,
-        reflect: v.reflect || 0
+        reflect: v.reflect || 0,
+        damageDealt: 0,
+        healingDone: 0,
+        damageTaken: 0
       };
     });
 
@@ -218,7 +240,11 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
       atkTimer: 2.0,
       skillTimer: 5.0, // boss laser cooldown
       activeSkillCd: 6.0,
-      stunTimer: 0
+      stunTimer: 0,
+      classType: getBossSprite(bossLevel),
+      damageDealt: 0,
+      healingDone: 0,
+      damageTaken: 0
     };
 
     stateRef.current = {
@@ -247,36 +273,135 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
       const dt = Math.min(0.05, (time - lastTime) / 1000);
       lastTime = time;
 
-      ctx.fillStyle = '#06080d';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Grid
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.015)';
-      ctx.lineWidth = 1;
-      for (let x = 0; x < canvas.width; x += 40) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-      }
-      for (let y = 0; y < canvas.height; y += 40) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+      // Draw themed background based on boss level
+      if (bossLevel < 5) {
+        // Grassy forest
+        ctx.fillStyle = '#08170e';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#0f2919';
+        for (let i = 0; i < 25; i++) {
+          ctx.fillRect((i * 47) % canvas.width, (i * 31) % canvas.height, 8, 3);
+          ctx.fillRect((i * 47) % canvas.width + 3, (i * 31) % canvas.height - 3, 2, 6);
+        }
+      } else if (bossLevel < 10) {
+        // Poison Caves
+        ctx.fillStyle = '#0d0714';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#a855f7';
+        for (let i = 0; i < 15; i++) {
+          const px = (i * 73) % canvas.width;
+          const py = (i * 29) % canvas.height;
+          ctx.fillRect(px, py, 3, 3);
+          ctx.fillStyle = 'rgba(168, 85, 247, 0.12)';
+          ctx.beginPath();
+          ctx.arc(px + 1.5, py + 1.5, 8, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#a855f7';
+        }
+      } else if (bossLevel < 15) {
+        // Ancient Ruins
+        ctx.fillStyle = '#171412';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#24201e';
+        ctx.lineWidth = 1.5;
+        for (let x = 0; x < canvas.width; x += 60) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+        }
+        for (let y = 0; y < canvas.height; y += 60) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+        }
+      } else if (bossLevel < 20) {
+        // Crypt theme
+        ctx.fillStyle = '#090a0f';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'rgba(14, 165, 233, 0.05)';
+        for (let i = 0; i < 5; i++) {
+          const px = 100 + i * 140;
+          ctx.fillRect(px, 0, 40, canvas.height);
+          ctx.fillStyle = 'rgba(14, 165, 233, 0.15)';
+          ctx.fillRect(px + 10, 0, 20, canvas.height);
+          ctx.fillStyle = 'rgba(14, 165, 233, 0.05)';
+        }
+      } else {
+        // Volcano Lava River
+        ctx.fillStyle = '#0a0807';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#d97706';
+        ctx.beginPath();
+        ctx.moveTo(0, canvas.height - 60);
+        ctx.bezierCurveTo(canvas.width / 3, canvas.height - 100, (canvas.width * 2) / 3, canvas.height - 30, canvas.width, canvas.height - 70);
+        ctx.lineTo(canvas.width, canvas.height);
+        ctx.lineTo(0, canvas.height);
+        ctx.closePath();
+        ctx.fill();
       }
 
       const s = stateRef.current;
 
       const boss = s.units.find(u => !u.isPlayer);
-      const players = s.units.filter(u => u.isPlayer);
+      const livingPlayers = s.units.filter(u => u.isPlayer && u.hp > 0);
+      const allPlayers = s.units.filter(u => u.isPlayer);
 
       // Fight checks
-      if (players.length === 0 && s.battleState === 'FIGHTING') {
+      if (livingPlayers.length === 0 && s.battleState === 'FIGHTING') {
         s.battleState = 'DEFEAT';
-        socket?.emit('streamer-raid-end', { streamerName, success: false, bossName, bossLevel });
-      } else if (!boss && s.battleState === 'FIGHTING') {
+        const recapStats = allPlayers.map(p => {
+          const damageDealt = p.damageDealt || 0;
+          const healingDone = p.healingDone || 0;
+          const damageTaken = p.damageTaken || 0;
+          const score = damageDealt + healingDone * 1.5 + damageTaken * 0.8;
+          return {
+            userId: p.id,
+            name: p.name,
+            classType: p.classType || 'WARRIOR',
+            damageDealt,
+            healingDone,
+            damageTaken,
+            color: p.color,
+            score
+          };
+        }).sort((a, b) => b.score - a.score);
+
+        socket?.emit('streamer-raid-end', {
+          streamerName,
+          success: false,
+          bossName,
+          bossLevel,
+          recapStats
+        });
+      } else if (boss && boss.hp <= 0 && s.battleState === 'FIGHTING') {
         s.battleState = 'VICTORY';
-        socket?.emit('streamer-raid-end', { streamerName, success: true, bossName, bossLevel });
+        const recapStats = allPlayers.map(p => {
+          const damageDealt = p.damageDealt || 0;
+          const healingDone = p.healingDone || 0;
+          const damageTaken = p.damageTaken || 0;
+          const score = damageDealt + healingDone * 1.5 + damageTaken * 0.8;
+          return {
+            userId: p.id,
+            name: p.name,
+            classType: p.classType || 'WARRIOR',
+            damageDealt,
+            healingDone,
+            damageTaken,
+            color: p.color,
+            score
+          };
+        }).sort((a, b) => b.score - a.score);
+
+        socket?.emit('streamer-raid-end', {
+          streamerName,
+          success: true,
+          bossName,
+          bossLevel,
+          recapStats
+        });
       }
 
-      if (s.battleState === 'FIGHTING' && boss) {
+      if (s.battleState === 'FIGHTING' && boss && boss.hp > 0) {
         // 1. UPDATE PLAYERS
-        players.forEach(p => {
+        allPlayers.forEach(p => {
+          if (p.hp <= 0) return; // Stays in array, but dead players can't act
+
           if (p.stunTimer > 0) {
             p.stunTimer -= dt;
             return;
@@ -287,7 +412,8 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
           if (p.isHealer) {
             // Find lowest hp player
             let lowestHp = 9.9;
-            players.forEach(other => {
+            allPlayers.forEach(other => {
+              if (other.hp <= 0) return; // Only heal living allies!
               const pct = other.hp / other.maxHp;
               if (pct < lowestHp) {
                 lowestHp = pct;
@@ -308,7 +434,8 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
             // Separation
             let steerX = 0;
             let steerY = 0;
-            players.forEach(other => {
+            allPlayers.forEach(other => {
+              if (other.hp <= 0) return; // Ignore dead players for collision steer
               if (other.id !== p.id) {
                 if (getDistance(p, other) < 22) {
                   const dir = getDirection(other, p);
@@ -328,6 +455,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                   const isCrit = Math.random() < p.critChance;
                   const finalHeal = Math.round(p.attackPower * (isCrit ? p.critMult : 1.0) * 0.8);
                   target.hp = Math.min(target.maxHp, target.hp + finalHeal);
+                  p.healingDone = (p.healingDone || 0) + finalHeal;
 
                   // visual beam
                   s.projectiles.push({ fx: p.x, fy: p.y, tx: target.x, ty: target.y, color: '#ffcc00', life: 8 });
@@ -337,13 +465,16 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                   const isCrit = Math.random() < p.critChance;
                   const finalDmg = Math.round(p.attackPower * (isCrit ? p.critMult : 1.0));
                   target.hp = Math.max(0, target.hp - finalDmg);
+                  p.damageDealt = (p.damageDealt || 0) + finalDmg;
 
                   s.projectiles.push({ fx: p.x, fy: p.y, tx: target.x, ty: target.y, color: p.color, life: 6 });
                   s.damageTexts.push({ x: target.x + (Math.random() * 40 - 20), y: target.y - 20 - (Math.random() * 20), text: `${finalDmg}`, color: isCrit ? '#ff9500' : '#ffffff', life: 45, isCrit });
 
                   // Apply lifesteal
                   if (p.lifesteal && p.lifesteal > 0) {
-                    p.hp = Math.min(p.maxHp, p.hp + Math.round(finalDmg * p.lifesteal));
+                    const heal = Math.round(finalDmg * p.lifesteal);
+                    p.hp = Math.min(p.maxHp, p.hp + heal);
+                    p.healingDone = (p.healingDone || 0) + heal;
                   }
                 }
               }
@@ -355,23 +486,28 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                 if (p.classType === 'WARRIOR') {
                   // Stun boss
                   boss.stunTimer = 1.5;
-                  const dmg = p.attackPower * 2.0;
+                  const dmg = Math.round(p.attackPower * 2.0);
                   boss.hp = Math.max(0, boss.hp - dmg);
+                  p.damageDealt = (p.damageDealt || 0) + dmg;
                   s.damageTexts.push({ x: boss.x, y: boss.y - 40, text: `${dmg} (Stun Shield!)`, color: '#ff3b30', life: 50, isCrit: true });
                 } else if (p.classType === 'MAGE') {
                   // Meteor
                   const dmg = Math.round(p.attackPower * 3.0);
                   boss.hp = Math.max(0, boss.hp - dmg);
+                  p.damageDealt = (p.damageDealt || 0) + dmg;
                   s.damageTexts.push({ x: boss.x + (Math.random() * 30 - 15), y: boss.y - 30, text: `${dmg} (Fireball AoE)`, color: '#00d8ff', life: 50, isCrit: true });
                 } else if (p.classType === 'CLERIC') {
                   // Heal group, hit boss
-                  players.forEach(pl => {
+                  allPlayers.forEach(pl => {
+                    if (pl.hp <= 0) return; // Only heal living allies!
                     const heal = Math.round(p.attackPower * 1.5);
                     pl.hp = Math.min(pl.maxHp, pl.hp + heal);
+                    p.healingDone = (p.healingDone || 0) + heal;
                     s.damageTexts.push({ x: pl.x, y: pl.y - 12, text: `+${heal}`, color: '#ffcc00', life: 40 });
                   });
                   const dmg = Math.round(p.attackPower * 1.0);
                   boss.hp = Math.max(0, boss.hp - dmg);
+                  p.damageDealt = (p.damageDealt || 0) + dmg;
                   s.damageTexts.push({ x: boss.x, y: boss.y - 30, text: `${dmg} (Nova)`, color: '#ffcc00', life: 40 });
                 } else if (p.classType === 'ROGUE') {
                   // Blade dance
@@ -380,6 +516,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                     setTimeout(() => {
                       if (boss && boss.hp > 0) {
                         boss.hp = Math.max(0, boss.hp - dmg);
+                        p.damageDealt = (p.damageDealt || 0) + dmg;
                         s.damageTexts.push({ x: boss.x + (Math.random() * 40 - 20), y: boss.y - 20, text: `${dmg}`, color: '#af52de', life: 35 });
                       }
                     }, strike * 100);
@@ -388,6 +525,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                   // Arrow Rain
                   const dmg = Math.round(p.attackPower * 2.0);
                   boss.hp = Math.max(0, boss.hp - dmg);
+                  p.damageDealt = (p.damageDealt || 0) + dmg;
                   s.damageTexts.push({ x: boss.x, y: boss.y - 30, text: `${dmg} (Arrow Rain)`, color: '#34c759', life: 45 });
                 }
               }
@@ -407,7 +545,8 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
           // Boss seeks nearest player
           let target: RaidUnit | null = null;
           let minDist = 9999;
-          players.forEach(p => {
+          allPlayers.forEach(p => {
+            if (p.hp <= 0) return; // Only target living players!
             const dist = getDistance(boss, p);
             if (dist < minDist) {
               minDist = dist;
@@ -427,16 +566,19 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                 boss.atkTimer = 1.0 / boss.atkSpeed;
 
                 // Swipe hit target and anyone nearby
-                players.forEach(p => {
+                allPlayers.forEach(p => {
+                  if (p.hp <= 0) return; // Only hit living players!
                   if (getDistance(boss, p) <= boss.attackRange + 20) {
                     const dmg = Math.max(1, Math.round(boss.attackPower - (p.defense || 0) * 0.1));
                     p.hp = Math.max(0, p.hp - dmg);
+                    p.damageTaken = (p.damageTaken || 0) + dmg;
                     s.damageTexts.push({ x: p.x, y: p.y - 12, text: `${dmg}`, color: '#ff3b30', life: 40 });
 
                     // Reflect
                     if (p.reflect && p.reflect > 0) {
                       const refl = Math.round(dmg * p.reflect);
                       boss.hp = Math.max(0, boss.hp - refl);
+                      p.damageDealt = (p.damageDealt || 0) + refl;
                       s.damageTexts.push({ x: boss.x + (Math.random() * 40 - 20), y: boss.y - 20, text: `${refl} (Reflect)`, color: '#af52de', life: 40 });
                     }
                   }
@@ -452,15 +594,18 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                 ctx.lineWidth = 15;
                 ctx.beginPath(); ctx.moveTo(boss.x, boss.y); ctx.lineTo(50, boss.y + (Math.random() * 200 - 100)); ctx.stroke();
 
-                players.forEach(p => {
+                allPlayers.forEach(p => {
+                  if (p.hp <= 0) return; // Only hit living players!
                   const dmg = Math.max(1, Math.round(boss.attackPower * 2.2 - (p.defense || 0) * 0.1));
                   p.hp = Math.max(0, p.hp - dmg);
+                  p.damageTaken = (p.damageTaken || 0) + dmg;
                   s.damageTexts.push({ x: p.x, y: p.y - 16, text: `${dmg} (Laser Arc!)`, color: '#ff9500', life: 55, isCrit: true });
 
                   // Reflect
                   if (p.reflect && p.reflect > 0) {
                     const refl = Math.round(dmg * p.reflect);
                     boss.hp = Math.max(0, boss.hp - refl);
+                    p.damageDealt = (p.damageDealt || 0) + refl;
                     s.damageTexts.push({ x: boss.x + (Math.random() * 40 - 20), y: boss.y - 20, text: `${refl} (Reflect)`, color: '#af52de', life: 40 });
                   }
                 });
@@ -473,38 +618,30 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
             }
           }
         }
-
-        // Dead cleanups
-        s.units = s.units.filter(u => u.hp > 0);
       }
 
       // 3. DRAW COMBAT SCENE
       s.units.forEach(unit => {
+        if (unit.hp <= 0) return; // Only draw living units!
+
         const isB = !unit.isPlayer;
-        const r = isB ? 30 : 12;
+        const r = isB ? 44 : 16;
 
-        ctx.fillStyle = 'rgba(10, 15, 25, 0.9)';
-        ctx.strokeStyle = unit.color;
-        ctx.lineWidth = isB ? 4 : 2;
-        ctx.shadowColor = unit.color;
-        ctx.shadowBlur = isB ? 20 : 10;
-
-        ctx.beginPath();
-        if (isB) {
-          // Giant boss octagon
-          for (let i = 0; i < 8; i++) {
-            const angle = (i * Math.PI) / 4;
-            const px = unit.x + r * Math.cos(angle);
-            const py = unit.y + r * Math.sin(angle);
-            if (i === 0) ctx.moveTo(px, py);
-            else ctx.lineTo(px, py);
-          }
-          ctx.closePath();
+        // Render retro 2D pixel-art sprite
+        if (unit.isPlayer) {
+          drawPixelSprite(ctx, unit.x, unit.y, unit.classType || 'WARRIOR', 2.4, false, unit.color);
         } else {
-          ctx.arc(unit.x, unit.y, r, 0, Math.PI * 2);
+          drawPixelSprite(ctx, unit.x, unit.y, unit.classType || 'GOBLIN', 5.5, true, unit.color);
         }
-        ctx.fill();
-        ctx.stroke();
+
+        // Stunned indicator (circles above head)
+        if (unit.stunTimer > 0) {
+          ctx.strokeStyle = '#007aff';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(unit.x, unit.y - r - 22, 3, 0, Math.PI * 2);
+          ctx.stroke();
+        }
 
         ctx.shadowBlur = 0; // Reset
 
@@ -666,8 +803,72 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                 Raid ended successfully. Lobby rewards have been distributed.
               </p>
 
+              {/* MVP Crown and detailed stats table */}
+              {recapStats && recapStats.length > 0 && (
+                <div className="w-full max-w-xl mb-6">
+                  {/* MVP Crown Block */}
+                  <div className="bg-gradient-to-r from-yellow-950/35 via-yellow-900/20 to-yellow-950/35 border border-yellow-500/30 rounded-xl p-5 mb-5 text-center relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-500/5 rounded-full blur-xl pointer-events-none" />
+                    <span className="text-yellow-400 text-3xl block mb-1">👑</span>
+                    <span className="text-[10px] font-pixel text-yellow-400 uppercase tracking-widest">[ Raid MVP ]</span>
+                    <h4 className="m-0 text-white font-display text-base font-extrabold uppercase mt-1">
+                      {recapStats[0].name}
+                    </h4>
+                    <p className="text-[10px] text-slate-400 mt-1 uppercase font-mono">
+                      Class: <span style={{ color: recapStats[0].color }} className="font-bold">{recapStats[0].classType}</span> | Score: <span className="text-yellow-400 font-bold">{Math.round(recapStats[0].score)}</span>
+                    </p>
+                    <div className="flex justify-center gap-6 mt-3 pt-3 border-t border-white/5 text-[11px] font-mono text-slate-300">
+                      <div>
+                        <span className="text-slate-500 block text-[9px] uppercase tracking-wider">Damage</span>
+                        <span className="text-orange-400 font-bold">{recapStats[0].damageDealt}</span>
+                      </div>
+                      <div className="border-l border-white/5 pl-6">
+                        <span className="text-slate-500 block text-[9px] uppercase tracking-wider">Healing</span>
+                        <span className="text-emerald-400 font-bold">{recapStats[0].healingDone}</span>
+                      </div>
+                      <div className="border-l border-white/5 pl-6">
+                        <span className="text-slate-500 block text-[9px] uppercase tracking-wider">Tanked</span>
+                        <span className="text-blue-400 font-bold">{recapStats[0].damageTaken}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Detailed Performance Table */}
+                  <div className="bg-[#0b0f19]/95 border border-white/10 rounded-xl p-4 flex flex-col gap-3 text-left">
+                    <span className="text-[10px] font-pixel text-neon-cyan uppercase tracking-widest">[ COMBAT STATS RECAP ]</span>
+                    
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[11px] font-mono text-slate-300 border-collapse">
+                        <thead>
+                          <tr className="border-b border-white/10 text-slate-500 text-left">
+                            <th className="pb-2 font-normal uppercase tracking-wider">Participant</th>
+                            <th className="pb-2 font-normal uppercase tracking-wider text-right">DPS (Dealt)</th>
+                            <th className="pb-2 font-normal uppercase tracking-wider text-right">Healing</th>
+                            <th className="pb-2 font-normal uppercase tracking-wider text-right">Tanked</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {recapStats.map((p, idx) => (
+                            <tr key={idx} className="border-b border-white/5 last:border-0">
+                              <td className="py-2 text-white font-bold flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+                                {p.name}
+                                {idx === 0 && <span className="text-yellow-400 text-[10px]" title="MVP">👑</span>}
+                              </td>
+                              <td className="py-2 text-right text-orange-400 font-bold">{p.damageDealt}</td>
+                              <td className="py-2 text-right text-emerald-400 font-bold">{p.healingDone}</td>
+                              <td className="py-2 text-right text-blue-400 font-bold">{p.damageTaken}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {rewardsList && Object.keys(rewardsList).length > 0 && (
-                <div className="w-full max-w-md bg-[#0b0f19] border border-white/5 rounded-xl p-4 text-xs text-slate-400 text-left flex flex-col gap-3">
+                <div className="w-full max-w-md bg-[#0b0f19] border border-white/5 rounded-xl p-4 text-xs text-slate-400 text-left flex flex-col gap-3 mb-6">
                   <span className="block text-[9px] font-display text-slate-500 uppercase tracking-widest border-b border-white/5 pb-2">
                     Loot Rewards Distribution list:
                   </span>
@@ -697,8 +898,9 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                 onClick={() => {
                   setBattleState('LOBBY');
                   setRewardsList(null);
+                  setRecapStats(null);
                 }}
-                className="mt-6 px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs font-display font-bold uppercase tracking-wider transition"
+                className="px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs font-display font-bold uppercase tracking-wider transition"
               >
                 Reset Lobby Room
               </button>

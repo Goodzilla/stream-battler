@@ -34,8 +34,8 @@ test.describe('Stream Raiders Clone - E2E Raid Test Flow', () => {
     // Navigate to Lobbies & Raids Tab
     await streamerPage.click('button:has-text("Lobbies & Raids")');
 
-    // Type boss name and open lobby
-    await streamerPage.fill('input[value="Viper the Cyber Snake"]', 'E2E Cyber Overlord');
+    // Select raid challenge tier and open lobby
+    await streamerPage.selectOption('select', 'tier2');
     await streamerPage.click('button:has-text("Open Lobby")');
 
     // Confirm lobby created on host screen
