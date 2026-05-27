@@ -6,10 +6,41 @@ export const authRouter = Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-super-secret-key-12345!';
 
+export const resolveActiveClass = (user: any): string | null => {
+  if (!user || !user.characters || user.characters.length === 0) return null;
+  
+  if (user.activeClass) {
+    const hasChar = user.characters.some((c: any) => c.class === user.activeClass);
+    if (hasChar) {
+      return user.activeClass;
+    }
+  }
+
+  let maxLevel = -1;
+  let candidates: any[] = [];
+  for (const c of user.characters) {
+    if (c.level > maxLevel) {
+      maxLevel = c.level;
+      candidates = [c];
+    } else if (c.level === maxLevel) {
+      candidates.push(c);
+    }
+  }
+
+  if (candidates.length === 0) return null;
+  if (candidates.length === 1) return candidates[0].class;
+
+  const randomIdx = Math.floor(Math.random() * candidates.length);
+  return candidates[randomIdx].class;
+};
+
 // Helper to format the character with its user record and active items
 export const getActiveCharacter = (user: any) => {
   if (!user) return null;
-  const activeChar = user.characters.find((c: any) => c.class === user.activeClass);
+  const activeClass = resolveActiveClass(user);
+  if (!activeClass) return null;
+
+  const activeChar = user.characters.find((c: any) => c.class === activeClass);
   if (!activeChar) return null;
 
   return {
@@ -21,9 +52,10 @@ export const getActiveCharacter = (user: any) => {
       displayName: user.displayName,
       isAdmin: user.isAdmin,
       gold: user.gold,
-      activeClass: user.activeClass,
+      activeClass: activeClass,
       shopStock: user.shopStock,
-      createdAt: user.createdAt
+      createdAt: user.createdAt,
+      characters: user.characters
     },
     items: user.items.filter((item: any) => {
       // Return unequipped items OR items equipped specifically by this character

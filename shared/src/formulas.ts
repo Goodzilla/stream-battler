@@ -73,6 +73,15 @@ export const calculateCharacterStats = (
     if (node.stats.defense) defense += node.stats.defense;
     if (node.stats.critChance) critChance += node.stats.critChance;
     if (node.stats.atkSpeedPct) atkSpeedPct += node.stats.atkSpeedPct;
+    if (node.stats.moveSpeedPct) moveSpeedPct += node.stats.moveSpeedPct;
+    if (node.stats.lifesteal) lifesteal += node.stats.lifesteal;
+    if (node.stats.reflect) reflect += node.stats.reflect;
+    if (node.stats.cdr) cdr += node.stats.cdr;
+    if (node.stats.fireRes) fireRes += node.stats.fireRes;
+    if (node.stats.coldRes) coldRes += node.stats.coldRes;
+    if (node.stats.poisonRes) poisonRes += node.stats.poisonRes;
+    if (node.stats.physRes) physRes += node.stats.physRes;
+    if (node.stats.critMult) critMult += node.stats.critMult;
   }
 
   // 3. Add Gear Stats
@@ -159,12 +168,10 @@ export const calculateCharacterStats = (
     maxHp *= 0.7;
   }
   if (passivesList.includes('r10_5')) { // Resolute Technique
-    attackPower *= 1.3;
-    critChance = 0;
+    attackPower *= 1.4;
   }
   if (passivesList.includes('r10_10')) { // Elemental Overload
-    attackPower *= 1.2;
-    critMult = 1.0;
+    attackPower *= 1.35;
   }
   if (passivesList.includes('r10_16')) { // Iron Fortress
     reflect += 0.30;
@@ -172,47 +179,197 @@ export const calculateCharacterStats = (
   }
   if (passivesList.includes('r10_21')) { // Unwavering Stance
     defMult += 0.50;
-    moveSpeedPct -= 0.10;
+    moveSpeedPct -= 0.15;
   }
   if (passivesList.includes('r10_26')) { // Juggernaut Bulwark
-    defense *= 2;
-    critChance = 0;
+    reflect += 0.35;
+    hpMult += 0.25;
+    defMult -= 0.40;
   }
   if (passivesList.includes('r10_32')) { // Vampiric Zeal
-    lifesteal += 0.15;
-    critChance = 0;
+    lifesteal += 0.25;
+    hpMult -= 0.30;
   }
   if (passivesList.includes('r10_37')) { // Ghost Reaver
-    lifesteal *= 2;
-    maxHp *= 0.75;
+    hpMult += 0.45;
+    reflect += 0.20;
   }
   if (passivesList.includes('r10_42')) { // Blood Magic
     hpMult += 0.25;
-    cdr = 0;
   }
   if (passivesList.includes('r10_48')) { // Alchemist Aura
     cdr *= 2;
     attackPower *= 0.8;
   }
   if (passivesList.includes('r10_53')) { // Conduit
-    cdr += 0.30;
-    attackPower *= 0.85;
+    cdr += 0.35;
+    defMult -= 0.35;
   }
   if (passivesList.includes('r10_58')) { // Swift Reflexes
-    atkSpeedPct += 0.20;
-    defense *= 0.7;
+    atkSpeedPct += 0.30;
   }
   if (passivesList.includes('r10_64')) { // Eagle Eye
     critChance += 0.15;
     maxHp *= 0.8;
   }
   if (passivesList.includes('r10_69')) { // Assassin Pact
-    critMult += 0.40;
-    defense *= 0.75;
+    critMult += 0.60;
+    defMult -= 0.30;
   }
   if (passivesList.includes('r10_74')) { // Perfect Agility
-    critChance += 0.20;
+    critChance += 0.25;
+  }
+
+  // Ring 14 Celestial Keystones
+  // Might (s = 0)
+  if (passivesList.includes('r14_0_key1')) { // Titan's Grip
+    atkMult += 0.50;
+  }
+  if (passivesList.includes('r14_0_key2')) { // Bloodthirst
+    critChance += 0.25;
+    atkMult -= 0.30;
+  }
+  // Bulwark (s = 1)
+  if (passivesList.includes('r14_1_key1')) { // Indomitable Bastion
+    defMult += 0.40;
+  }
+  if (passivesList.includes('r14_1_key2')) { // Retribution Shield
+    reflect += 0.30;
+    defMult -= 0.30;
+  }
+  // Vigor (s = 2)
+  if (passivesList.includes('r14_2_key1')) { // Soul Feast
+    lifesteal += 0.20;
+    hpMult -= 0.25;
+  }
+  if (passivesList.includes('r14_2_key2')) { // Colossus
+    hpMult += 0.40;
+  }
+  // Celerity (s = 3)
+  if (passivesList.includes('r14_3_key1')) { // Flicker Step
+    cdr += 0.35;
+    atkSpeedPct -= 0.20;
+  }
+  if (passivesList.includes('r14_3_key2')) { // Zephyr Wind
+    atkSpeedPct += 0.30;
+  }
+  // Precision (s = 4)
+  if (passivesList.includes('r14_4_key1')) { // Assassin's Mark
+    critMult += 0.60;
+  }
+  if (passivesList.includes('r14_4_key2')) { // Eagle Eye Focus
+    critChance += 0.25;
+  }
+
+  // Ring 18 Void Keystones
+  // Might (s = 0)
+  if (passivesList.includes('r18_0_key1')) { // Divine Fervor
+    atkSpeedPct += 0.40;
+  }
+  if (passivesList.includes('r18_0_key2')) { // Desperate Strike
+    critMult += 0.75;
+    atkSpeedPct -= 0.30;
+  }
+  // Bulwark (s = 1)
+  if (passivesList.includes('r18_1_key1')) { // Iron Aegis
+    physRes += 0.30;
+  }
+  if (passivesList.includes('r18_1_key2')) { // Magma Ward
+    fireRes += 0.20;
+    coldRes += 0.20;
+    poisonRes += 0.20;
+  }
+  // Vigor (s = 2)
+  if (passivesList.includes('r18_2_key1')) { // Adrenaline Rush
+    atkSpeedPct += 0.30;
+  }
+  if (passivesList.includes('r18_2_key2')) { // Undying Will
+    cdr += 0.30;
+    atkSpeedPct -= 0.25;
+  }
+  // Celerity (s = 3)
+  if (passivesList.includes('r18_3_key1')) { // Hypercharge
+    cdr += 0.50;
+    atkMult -= 0.40;
+  }
+  if (passivesList.includes('r18_3_key2')) { // Overdrive
+    atkSpeedPct += 0.40;
+  }
+  // Precision (s = 4)
+  if (passivesList.includes('r18_4_key1')) { // Lethal Precision
+    critChance = 1.0;
+  }
+  if (passivesList.includes('r18_4_key2')) { // Slayer's Focus
+    critMult += 0.80;
+  }
+
+  // Enforce keystone-specific overrides / limits
+  if (passivesList.includes('r10_5')) { // Resolute Technique: 0% Crit Chance
+    critChance = 0;
+  }
+  if (passivesList.includes('r10_10')) { // Elemental Overload: 0% CDR
     cdr = 0;
+  }
+  if (passivesList.includes('r10_21')) { // Unwavering Stance: 0% Reflect
+    reflect = 0;
+  }
+  if (passivesList.includes('r10_37')) { // Ghost Reaver: 0% Lifesteal
+    lifesteal = 0;
+  }
+  if (passivesList.includes('r10_42')) { // Blood Magic: 0% CDR
+    cdr = 0;
+  }
+  if (passivesList.includes('r10_58')) { // Swift Reflexes: 0% CDR
+    cdr = 0;
+  }
+  if (passivesList.includes('r10_74')) { // Perfect Agility: Crit Multiplier locked to 1.2
+    critMult = 1.2;
+  }
+
+  // Ring 14 Celestial Overrides
+  if (passivesList.includes('r14_0_key1')) { // Titan's Grip: 0% Crit Chance
+    critChance = 0;
+  }
+  if (passivesList.includes('r14_1_key1')) { // Indomitable Bastion: 0% Reflect
+    reflect = 0;
+  }
+  if (passivesList.includes('r14_2_key2')) { // Colossus: 0% Lifesteal
+    lifesteal = 0;
+  }
+  if (passivesList.includes('r14_3_key2')) { // Zephyr Wind: 0% CDR
+    cdr = 0;
+  }
+  if (passivesList.includes('r14_4_key1')) { // Assassin's Mark: Crit Chance locked to 10%
+    critChance = 0.10;
+  }
+  if (passivesList.includes('r14_4_key2')) { // Eagle Eye Focus: Crit Mult locked to 1.2
+    critMult = 1.2;
+  }
+
+  // Ring 18 Void Overrides
+  if (passivesList.includes('r18_0_key1')) { // Divine Fervor: 0% CDR
+    cdr = 0;
+  }
+  if (passivesList.includes('r18_1_key1')) { // Iron Aegis: 0% Elemental Resistances
+    fireRes = 0;
+    coldRes = 0;
+    poisonRes = 0;
+  }
+  if (passivesList.includes('r18_1_key2')) { // Magma Ward: 0% Physical Resistance
+    physRes = 0;
+  }
+  if (passivesList.includes('r18_2_key1')) { // Adrenaline Rush: 0% CDR
+    cdr = 0;
+  }
+  if (passivesList.includes('r18_3_key2')) { // Overdrive: 0% CDR
+    cdr = 0;
+  }
+  if (passivesList.includes('r18_4_key1')) { // Lethal Precision: 100% Crit Chance, 1.1x Crit Mult
+    critChance = 1.0;
+    critMult = 1.1;
+  }
+  if (passivesList.includes('r18_4_key2')) { // Slayer's Focus: Crit Chance locked to 10%
+    critChance = 0.10;
   }
 
   // Apply final multipliers
@@ -249,7 +406,12 @@ const ITEM_NAMES = {
     MAGE: ['Spellstaff', 'Rune Wand', 'Crystalline Staff', 'Codex', 'Grimoire'],
     CLERIC: ['Mace of Light', 'Scepter', 'Holy Flail', 'Crook', 'Wand of Grace'],
     ROGUE: ['Dagger', 'Stiletto', 'Dirk', 'Katar', 'Scimitar'],
-    RANGER: ['Longbow', 'Shortbow', 'Recurve Bow', 'Crossbow', 'Flatbow']
+    RANGER: ['Longbow', 'Shortbow', 'Recurve Bow', 'Crossbow', 'Flatbow'],
+    VALKYRIE: ['Sunpear', 'Glow Halberd', 'Holy Lance', 'Partisan', 'Pike of Light'],
+    NECROMANCER: ['Soul Scythe', 'Grim Wand', 'Shadow Staff', 'Blight Grimoire', 'Reaper Scythe'],
+    MONK: ['Fist Wraps', 'Brass Knuckles', 'Iron Claws', 'Tiger Claws', 'Dragon Cestus'],
+    ALCHEMIST: ['Acid Flask', 'Poison Flask', 'Fire Flask', 'Frost Flask', 'Unstable Beaker'],
+    BARD: ['Lyre of Discord', 'Tuned Harp', 'Vibrant Flute', 'Echoing Lute', 'War Horn']
   },
   ARMOR: ['Plate Mail', 'Leather Tunic', 'Cloth Robes', 'Chainmail', 'Brigandine'],
   ACCESSORY: ['Runic Ring', 'Jade Amulet', 'Charmed Necklace', 'Iron Band', 'Gemstone Band']

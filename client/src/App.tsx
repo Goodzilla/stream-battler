@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Auth } from './pages/Auth';
 import { Dashboard } from './pages/Dashboard';
 import { SoloMap } from './pages/SoloMap';
@@ -7,6 +7,10 @@ import { ViewerSpectate } from './pages/ViewerSpectate';
 import { Leaderboard } from './pages/Leaderboard';
 import { apiFetch } from './utils/api';
 import { io, Socket } from 'socket.io-client';
+import { CLASSES } from 'shared';
+import { Zap } from 'lucide-react';
+import confetti from 'canvas-confetti';
+import { CharacterVisualizer } from './components/CharacterVisualizer';
 
 type PageState = 'AUTH' | 'DASHBOARD' | 'SOLO_ARENA' | 'STREAMER_LOBBY' | 'VIEWER_LOBBY' | 'LEADERBOARD';
 
@@ -19,6 +23,83 @@ export default function App() {
   
   // Navigation parameter holders
   const [navigationParams, setNavigationParams] = useState<any>(null);
+
+  // Unlock Modal State
+  const [unlockedClassesToShow, setUnlockedClassesToShow] = useState<string[]>([]);
+  const [currentUnlockIdx, setCurrentUnlockIdx] = useState<number>(0);
+  const prevUnlockedRef = useRef<string[] | null>(null);
+
+  const CLASS_UNLOCK_REQUIREMENTS: Record<string, string> = {
+    VALKYRIE: 'WARRIOR',
+    NECROMANCER: 'MAGE',
+    MONK: 'CLERIC',
+    ALCHEMIST: 'ROGUE',
+    BARD: 'RANGER'
+  };
+
+  const getUnlockedAdvancedClasses = (characters: any[]): string[] => {
+    const unlocked: string[] = [];
+    for (const [adv, base] of Object.entries(CLASS_UNLOCK_REQUIREMENTS)) {
+      const baseChar = characters?.find((c: any) => c.class === base);
+      if (baseChar && baseChar.level >= 100) {
+        unlocked.push(adv);
+      }
+    }
+    return unlocked;
+  };
+
+  const triggerUnlockConfetti = () => {
+    const duration = 2.5 * 1000;
+    const end = Date.now() + duration;
+
+    (function frame() {
+      confetti({
+        particleCount: 4,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0, y: 0.8 }
+      });
+      confetti({
+        particleCount: 4,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1, y: 0.8 }
+      });
+
+      if (Date.now() < end) {
+        requestAnimationFrame(frame);
+      }
+    }());
+  };
+
+  useEffect(() => {
+    if (character && character.user && character.user.characters) {
+      const currentUnlocked = getUnlockedAdvancedClasses(character.user.characters);
+      
+      if (prevUnlockedRef.current !== null) {
+        const newlyUnlocked = currentUnlocked.filter(c => !prevUnlockedRef.current!.includes(c));
+        if (newlyUnlocked.length > 0) {
+          setUnlockedClassesToShow(newlyUnlocked);
+          setCurrentUnlockIdx(0);
+          setTimeout(() => triggerUnlockConfetti(), 300);
+        }
+      }
+      
+      prevUnlockedRef.current = currentUnlocked;
+    } else {
+      prevUnlockedRef.current = null;
+    }
+  }, [character]);
+
+  const handleNextUnlock = () => {
+    if (currentUnlockIdx < unlockedClassesToShow.length - 1) {
+      setCurrentUnlockIdx(currentUnlockIdx + 1);
+      setTimeout(() => triggerUnlockConfetti(), 300);
+    } else {
+      setUnlockedClassesToShow([]);
+      setCurrentUnlockIdx(0);
+    }
+  };
 
   // Check auth on load
   const checkAuth = async () => {
@@ -164,6 +245,66 @@ export default function App() {
       <footer className="py-4 border-t border-white/5 text-center text-[10px] text-slate-600 font-display select-none">
         @Heikob on twitch
       </footer>
+
+      {/* Fullscreen class unlock modal */}
+      {unlockedClassesToShow.length > 0 && (() => {
+        const classKey = unlockedClassesToShow[currentUnlockIdx];
+        const config = CLASSES[classKey];
+        if (!config) return null;
+
+        const baseClassKey = CLASS_UNLOCK_REQUIREMENTS[classKey];
+        const baseClassName = CLASSES[baseClassKey]?.name || baseClassKey;
+
+        return (
+          <div className="fixed inset-0 bg-[#04060d]/95 backdrop-blur-md flex items-center justify-center z-[9999] p-4 animate-fadeIn">
+            <div 
+              className="glass-panel p-8 rounded-3xl text-center flex flex-col items-center max-w-md w-full relative border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.8)] animate-scaleUp"
+              style={{
+                borderColor: `${config.color}33`,
+                boxShadow: `0 0 40px ${config.color}22`
+              }}
+            >
+              <div className="absolute -top-12 w-24 h-24 rounded-full bg-gradient-to-b from-[#111827] to-[#030712] border flex items-center justify-center shadow-xl" style={{ borderColor: config.color }}>
+                <Zap className="w-10 h-10 animate-bounce" style={{ color: config.color }} />
+              </div>
+
+              <h2 className="text-xl font-black text-white mt-12 mb-2 tracking-widest font-display uppercase" style={{ color: config.color }}>
+                Class Unlocked!
+              </h2>
+              <div className="text-[9px] font-pixel text-slate-500 uppercase tracking-widest mb-6">
+                [ Advanced Progression Tier ]
+              </div>
+
+              <div className="my-2 select-none pointer-events-none">
+                <CharacterVisualizer charClass={classKey} equippedItems={[]} />
+              </div>
+
+              <h3 className="text-base font-bold text-white mt-4 mb-2 font-display">{config.name}</h3>
+              
+              <p className="text-xs text-slate-400 leading-relaxed mb-6 px-2">
+                Congratulations! Reaching Level 100 with your <span className="text-white font-bold">{baseClassName}</span> has unlocked the <span className="font-bold" style={{ color: config.color }}>{config.name}</span> advanced class.
+                <br />
+                <span className="text-[10px] text-slate-500 font-mono mt-2 block">
+                  Active Ability: <span className="text-white">{config.activeSkill.name}</span>
+                  <br />
+                  {config.activeSkill.description}
+                </span>
+              </p>
+
+              <button
+                onClick={handleNextUnlock}
+                className="w-full py-3 rounded-xl text-xs font-display font-bold uppercase tracking-widest text-black transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]"
+                style={{ 
+                  backgroundColor: config.color,
+                  boxShadow: `0 4px 15px ${config.color}55`
+                }}
+              >
+                {currentUnlockIdx < unlockedClassesToShow.length - 1 ? 'Next Unlock' : 'Claim & Continue'}
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

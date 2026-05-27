@@ -44,7 +44,10 @@ characterRouter.get('/', async (req: Request, res: Response) => {
 // INITIALIZE OR SWAP CHARACTER CLASS (No wiping of previous class progress)
 characterRouter.post('/select-class', async (req: Request, res: Response) => {
   const { charClass } = req.body;
-  const validClasses = ['WARRIOR', 'MAGE', 'CLERIC', 'ROGUE', 'RANGER'];
+  const validClasses = [
+    'WARRIOR', 'MAGE', 'CLERIC', 'ROGUE', 'RANGER',
+    'VALKYRIE', 'NECROMANCER', 'MONK', 'ALCHEMIST', 'BARD'
+  ];
 
   if (!charClass || !validClasses.includes(charClass.toUpperCase())) {
     res.status(400).json({ error: `Invalid class. Must be one of: ${validClasses.join(', ')}` });
@@ -53,7 +56,30 @@ characterRouter.post('/select-class', async (req: Request, res: Response) => {
 
   const selectedClassUpper = charClass.toUpperCase();
 
+  const CLASS_UNLOCK_REQUIREMENTS: Record<string, string> = {
+    VALKYRIE: 'WARRIOR',
+    NECROMANCER: 'MAGE',
+    MONK: 'CLERIC',
+    ALCHEMIST: 'ROGUE',
+    BARD: 'RANGER'
+  };
+
   try {
+    // Lock verification for advanced classes
+    const requiredBaseClass = CLASS_UNLOCK_REQUIREMENTS[selectedClassUpper];
+    if (requiredBaseClass) {
+      const baseChar = await prisma.character.findFirst({
+        where: {
+          userId: req.user!.id,
+          class: requiredBaseClass
+        }
+      });
+      if (!baseChar || baseChar.level < 100) {
+        res.status(400).json({ error: `Advanced class ${selectedClassUpper} is locked. You must reach level 100 with a ${requiredBaseClass} first.` });
+        return;
+      }
+    }
+
     // Check if class character already exists in DB
     let character = await prisma.character.findUnique({
       where: {
@@ -70,13 +96,23 @@ characterRouter.post('/select-class', async (req: Request, res: Response) => {
         selectedClassUpper === 'WARRIOR' ? 'Rusty Gladius' :
         selectedClassUpper === 'MAGE' ? 'Initiate Wand' :
         selectedClassUpper === 'CLERIC' ? 'Novice Scepter' :
-        selectedClassUpper === 'ROGUE' ? 'Serrated Dirk' : 'Trimming Bow';
+        selectedClassUpper === 'ROGUE' ? 'Serrated Dirk' :
+        selectedClassUpper === 'RANGER' ? 'Trimming Bow' :
+        selectedClassUpper === 'VALKYRIE' ? 'Novice Spear' :
+        selectedClassUpper === 'NECROMANCER' ? 'Apprentice Scythe' :
+        selectedClassUpper === 'MONK' ? 'Worn Fist Wraps' :
+        selectedClassUpper === 'ALCHEMIST' ? 'Crude Flask' : 'Tuned Lute';
 
       const armorName =
         selectedClassUpper === 'WARRIOR' ? 'Tattered Mail' :
         selectedClassUpper === 'MAGE' ? 'Apprentice Robe' :
         selectedClassUpper === 'CLERIC' ? 'Acolyte Vestment' :
-        selectedClassUpper === 'ROGUE' ? 'Scout Leather' : 'Scout Leather';
+        selectedClassUpper === 'ROGUE' ? 'Scout Leather' :
+        selectedClassUpper === 'RANGER' ? 'Scout Leather' :
+        selectedClassUpper === 'VALKYRIE' ? 'Valkyrie Plate' :
+        selectedClassUpper === 'NECROMANCER' ? 'Dark Robe' :
+        selectedClassUpper === 'MONK' ? 'Monk Gi' :
+        selectedClassUpper === 'ALCHEMIST' ? 'Alchemist Coat' : 'Bard Garb';
 
       character = await prisma.character.create({
         data: {
@@ -156,9 +192,9 @@ characterRouter.post('/allocate-passives', async (req: Request, res: Response) =
   }
 
   try {
-    const maxAllocatable = activeChar.level;
+    const maxAllocatable = 1 + Math.min(50, Math.floor(activeChar.level / 2));
     if (passives.length > maxAllocatable) {
-      res.status(400).json({ error: `Insufficient skill points. Allocated: ${passives.length}, Max: ${maxAllocatable}` });
+      res.status(400).json({ error: `Insufficient skill points. Allocated: ${passives.length - 1}, Max: ${maxAllocatable - 1}` });
       return;
     }
 
@@ -245,7 +281,7 @@ characterRouter.post('/select-talents', async (req: Request, res: Response) => {
 
 // REPORT BATTLE COMPLETION (SOLO GRINDING) - Updates gold on User and auto-refreshes shop
 characterRouter.post('/report-solo-battle', async (req: Request, res: Response) => {
-  const { xpGained, goldGained, countOfKills, mapLevel } = req.body;
+  const { xpGained, goldGained, countOfKills, mapLevel, won } = req.body;
 
   if (xpGained === undefined || goldGained === undefined) {
     res.status(400).json({ error: 'Missing xpGained or goldGained inputs' });
@@ -288,29 +324,44 @@ characterRouter.post('/report-solo-battle', async (req: Request, res: Response) 
     const newShopStock = generateShopStock(newLevel, activeChar.class);
 
     // 3. Roll random loot items (linked directly to User stash)
+    const unequippedCount = await prisma.item.count({
+      where: {
+        userId: req.user!.id,
+        isEquipped: false
+      }
+    });
+
+    let inventoryFull = false;
     const lootCreated = [];
     
-    // 15% chance of 1 loot drop
-    if (Math.random() < 0.15) {
-      const rarRoll = Math.random();
-      let rarity: 'COMMON' | 'UNCOMMON' | 'RARE' | 'EPIC' = 'COMMON';
-
-      if (mapLevel >= 10) {
-        if (rarRoll < 0.02) rarity = 'EPIC';
-        else if (rarRoll < 0.10) rarity = 'RARE';
-        else if (rarRoll < 0.35) rarity = 'UNCOMMON';
-      } else if (mapLevel >= 5) {
-        if (rarRoll < 0.05) rarity = 'RARE';
-        else if (rarRoll < 0.25) rarity = 'UNCOMMON';
+    // Only roll loot if won is true and inventory is not full
+    if (won) {
+      if (unequippedCount >= 30) {
+        inventoryFull = true;
       } else {
-        if (rarRoll < 0.10) rarity = 'UNCOMMON';
+        // 15% chance of 1 loot drop
+        if (Math.random() < 0.15) {
+          const rarRoll = Math.random();
+          let rarity: 'COMMON' | 'UNCOMMON' | 'RARE' | 'EPIC' = 'COMMON';
+
+          if (mapLevel >= 10) {
+            if (rarRoll < 0.02) rarity = 'EPIC';
+            else if (rarRoll < 0.10) rarity = 'RARE';
+            else if (rarRoll < 0.35) rarity = 'UNCOMMON';
+          } else if (mapLevel >= 5) {
+            if (rarRoll < 0.05) rarity = 'RARE';
+            else if (rarRoll < 0.25) rarity = 'UNCOMMON';
+          } else {
+            if (rarRoll < 0.10) rarity = 'UNCOMMON';
+          }
+
+          const slots: Array<'WEAPON' | 'ARMOR' | 'ACCESSORY'> = ['WEAPON', 'ARMOR', 'ACCESSORY'];
+          const slot = slots[Math.floor(Math.random() * slots.length)];
+
+          const itemRaw = generateRandomItem(newLevel, rarity, slot, activeChar.class);
+          lootCreated.push(itemRaw);
+        }
       }
-
-      const slots: Array<'WEAPON' | 'ARMOR' | 'ACCESSORY'> = ['WEAPON', 'ARMOR', 'ACCESSORY'];
-      const slot = slots[Math.floor(Math.random() * slots.length)];
-
-      const itemRaw = generateRandomItem(newLevel, rarity, slot, activeChar.class);
-      lootCreated.push(itemRaw);
     }
 
     // Save active character changes
@@ -356,7 +407,8 @@ characterRouter.post('/report-solo-battle', async (req: Request, res: Response) 
       gainedXp: xpGained,
       gainedGold: goldGained,
       leveledUp: newLevel > activeChar.level,
-      droppedItems: updatedUser.items.slice(updatedUser.items.length - lootCreated.length)
+      droppedItems: updatedUser.items.slice(updatedUser.items.length - lootCreated.length),
+      inventoryFull
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

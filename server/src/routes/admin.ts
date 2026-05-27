@@ -245,3 +245,88 @@ adminRouter.post('/promote-user', async (req: Request, res: Response) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ADMIN: UNLOCK ALL ADVANCED CLASSES (Sets all 5 base classes to level 100)
+adminRouter.post('/unlock-all-classes', async (req: Request, res: Response) => {
+  const baseClasses = ['WARRIOR', 'MAGE', 'CLERIC', 'ROGUE', 'RANGER'];
+  try {
+    for (const bClass of baseClasses) {
+      let character = await prisma.character.findUnique({
+        where: {
+          userId_class: {
+            userId: req.user!.id,
+            class: bClass
+          }
+        }
+      });
+
+      if (!character) {
+        const weaponName = 
+          bClass === 'WARRIOR' ? 'Rusty Gladius' :
+          bClass === 'MAGE' ? 'Initiate Wand' :
+          bClass === 'CLERIC' ? 'Novice Scepter' :
+          bClass === 'ROGUE' ? 'Serrated Dirk' : 'Trimming Bow';
+
+        const armorName =
+          bClass === 'WARRIOR' ? 'Tattered Mail' :
+          bClass === 'MAGE' ? 'Apprentice Robe' :
+          bClass === 'CLERIC' ? 'Acolyte Vestment' :
+          bClass === 'ROGUE' ? 'Scout Leather' : 'Scout Leather';
+
+        character = await prisma.character.create({
+          data: {
+            userId: req.user!.id,
+            class: bClass,
+            level: 100,
+            xp: 0,
+            talents: '[]',
+            passives: '["start"]'
+          }
+        });
+
+        await prisma.item.createMany({
+          data: [
+            {
+              userId: req.user!.id,
+              equippedCharacterId: character.id,
+              name: weaponName,
+              slot: 'WEAPON',
+              rarity: 'COMMON',
+              itemLevel: 1,
+              baseAttack: 5,
+              baseDefense: 0,
+              affixes: '[]',
+              isEquipped: true
+            },
+            {
+              userId: req.user!.id,
+              equippedCharacterId: character.id,
+              name: armorName,
+              slot: 'ARMOR',
+              rarity: 'COMMON',
+              itemLevel: 1,
+              baseAttack: 0,
+              baseDefense: 3,
+              affixes: '[]',
+              isEquipped: true
+            }
+          ]
+        });
+      } else {
+        await prisma.character.update({
+          where: { id: character.id },
+          data: { level: 100 }
+        });
+      }
+    }
+
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      include: { characters: true, items: true }
+    });
+
+    res.json(getActiveCharacter(updatedUser));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});

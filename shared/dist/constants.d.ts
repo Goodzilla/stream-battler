@@ -33,6 +33,8 @@ export interface SkillNode {
     stats: Record<string, number>;
     connections: string[];
     type: 'life' | 'atk' | 'crit' | 'speed' | 'def' | 'start';
+    isNotable?: boolean;
+    isKeystone?: boolean;
 }
 export declare const PASSIVE_SKILL_TREE: Record<string, SkillNode>;
 export declare const validatePassiveAllocation: (allocatedNodes: string[]) => boolean;
@@ -40,10 +42,11 @@ export interface ArenaConfig {
     name: string;
     level: number;
     theme: 'FOREST' | 'POISON_CAVES' | 'RUINS' | 'CRYPT' | 'VOLCANO';
-    enemySprite: 'GOBLIN' | 'SNAKE' | 'ORC' | 'LICH' | 'DRAGON';
+    enemySprite: string;
     enemyNames: string[];
     desc: string;
     bgColor: string;
     detailColor: string;
 }
 export declare const ARENA_CONFIGS: Record<number, ArenaConfig>;
+export declare const getArenaConfigForLevel: (level: number) => ArenaConfig;

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
+import { CLASSES } from 'shared';
 
 export const leaderboardRouter = Router();
 
@@ -9,7 +10,7 @@ leaderboardRouter.get('/', async (req: Request, res: Response) => {
 
   try {
     const queryOptions: any = {
-      take: 20,
+      take: 100, // Fetch more to allow for filtering in memory
       orderBy: [
         { level: 'desc' },
         { xp: 'desc' }
@@ -26,7 +27,7 @@ leaderboardRouter.get('/', async (req: Request, res: Response) => {
       }
     };
 
-    if (charClass && ['WARRIOR', 'MAGE', 'CLERIC', 'ROGUE', 'RANGER'].includes(charClass.toUpperCase())) {
+    if (charClass && Object.keys(CLASSES).includes(charClass.toUpperCase())) {
       queryOptions.where = {
         class: charClass.toUpperCase()
       };
@@ -34,28 +35,34 @@ leaderboardRouter.get('/', async (req: Request, res: Response) => {
 
     const leaders = await prisma.character.findMany(queryOptions) as any[];
 
-    // Map output to be clean
-    const rankings = leaders.map((char, index) => {
-      const weapon = char.equippedItems.find((i: any) => i.slot === 'WEAPON');
-      const armor = char.equippedItems.find((i: any) => i.slot === 'ARMOR');
-      const accessory = char.equippedItems.find((i: any) => i.slot === 'ACCESSORY');
+    // Map and filter output to be clean, removing E2E test/admin accounts
+    const rankings = leaders
+      .filter((char) => {
+        const username = (char.user?.username || '').toLowerCase();
+        return !username.includes('test') && !username.startsWith('admin_');
+      })
+      .slice(0, 20)
+      .map((char, index) => {
+        const weapon = char.equippedItems.find((i: any) => i.slot === 'WEAPON');
+        const armor = char.equippedItems.find((i: any) => i.slot === 'ARMOR');
+        const accessory = char.equippedItems.find((i: any) => i.slot === 'ACCESSORY');
 
-      return {
-        rank: index + 1,
-        characterId: char.id,
-        displayName: char.user.displayName,
-        username: char.user.username,
-        class: char.class,
-        level: char.level,
-        xp: char.xp,
-        gold: char.user.gold,
-        equipped: {
-          weapon: weapon ? { name: weapon.name, rarity: weapon.rarity } : null,
-          armor: armor ? { name: armor.name, rarity: armor.rarity } : null,
-          accessory: accessory ? { name: accessory.name, rarity: accessory.rarity } : null
-        }
-      };
-    });
+        return {
+          rank: index + 1,
+          characterId: char.id,
+          displayName: char.user.displayName,
+          username: char.user.username,
+          class: char.class,
+          level: char.level,
+          xp: char.xp,
+          gold: char.user.gold,
+          equipped: {
+            weapon: weapon ? { name: weapon.name, rarity: weapon.rarity } : null,
+            armor: armor ? { name: armor.name, rarity: armor.rarity } : null,
+            accessory: accessory ? { name: accessory.name, rarity: accessory.rarity } : null
+          }
+        };
+      });
 
     res.json(rankings);
   } catch (err: any) {

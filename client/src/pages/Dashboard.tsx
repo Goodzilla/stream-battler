@@ -85,6 +85,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [bossName, setBossName] = useState('Goblin King');
   const [bossLevel, setBossLevel] = useState('1');
 
+
+
   // Synchronize gold when user object updates
   useEffect(() => {
     if (user) {
@@ -360,6 +362,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
       } catch (err: any) {
         alert(err.message);
       }
+    }
+  };
+
+  const handleUnlockAllClasses = async () => {
+    try {
+      const updated = await apiFetch('/admin/unlock-all-classes', { method: 'POST' });
+      onUpdateCharacter(updated);
+      alert('All advanced classes unlocked! Base classes set to level 100.');
+    } catch (err: any) {
+      alert(err.message);
     }
   };
 
@@ -681,6 +693,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onSpawnItem={handleSpawnItem}
                 onResetCharacter={handleResetCharacter}
                 onPromoteUser={handlePromoteUser}
+                onUnlockAllClasses={handleUnlockAllClasses}
               />
             )}
 
@@ -880,6 +893,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
       )}
+
     </div>
   );
 };

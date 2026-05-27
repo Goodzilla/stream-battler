@@ -3,7 +3,8 @@ import { Socket } from 'socket.io-client';
 import { ArrowLeft, Users } from 'lucide-react';
 import { lerp, getDistance } from '../game/physics';
 import confetti from 'canvas-confetti';
-import { drawPixelSprite } from '../game/sprites';
+import { getArenaConfigForLevel } from 'shared';
+import { drawPixelSprite, drawProceduralBackground } from '../game/sprites';
 import { soundManager } from '../game/soundManager';
 
 interface ViewerSpectateProps {
@@ -256,67 +257,7 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
       }
 
       // Draw themed background based on boss level
-      if (level <= 20) {
-        // Grassy forest
-        ctx.fillStyle = '#08170e';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#0f2919';
-        for (let i = 0; i < 25; i++) {
-          ctx.fillRect((i * 47) % canvas.width, (i * 31) % canvas.height, 8, 3);
-          ctx.fillRect((i * 47) % canvas.width + 3, (i * 31) % canvas.height - 3, 2, 6);
-        }
-      } else if (level <= 40) {
-        // Poison Caves
-        ctx.fillStyle = '#0d0714';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#a855f7';
-        for (let i = 0; i < 15; i++) {
-          const px = (i * 73) % canvas.width;
-          const py = (i * 29) % canvas.height;
-          ctx.fillRect(px, py, 3, 3);
-          ctx.fillStyle = 'rgba(168, 85, 247, 0.12)';
-          ctx.beginPath();
-          ctx.arc(px + 1.5, py + 1.5, 8, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = '#a855f7';
-        }
-      } else if (level <= 60) {
-        // Ancient Ruins
-        ctx.fillStyle = '#171412';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = '#24201e';
-        ctx.lineWidth = 1.5;
-        for (let x = 0; x < canvas.width; x += 60) {
-          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-        }
-        for (let y = 0; y < canvas.height; y += 60) {
-          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-        }
-      } else if (level <= 80) {
-        // Crypt theme
-        ctx.fillStyle = '#090a0f';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'rgba(14, 165, 233, 0.05)';
-        for (let i = 0; i < 5; i++) {
-          const px = 100 + i * 140;
-          ctx.fillRect(px, 0, 40, canvas.height);
-          ctx.fillStyle = 'rgba(14, 165, 233, 0.15)';
-          ctx.fillRect(px + 10, 0, 20, canvas.height);
-          ctx.fillStyle = 'rgba(14, 165, 233, 0.05)';
-        }
-      } else {
-        // Volcano Lava River
-        ctx.fillStyle = '#0a0807';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#d97706';
-        ctx.beginPath();
-        ctx.moveTo(0, canvas.height - 60);
-        ctx.bezierCurveTo(canvas.width / 3, canvas.height - 100, (canvas.width * 2) / 3, canvas.height - 30, canvas.width, canvas.height - 70);
-        ctx.lineTo(canvas.width, canvas.height);
-        ctx.lineTo(0, canvas.height);
-        ctx.closePath();
-        ctx.fill();
-      }
+      drawProceduralBackground(ctx, canvas.width, canvas.height, getArenaConfigForLevel(level));
 
       // Update unit hit flash timers
       s.units.forEach(unit => {
@@ -673,27 +614,35 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
                     <span className="text-emerald-400 font-bold">+{personalReward.xp} XP</span>
                   </div>
 
-                  {personalReward.itemDropped && (
-                    <div className="mt-3 p-3 bg-black/40 border border-white/5 rounded-lg flex flex-col gap-1 item-slot-glow rarity-LEGENDARY animate-pulse-slow">
-                      <div className="flex justify-between items-center">
-                        <span className={`font-display font-bold rarity-${personalReward.itemDropped.rarity}`}>
-                          {personalReward.itemDropped.name}
-                        </span>
-                        <span className="text-[9px] px-1 bg-yellow-500/10 text-yellow-500 rounded font-mono uppercase">
-                          {personalReward.itemDropped.rarity}
+                  {personalReward.inventoryFull ? (
+                    <div className="mt-3 p-3 bg-red-950/20 border border-red-900/40 text-red-500 rounded-lg text-xs leading-relaxed flex gap-2">
+                      <div>
+                        <span className="font-bold">⚠ Inventory Full (30/30)</span> - No item could be awarded! Please free up space in your stash.
+                      </div>
+                    </div>
+                  ) : (
+                    personalReward.itemDropped && (
+                      <div className="mt-3 p-3 bg-black/40 border border-white/5 rounded-lg flex flex-col gap-1 item-slot-glow rarity-LEGENDARY animate-pulse-slow">
+                        <div className="flex justify-between items-center">
+                          <span className={`font-display font-bold rarity-${personalReward.itemDropped.rarity}`}>
+                            {personalReward.itemDropped.name}
+                          </span>
+                          <span className="text-[9px] px-1 bg-yellow-500/10 text-yellow-500 rounded font-mono uppercase">
+                            {personalReward.itemDropped.rarity}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 uppercase font-mono">
+                          Slot: {personalReward.itemDropped.slot} | Level {personalReward.itemDropped.itemLevel}
                         </span>
                       </div>
-                      <span className="text-[10px] text-slate-500 uppercase font-mono">
-                        Slot: {personalReward.itemDropped.slot} | Level {personalReward.itemDropped.itemLevel}
-                      </span>
-                    </div>
+                    )
                   )}
                 </div>
               </div>
             ) : (
               <div className="text-xs text-slate-500 italic max-w-xs leading-relaxed mb-6">
                 {battleState === 'VICTORY'
-                  ? 'Raid was successful, but you did not roll any item drops this time. Better luck next stream!'
+                  ? 'Raid was successful, but you did not participate or did not receive rewards.'
                   : 'No loot awarded for failed runs. Level up your gear to survive longer!'}
               </div>
             )}

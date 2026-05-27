@@ -19,8 +19,8 @@ export const PassiveSkillTree: React.FC<PassiveSkillTreeProps> = ({ character, o
   const dragStart = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const allocated: string[] = JSON.parse(character.passives || '[]');
-  const spentPoints = allocated.length; // "start" node is free but included, so spent points is total allocated
-  const maxPoints = character.level; // 1 point starting at lvl 1, 1 per lvl up. Total = level.
+  const spentPoints = Math.max(0, allocated.length - 1); // "start" node is free
+  const maxPoints = Math.min(50, Math.floor(character.level / 2));
   const pointsAvailable = maxPoints - spentPoints;
 
   // Zooming
@@ -193,7 +193,7 @@ export const PassiveSkillTree: React.FC<PassiveSkillTreeProps> = ({ character, o
       <div className="absolute top-4 left-4 z-10 flex flex-col gap-1 pointer-events-none">
         <h4 className="m-0 text-white font-display text-sm tracking-wide">PASSIVE SKILL TREE</h4>
         <div className="text-xs text-slate-400">
-          Points Spent: <span className="text-[#00d8ff] font-bold">{spentPoints - 1}</span> / {maxPoints - 1}
+          Points Spent: <span className="text-[#00d8ff] font-bold">{spentPoints}</span> / {maxPoints}
         </div>
         <div className="text-xs text-slate-400">
           Available: <span className="text-emerald-400 font-bold">{pointsAvailable}</span>
@@ -238,8 +238,8 @@ export const PassiveSkillTree: React.FC<PassiveSkillTreeProps> = ({ character, o
             const isAlloc = allocated.includes(node.id);
             const canAlloc = isConnectable(node.id) && pointsAvailable > 0;
             
-            const isKeystone = node.id.startsWith('r10_') && (parseInt(node.id.split('_')[1], 10) % 16 === 0);
-            const isNotable = node.name.includes('Notable') || node.name.startsWith('Grand');
+            const isKeystone = !!node.isKeystone;
+            const isNotable = !!node.isNotable;
             const r = node.id === 'start' ? 16 : (isKeystone ? 18 : (isNotable ? 12 : 9));
 
             return (

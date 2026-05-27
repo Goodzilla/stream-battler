@@ -60,7 +60,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ onBackToDashboard }) =
 
       {/* Class filter tabs */}
       <div className="flex border-b border-white/5 gap-1 select-none overflow-x-auto pb-1">
-        {['GLOBAL', 'WARRIOR', 'MAGE', 'CLERIC', 'ROGUE', 'RANGER'].map(c => (
+        {['GLOBAL', ...Object.keys(CLASSES)].map(c => (
           <button
             key={c}
             onClick={() => setFilterClass(c)}

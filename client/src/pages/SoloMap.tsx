@@ -3,9 +3,9 @@ import { apiFetch } from '../utils/api';
 import { calculateCharacterStats, CLASSES, ARENA_CONFIGS } from 'shared';
 import { soundManager } from '../game/soundManager';
 import { getDistance } from '../game/physics';
-import { ArrowLeft, Play, AlertCircle } from 'lucide-react';
+import { ArrowLeft, AlertCircle } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { drawPixelSprite } from '../game/sprites';
+import { drawPixelSprite, drawProceduralBackground } from '../game/sprites';
 import { 
   updateUnitPhysics, 
   performBasicAttack, 
@@ -32,7 +32,6 @@ export const SoloMap: React.FC<SoloMapProps> = ({
   onBackToDashboard
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
 
   const currentMapLevel = mapLevel;
   const [battleState, setBattleState] = useState<'PREP' | 'FIGHTING' | 'VICTORY' | 'DEFEAT'>('PREP');
@@ -42,6 +41,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
   const [itemsDropped, setItemsDropped] = useState<any[]>([]);
   const [totalKills, setTotalKills] = useState(0);
   const [reporting, setReporting] = useState(false);
+  const [inventoryFull, setInventoryFull] = useState(false);
 
   // References to keep data accessible in the requestAnimationFrame loop
   const stateRef = useRef<{
@@ -112,6 +112,31 @@ export const SoloMap: React.FC<SoloMapProps> = ({
       if (selectedTalents.includes('t5_1')) baseCd -= 2.0;
       if (selectedTalents.includes('t9_1')) baseCd -= 3.0;
       if (selectedTalents.includes('t10_2')) baseCd -= 4.0;
+    } else if (character.class === 'VALKYRIE') {
+      if (selectedTalents.includes('t1_1')) baseCd -= 1.0;
+      if (selectedTalents.includes('t4_2')) baseCd -= 1.5;
+      if (selectedTalents.includes('t9_1')) baseCd -= 2.0;
+      if (selectedTalents.includes('t10_2')) baseCd -= 3.0;
+    } else if (character.class === 'NECROMANCER') {
+      if (selectedTalents.includes('t1_1')) baseCd -= 1.0;
+      if (selectedTalents.includes('t4_1')) baseCd -= 1.5;
+      if (selectedTalents.includes('t6_1')) baseCd -= 2.0;
+      if (selectedTalents.includes('t10_2')) baseCd -= 3.0;
+    } else if (character.class === 'MONK') {
+      if (selectedTalents.includes('t1_1')) baseCd -= 1.0;
+      if (selectedTalents.includes('t4_2')) baseCd -= 1.5;
+      if (selectedTalents.includes('t6_1')) baseCd -= 2.0;
+      if (selectedTalents.includes('t10_2')) baseCd -= 3.5;
+    } else if (character.class === 'ALCHEMIST') {
+      if (selectedTalents.includes('t1_1')) baseCd -= 1.0;
+      if (selectedTalents.includes('t6_1')) baseCd -= 1.5;
+      if (selectedTalents.includes('t10_1')) baseCd -= 2.0;
+      if (selectedTalents.includes('t10_2')) baseCd -= 3.5;
+    } else if (character.class === 'BARD') {
+      if (selectedTalents.includes('t1_1')) baseCd -= 1.0;
+      if (selectedTalents.includes('t4_2')) baseCd -= 1.5;
+      if (selectedTalents.includes('t6_1')) baseCd -= 2.0;
+      if (selectedTalents.includes('t10_2')) baseCd -= 3.5;
     }
 
     // Configure Player Unit
@@ -167,6 +192,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
     setXpEarned(0);
     setGoldEarned(0);
     setItemsDropped([]);
+    setInventoryFull(false);
     setBattleState('FIGHTING');
     
     spawnEnemies(1);
@@ -262,7 +288,8 @@ export const SoloMap: React.FC<SoloMapProps> = ({
           xpGained,
           goldGained,
           countOfKills: kills,
-          mapLevel: currentMapLevel
+          mapLevel: currentMapLevel,
+          won: stateRef.current.battleState === 'VICTORY'
         })
       });
 
@@ -270,12 +297,18 @@ export const SoloMap: React.FC<SoloMapProps> = ({
       setItemsDropped(data.droppedItems || []);
       setXpEarned(data.gainedXp);
       setGoldEarned(data.gainedGold);
+      setInventoryFull(!!data.inventoryFull);
     } catch (err: any) {
       alert(`Cheat Protection Alert: ${err.message}`);
     } finally {
       setReporting(false);
     }
   };
+
+  // Auto-start battle on component mount
+  useEffect(() => {
+    initBattle();
+  }, []);
 
   // Main Canvas animation & physics loop
   useEffect(() => {
@@ -307,61 +340,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
 
       // Draw themed background based on map level
       const arena = ARENA_CONFIGS[currentMapLevel] || ARENA_CONFIGS[1];
-      if (arena.theme === 'FOREST') {
-        ctx.fillStyle = arena.bgColor;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = arena.detailColor;
-        for (let i = 0; i < 25; i++) {
-          ctx.fillRect((i * 47) % canvas.width, (i * 31) % canvas.height, 8, 3);
-          ctx.fillRect((i * 47) % canvas.width + 3, (i * 31) % canvas.height - 3, 2, 6);
-        }
-      } else if (arena.theme === 'POISON_CAVES') {
-        ctx.fillStyle = arena.bgColor;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = arena.detailColor;
-        for (let i = 0; i < 15; i++) {
-          const px = (i * 73) % canvas.width;
-          const py = (i * 29) % canvas.height;
-          ctx.fillRect(px, py, 3, 3);
-          ctx.fillStyle = arena.detailColor + '1f'; // ~12% opacity
-          ctx.beginPath();
-          ctx.arc(px + 1.5, py + 1.5, 8, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      } else if (arena.theme === 'RUINS') {
-        ctx.fillStyle = arena.bgColor;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = arena.detailColor;
-        ctx.lineWidth = 1.5;
-        for (let x = 0; x < canvas.width; x += 60) {
-          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-        }
-        for (let y = 0; y < canvas.height; y += 60) {
-          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-        }
-      } else if (arena.theme === 'CRYPT') {
-        ctx.fillStyle = arena.bgColor;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = arena.detailColor + '0d'; // ~5% opacity
-        for (let i = 0; i < 5; i++) {
-          const px = 100 + i * 140;
-          ctx.fillRect(px, 0, 40, canvas.height);
-          ctx.fillStyle = arena.detailColor + '26'; // ~15% opacity
-          ctx.fillRect(px + 10, 0, 20, canvas.height);
-          ctx.fillStyle = arena.detailColor + '0d';
-        }
-      } else {
-        ctx.fillStyle = arena.bgColor;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = arena.detailColor;
-        ctx.beginPath();
-        ctx.moveTo(0, canvas.height - 60);
-        ctx.bezierCurveTo(canvas.width / 3, canvas.height - 100, (canvas.width * 2) / 3, canvas.height - 30, canvas.width, canvas.height - 70);
-        ctx.lineTo(canvas.width, canvas.height);
-        ctx.lineTo(0, canvas.height);
-        ctx.closePath();
-        ctx.fill();
-      }
+      drawProceduralBackground(ctx, canvas.width, canvas.height, arena);
 
       if (s.battleState === 'FIGHTING') {
         const player = s.units.find(u => u.isPlayer);
@@ -629,7 +608,15 @@ export const SoloMap: React.FC<SoloMapProps> = ({
     };
   }, [mapLevel, battleState]);
 
-  if (battleState === 'FIGHTING') {
+  if (battleState === 'PREP') {
+    return (
+      <div className="fixed inset-0 bg-[#06080d] z-40 flex items-center justify-center font-display text-xs tracking-widest text-slate-500 uppercase select-none">
+        Initializing Battle Simulation...
+      </div>
+    );
+  }
+
+  if (battleState === 'FIGHTING' || battleState === 'VICTORY' || battleState === 'DEFEAT') {
     return (
       <div className="fixed inset-0 bg-[#06080d] z-40 flex flex-col overflow-hidden select-none">
         {/* Widescreen Header */}
@@ -704,199 +691,125 @@ export const SoloMap: React.FC<SoloMapProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Fullscreen Results Modal */}
+        {(battleState === 'VICTORY' || battleState === 'DEFEAT') && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 overflow-y-auto flex items-center justify-center p-4 md:p-8 select-none animate-fadeIn">
+            <div className="bg-[#0b0f19]/95 border border-white/10 rounded-2xl p-6 md:p-8 max-w-xl w-full max-h-[90vh] overflow-y-auto flex flex-col items-center shadow-2xl relative animate-scaleUp">
+              
+              <h3
+                className={`m-0 font-display text-2xl tracking-widest ${
+                  battleState === 'VICTORY' ? 'text-emerald-400' : 'text-red-500'
+                }`}
+              >
+                {battleState === 'VICTORY' ? 'STAGE CLEAR' : 'CHARACTER DEFEATED'}
+              </h3>
+              <p className="text-slate-500 text-[10px] uppercase font-display tracking-widest mt-1 mb-6">
+                {battleState === 'VICTORY' ? 'Farming completed successfully!' : 'Character fell in battle.'}
+              </p>
+
+              {reporting ? (
+                <div className="text-slate-400 text-xs italic py-4">Syncing loot drop outcomes with server database...</div>
+              ) : (
+                <div className="flex flex-col items-center gap-6 w-full">
+                  {/* Performance Recap Table */}
+                  <div className="w-full bg-[#05070a] border border-white/5 rounded-xl p-4 flex flex-col gap-3">
+                    <span className="text-[10px] font-pixel text-neon-cyan uppercase tracking-widest text-left">[ COMBAT STATS RECAP ]</span>
+                    
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[11px] font-mono text-slate-300 border-collapse">
+                        <thead>
+                          <tr className="border-b border-white/10 text-slate-500 text-left">
+                            <th className="pb-2 font-normal uppercase tracking-wider">Character</th>
+                            <th className="pb-2 font-normal uppercase tracking-wider text-right">DPS (Dealt)</th>
+                            <th className="pb-2 font-normal uppercase tracking-wider text-right">Healing</th>
+                            <th className="pb-2 font-normal uppercase tracking-wider text-right">Tanked</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b border-white/5 last:border-0 text-left">
+                            <td className="py-2 text-white font-bold flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: CLASSES[character.class]?.color }} />
+                              {character.user.displayName}
+                            </td>
+                            <td className="py-2 text-right text-orange-400 font-bold">{stateRef.current.playerDamageDealt}</td>
+                            <td className="py-2 text-right text-emerald-400 font-bold">{stateRef.current.playerHealingDone}</td>
+                            <td className="py-2 text-right text-blue-400 font-bold">{stateRef.current.playerDamageTaken}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    
+                    <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-white/5 text-xs text-slate-400">
+                      <div className="flex justify-between">
+                        <span>Monsters Slain:</span>
+                        <span className="text-white font-bold">{totalKills}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>XP Earned:</span>
+                        <span className="text-emerald-400 font-bold">+{xpEarned} XP</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Gold Salvaged:</span>
+                        <span className="text-yellow-400 font-bold">+{goldEarned} Gold</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Inventory Full Warning */}
+                  {inventoryFull && (
+                    <div className="w-full p-3 bg-red-950/20 border border-red-900/40 text-red-500 rounded-lg text-xs leading-relaxed flex gap-2">
+                      <AlertCircle size={14} className="shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold">⚠ Inventory Full (30/30)</span> - No loot could be awarded! Please free up space in your stash.
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dropped items */}
+                  {itemsDropped.length > 0 && (
+                    <div className="w-full">
+                      <span className="block text-[9px] font-display text-slate-500 uppercase tracking-widest mb-2 text-left">
+                        Loot Drops Discovered ({itemsDropped.length}):
+                      </span>
+                      <div className="flex flex-wrap justify-center gap-3">
+                        {itemsDropped.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className={`px-3 py-2 bg-[#05070a] border rounded-lg text-xs font-semibold item-slot-glow rarity-${item.rarity}`}
+                          >
+                            <div className="text-white leading-tight font-display">{item.name}</div>
+                            <div className="text-[9px] text-slate-500 uppercase font-mono mt-0.5">
+                              {item.slot} | Level {item.itemLevel}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-4 w-full mt-4">
+                    <button
+                      onClick={initBattle}
+                      className="flex-1 py-2.5 border border-white/10 hover:bg-white/5 text-white rounded text-xs font-display font-bold uppercase tracking-wider transition font-bold"
+                    >
+                      Fight Again
+                    </button>
+                    <button
+                      onClick={onBackToDashboard}
+                      className="flex-1 py-2.5 bg-[#00d8ff] hover:bg-cyan-500 text-black rounded text-xs font-display font-bold uppercase tracking-wider transition font-bold"
+                    >
+                      Dashboard
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
-  return (
-    <div ref={containerRef} className="max-w-4xl mx-auto py-8 px-4 flex flex-col gap-6">
-      {/* Top Header */}
-      <div className="flex items-center justify-between border-b border-white/5 pb-4 select-none">
-        <button
-          onClick={onBackToDashboard}
-          className="flex items-center gap-2 text-xs font-display font-semibold uppercase tracking-wider text-slate-400 hover:text-white transition"
-        >
-          <ArrowLeft size={16} />
-          Abandon Run
-        </button>
-
-        <span className="text-xs text-slate-400 font-display">
-          SOLO STAGE: LEVEL {currentMapLevel}
-        </span>
-      </div>
-
-      {/* Main Canvas and HUD Panels */}
-      <div className="grid md:grid-cols-4 gap-6">
-        {/* Canvas Battlefield */}
-        <div className="md:col-span-3 flex flex-col gap-4">
-          <div className="relative border border-white/5 rounded-xl overflow-hidden shadow-2xl bg-[#06080d]">
-            <canvas ref={canvasRef} width="1200" height="600" className="w-full block aspect-[1200/600]" />
-
-            {/* Preparation Overlay with stage level slider up to level 100 */}
-            {battleState === 'PREP' && (
-              <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center gap-4 text-center p-6">
-                <h3 className="m-0 text-white font-display text-lg tracking-wider">
-                  PREPARATION LOBBY
-                </h3>
-                <p className="text-xs text-slate-400 max-w-sm leading-relaxed text-center">
-                  Defeat 3 waves of enemies to secure your gold, XP, and potential loot drops!
-                </p>
-                <div className="my-4 p-4 rounded-xl bg-black/40 border border-white/5 flex flex-col items-center gap-1 w-64">
-                  <span className="text-[10px] font-pixel text-neon-cyan uppercase tracking-widest">[ Selected Arena ]</span>
-                  <span className="text-white font-display text-xs font-bold mt-1 uppercase text-center">{(ARENA_CONFIGS[currentMapLevel] || ARENA_CONFIGS[1]).name}</span>
-                  <span className="text-cyan-400 font-mono text-xs font-bold mt-0.5">Level {currentMapLevel}</span>
-                </div>
-                <button
-                  onClick={initBattle}
-                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded font-display font-bold uppercase tracking-wider text-xs flex items-center gap-2 transition duration-300"
-                >
-                  <Play size={14} />
-                  Start Battle
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right HUD Info */}
-        <div className="flex flex-col gap-4 md:col-span-1 select-none">
-          <div className="glass-panel p-4 border-white/5 flex flex-col gap-4 text-xs">
-            <h4 className="m-0 text-white font-display text-xs tracking-wider uppercase border-b border-white/5 pb-2">
-              RUN STATS
-            </h4>
-
-            <div className="flex justify-between">
-              <span className="text-slate-400">Wave:</span>
-              <span className="text-white font-bold">{wave} / 3</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">Monsters slain:</span>
-              <span className="text-white font-bold">{totalKills}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">XP Gained:</span>
-              <span className="text-emerald-400 font-bold">+{totalKills * currentMapLevel * 15}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">Gold Gained:</span>
-              <span className="text-yellow-400 font-bold">+{totalKills * currentMapLevel * 1}</span>
-            </div>
-
-            <div className="p-3 bg-yellow-950/20 border border-yellow-900/20 text-yellow-500 rounded-lg leading-relaxed flex gap-2">
-              <AlertCircle size={14} className="shrink-0 mt-0.5" />
-              <div className="text-[10px]">
-                <span className="font-bold">Loot Capping:</span> Rare/Epic items can drop here, but Legendary drops require streamer raids!
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Fullscreen Results Modal */}
-      {(battleState === 'VICTORY' || battleState === 'DEFEAT') && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 overflow-y-auto flex items-center justify-center p-4 md:p-8 select-none animate-fadeIn">
-          <div className="bg-[#0b0f19]/95 border border-white/10 rounded-2xl p-6 md:p-8 max-w-xl w-full max-h-[90vh] overflow-y-auto flex flex-col items-center shadow-2xl relative animate-scaleUp">
-            
-            <h3
-              className={`m-0 font-display text-2xl tracking-widest ${
-                battleState === 'VICTORY' ? 'text-emerald-400' : 'text-red-500'
-              }`}
-            >
-              {battleState === 'VICTORY' ? 'STAGE CLEAR' : 'CHARACTER DEFEATED'}
-            </h3>
-            <p className="text-slate-500 text-[10px] uppercase font-display tracking-widest mt-1 mb-6">
-              {battleState === 'VICTORY' ? 'Farming completed successfully!' : 'Character fell in battle.'}
-            </p>
-
-            {reporting ? (
-              <div className="text-slate-400 text-xs italic py-4">Syncing loot drop outcomes with server database...</div>
-            ) : (
-              <div className="flex flex-col items-center gap-6 w-full">
-                {/* Performance Recap Table */}
-                <div className="w-full bg-[#05070a] border border-white/5 rounded-xl p-4 flex flex-col gap-3">
-                  <span className="text-[10px] font-pixel text-neon-cyan uppercase tracking-widest text-left">[ COMBAT STATS RECAP ]</span>
-                  
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-[11px] font-mono text-slate-300 border-collapse">
-                      <thead>
-                        <tr className="border-b border-white/10 text-slate-500 text-left">
-                          <th className="pb-2 font-normal uppercase tracking-wider">Character</th>
-                          <th className="pb-2 font-normal uppercase tracking-wider text-right">DPS (Dealt)</th>
-                          <th className="pb-2 font-normal uppercase tracking-wider text-right">Healing</th>
-                          <th className="pb-2 font-normal uppercase tracking-wider text-right">Tanked</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr className="border-b border-white/5 last:border-0 text-left">
-                          <td className="py-2 text-white font-bold flex items-center gap-1.5">
-                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: CLASSES[character.class]?.color }} />
-                            {character.user.displayName}
-                          </td>
-                          <td className="py-2 text-right text-orange-400 font-bold">{stateRef.current.playerDamageDealt}</td>
-                          <td className="py-2 text-right text-emerald-400 font-bold">{stateRef.current.playerHealingDone}</td>
-                          <td className="py-2 text-right text-blue-400 font-bold">{stateRef.current.playerDamageTaken}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                  
-                  <div className="flex flex-col gap-2 mt-2 pt-2 border-t border-white/5 text-xs text-slate-400">
-                    <div className="flex justify-between">
-                      <span>Monsters Slain:</span>
-                      <span className="text-white font-bold">{totalKills}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>XP Earned:</span>
-                      <span className="text-emerald-400 font-bold">+{xpEarned} XP</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Gold Salvaged:</span>
-                      <span className="text-yellow-400 font-bold">+{goldEarned} Gold</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Dropped items */}
-                {itemsDropped.length > 0 && (
-                  <div className="w-full">
-                    <span className="block text-[9px] font-display text-slate-500 uppercase tracking-widest mb-2 text-left">
-                      Loot Drops Discovered ({itemsDropped.length}):
-                    </span>
-                    <div className="flex flex-wrap justify-center gap-3">
-                      {itemsDropped.map((item, idx) => (
-                        <div
-                          key={idx}
-                          className={`px-3 py-2 bg-[#05070a] border rounded-lg text-xs font-semibold item-slot-glow rarity-${item.rarity}`}
-                        >
-                          <div className="text-white leading-tight font-display">{item.name}</div>
-                          <div className="text-[9px] text-slate-500 uppercase font-mono mt-0.5">
-                            {item.slot} | Level {item.itemLevel}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex gap-4 w-full mt-4">
-                  <button
-                    onClick={initBattle}
-                    className="flex-1 py-2.5 border border-white/10 hover:bg-white/5 text-white rounded text-xs font-display font-bold uppercase tracking-wider transition"
-                  >
-                    Fight Again
-                  </button>
-                  <button
-                    onClick={onBackToDashboard}
-                    className="flex-1 py-2.5 bg-[#00d8ff] hover:bg-cyan-500 text-black rounded text-xs font-display font-bold uppercase tracking-wider transition font-bold"
-                  >
-                    Dashboard
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  return null;
 };

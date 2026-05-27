@@ -24,6 +24,21 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   const classColor = CLASSES[character.class]?.color || '#ff3b30';
   const className = CLASSES[character.class]?.name || 'Unknown';
 
+  const isMaxLevel = character.level >= 100;
+  const displayXpText = isMaxLevel ? 'MAX LEVEL REACHED' : `${character.xp} / ${xpNeeded} XP`;
+  const displayLevelText = isMaxLevel ? 'LEVEL 100 (MAX)' : `LEVEL ${character.level}`;
+  const barStyle: React.CSSProperties = isMaxLevel 
+    ? {
+        width: '100%',
+        background: 'linear-gradient(90deg, #ffaa00 0%, #ffe600 50%, #ffaa00 100%)',
+        boxShadow: '0 0 12px #ffe600, 0 0 25px #ffaa00'
+      }
+    : {
+        width: `${xpPercent}%`,
+        backgroundColor: classColor,
+        boxShadow: `0 0 10px ${classColor}88`
+      };
+
   return (
     <div className="glass-panel p-6 border-white/5 bg-[#090e1a]/95 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative overflow-hidden">
       <div className="absolute top-0 left-0 w-2 h-full" style={{ backgroundColor: classColor }} />
@@ -59,18 +74,14 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
       {/* Level XP Bar */}
       <div className="flex-1 max-w-md w-full">
-        <div className="flex justify-between text-[10px] font-pixel text-slate-400 mb-1.5">
-          <span>LEVEL {character.level}</span>
-          <span>{character.xp} / {xpNeeded} XP</span>
+        <div className={`flex justify-between text-[10px] font-pixel mb-1.5 ${isMaxLevel ? 'text-amber-400 font-bold' : 'text-slate-400'}`}>
+          <span>{displayLevelText}</span>
+          <span>{displayXpText}</span>
         </div>
-        <div className="w-full h-3 bg-black/40 rounded-full overflow-hidden border border-white/5 p-[2px]">
+        <div className={`w-full h-3 bg-black/40 rounded-full overflow-hidden border p-[2px] ${isMaxLevel ? 'border-amber-500/30' : 'border-white/5'}`}>
           <div
             className="h-full rounded-full transition-all duration-500 ease-out"
-            style={{
-              width: `${xpPercent}%`,
-              backgroundColor: classColor,
-              boxShadow: `0 0 10px ${classColor}88`
-            }}
+            style={barStyle}
           />
         </div>
       </div>

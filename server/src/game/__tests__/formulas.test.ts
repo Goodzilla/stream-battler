@@ -73,6 +73,12 @@ describe('Character Stats Calculator', () => {
     const stats = calculateCharacterStats('WARRIOR', 5, ['t4_2'], ['start'], []);
     expect(stats.reflect).toBe(0.15);
   });
+
+  it('should compute valkyrie level 1 stats', () => {
+    const stats = calculateCharacterStats('VALKYRIE', 1, [], ['start'], []);
+    expect(stats.maxHp).toBe(210); // 200 base + 10 start node
+    expect(stats.attackPower).toBe(20); // 18 base + 2 start
+  });
 });
 
 describe('ARPG Loot Generator', () => {

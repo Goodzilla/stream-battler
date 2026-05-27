@@ -19,6 +19,7 @@ interface AdminPanelTabProps {
   onSpawnItem: () => void;
   onResetCharacter: () => void;
   onPromoteUser: () => void;
+  onUnlockAllClasses: () => void;
 }
 
 export const AdminPanelTab: React.FC<AdminPanelTabProps> = ({
@@ -38,7 +39,8 @@ export const AdminPanelTab: React.FC<AdminPanelTabProps> = ({
   onAdminGold,
   onSpawnItem,
   onResetCharacter,
-  onPromoteUser
+  onPromoteUser,
+  onUnlockAllClasses
 }) => {
   return (
     <div className="glass-panel p-6 border-white/5 bg-black/20 flex flex-col gap-6">
@@ -157,27 +159,50 @@ export const AdminPanelTab: React.FC<AdminPanelTabProps> = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-2">
         {/* Promote users */}
-        <div className="p-4 bg-black/25 border border-white/5 rounded-xl flex flex-col gap-4">
-          <h4 className="m-0 font-display text-xs text-white uppercase tracking-wider">
-            Promote Player to Admin
-          </h4>
-          <div className="flex gap-2 items-end">
+        <div className="p-4 bg-black/25 border border-white/5 rounded-xl flex flex-col justify-between gap-4">
+          <div>
+            <h4 className="m-0 font-display text-xs text-white uppercase tracking-wider">
+              Promote Player to Admin
+            </h4>
+            <p className="text-[9px] text-slate-500 mt-1 leading-relaxed uppercase">
+              Grants administrative access to the specified user account.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 gap-2">
             <input
               type="text"
               placeholder="Type username..."
               value={promoteName}
               onChange={e => setPromoteName(e.target.value)}
-              className="flex-1 px-3 py-1.5 bg-[#05070a] border border-white/10 rounded text-xs text-white focus:outline-none"
+              className="w-full px-3 py-1.5 bg-[#05070a] border border-white/10 rounded text-xs text-white focus:outline-none"
             />
             <button
               onClick={onPromoteUser}
-              className="px-4 py-1.5 bg-purple-600/20 text-purple-400 border border-purple-500/20 rounded text-xs hover:bg-purple-500 hover:text-white transition duration-300 font-display font-bold"
+              className="w-full py-1.5 bg-purple-600/20 text-purple-400 border border-purple-500/20 rounded text-xs hover:bg-purple-500 hover:text-white transition duration-300 font-display font-bold uppercase tracking-wider"
             >
               Promote
             </button>
           </div>
+        </div>
+
+        {/* Unlock All Classes */}
+        <div className="p-4 bg-black/25 border border-white/5 rounded-xl flex flex-col justify-between gap-4">
+          <div>
+            <h4 className="m-0 font-display text-xs text-white uppercase tracking-wider">
+              Unlock All Advanced Classes
+            </h4>
+            <p className="text-[9px] text-slate-500 mt-1 leading-relaxed uppercase">
+              Immediately sets all base classes to level 100, unlocking the advanced class buttons.
+            </p>
+          </div>
+          <button
+            onClick={onUnlockAllClasses}
+            className="w-full py-2 bg-cyan-950/40 text-neon-cyan hover:text-white border border-cyan-900/40 hover:bg-cyan-600 rounded text-xs font-display font-bold uppercase tracking-wider transition duration-300"
+          >
+            Unlock All Classes
+          </button>
         </div>
 
         {/* Reset Character */}

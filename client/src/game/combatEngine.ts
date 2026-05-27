@@ -37,6 +37,7 @@ export interface CombatUnit {
   poisonRes?: number;
   physRes?: number;
   spriteType?: string;
+  healPower?: number;
 }
 
 export interface FloatingText {
@@ -125,6 +126,20 @@ export const createExplosion = (
   }
 };
 
+export const getUnitDamageTheme = (spriteName: string): 'PHYSICAL' | 'SNAKE' | 'LICH' | 'DRAGON' => {
+  const name = spriteName.toUpperCase();
+  if (name.includes('ADDER') || name.includes('VIPER') || name.includes('COBRA') || name.includes('MAMBA') || name.includes('SNAKE')) {
+    return 'SNAKE'; // 50% Poison, 50% Phys
+  }
+  if (name.includes('LICH') || name.includes('SKELETAL') || name.includes('WIGHT') || name.includes('MUMMY') || name.includes('FROST')) {
+    return 'LICH'; // 100% Cold
+  }
+  if (name.includes('DRAGON') || name.includes('DRAKE') || name.includes('WYVERN') || name.includes('HATCHLING') || name.includes('SOVEREIGN')) {
+    return 'DRAGON'; // 30% Phys, 70% Fire
+  }
+  return 'PHYSICAL'; // 100% Physical
+};
+
 // 3. EXECUTE BASIC ATTACKS (AND CALCULATE HEALING / DAMAGE / LIFESTEAL / REFLECT)
 export const performBasicAttack = (
   attacker: CombatUnit,
@@ -171,19 +186,20 @@ export const performBasicAttack = (
     let finalDmg = Math.max(1, Math.round(rawDmg - (target.defense || 0) * defScale));
 
     if (target.isPlayer && !attacker.isPlayer) {
-      const theme = attacker.spriteType || attacker.classType || 'GOBLIN';
+      const theme = attacker.spriteType || attacker.classType || 'GOBLIN_SCOUT';
+      const dmgTheme = getUnitDamageTheme(theme);
       let physPortion = 1.0;
       let firePortion = 0.0;
       let coldPortion = 0.0;
       let poisonPortion = 0.0;
 
-      if (theme === 'SNAKE') {
+      if (dmgTheme === 'SNAKE') {
         physPortion = 0.5;
         poisonPortion = 0.5;
-      } else if (theme === 'LICH') {
+      } else if (dmgTheme === 'LICH') {
         physPortion = 0.0;
         coldPortion = 1.0;
-      } else if (theme === 'DRAGON') {
+      } else if (dmgTheme === 'DRAGON') {
         physPortion = 0.3;
         firePortion = 0.7;
       }
@@ -801,6 +817,244 @@ export const castActiveSkill = (
         }
       }
     });
+  } else if (classType === 'VALKYRIE') {
+    // Spear of Light: deals 200% holy line damage and heals caster for 200% heal power
+    let dmgFactor = 2.0;
+    if (talentsList.includes('t2_1')) dmgFactor += 0.2;
+    if (talentsList.includes('t5_2')) dmgFactor += 0.3;
+    if (talentsList.includes('t10_1')) dmgFactor += 0.5;
+
+    let healFactor = 2.0;
+    if (talentsList.includes('t2_2')) healFactor += 0.5;
+    if (talentsList.includes('t6_1')) healFactor += 0.6;
+    if (talentsList.includes('t10_1')) healFactor += 1.0;
+
+    const dmg = Math.round(attacker.attackPower * dmgFactor);
+    const heal = Math.round((attacker.healPower || 15) * healFactor);
+
+    // Deal line damage
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistance(target, e) < 100) {
+        let finalDmg = dmg;
+        if (talentsList.includes('t7_1')) {
+          finalDmg = Math.round(finalDmg * 1.15);
+        }
+        e.hp = Math.max(0, e.hp - finalDmg);
+        e.flashTimer = 0.1;
+        e.flashColor = '#ff0055';
+        floatingTexts.push({ x: e.x, y: e.y - 15, text: `${finalDmg}`, color: '#ff0055', life: 40 });
+        createExplosion(particles, e.x, e.y, '#ff0055', 10);
+
+        if (talentsList.includes('t8_2')) {
+          e.stunTimer = 1.2;
+        } else if (talentsList.includes('t3_2') && Math.random() < 0.3) {
+          e.stunTimer = 1.0;
+        }
+
+        if (attacker.isPlayer) {
+          attacker.damageDealt = (attacker.damageDealt || 0) + finalDmg;
+          recapStats.playerDamageDealt = (recapStats.playerDamageDealt || 0) + finalDmg;
+        } else {
+          attacker.damageDealt = (attacker.damageDealt || 0) + finalDmg;
+        }
+      }
+    });
+
+    // Caster heal
+    attacker.hp = Math.min(attacker.maxHp, attacker.hp + heal);
+    attacker.flashTimer = 0.1;
+    attacker.flashColor = '#34c759';
+    attacker.healingDone = (attacker.healingDone || 0) + heal;
+    recapStats.playerHealingDone = (recapStats.playerHealingDone || 0) + heal;
+    floatingTexts.push({ x: attacker.x, y: attacker.y - 12, text: `+${heal}`, color: '#34c759', life: 40 });
+
+    if (talentsList.includes('t7_2')) {
+      allies.forEach(a => {
+        if (a.id !== attacker.id && a.hp > 0 && getDistance(attacker, a) < 120) {
+          const allyHeal = Math.round(heal * 0.5);
+          a.hp = Math.min(a.maxHp, a.hp + allyHeal);
+          floatingTexts.push({ x: a.x, y: a.y - 12, text: `+${allyHeal}`, color: '#34c759', life: 35 });
+        }
+      });
+    }
+
+  } else if (classType === 'NECROMANCER') {
+    // Raise Dead: dark magic shell dealing 220% AoE magic damage and raises a skeleton companion (barrier buffer)
+    let dmgFactor = 2.2;
+    if (talentsList.includes('t2_1')) dmgFactor += 0.2;
+    if (talentsList.includes('t5_1')) dmgFactor += 0.3;
+    if (talentsList.includes('t10_1')) dmgFactor += 0.6;
+
+    const dmg = Math.round(attacker.attackPower * dmgFactor);
+    target.hp = Math.max(0, target.hp - dmg);
+    target.flashTimer = 0.1;
+    target.flashColor = '#39ff14';
+    floatingTexts.push({ x: target.x, y: target.y - 20, text: `${dmg} (Raise Dead)`, color: '#39ff14', life: 45 });
+    createExplosion(particles, target.x, target.y, '#39ff14', 15);
+
+    if (talentsList.includes('t7_2')) {
+      target.stunTimer = 0.8;
+    }
+
+    if (attacker.isPlayer) {
+      attacker.damageDealt = (attacker.damageDealt || 0) + dmg;
+      recapStats.playerDamageDealt = (recapStats.playerDamageDealt || 0) + dmg;
+    } else {
+      attacker.damageDealt = (attacker.damageDealt || 0) + dmg;
+    }
+
+    enemies.forEach(e => {
+      if (e.id !== target.id && e.hp > 0 && getDistance(target, e) < 80) {
+        const spl = Math.round(dmg * 0.6);
+        e.hp = Math.max(0, e.hp - spl);
+        floatingTexts.push({ x: e.x, y: e.y - 15, text: `${spl}`, color: '#39ff14', life: 35 });
+      }
+    });
+
+    const skeletonBarrier = Math.round(attacker.maxHp * (talentsList.includes('t10_1') ? 0.30 : 0.15));
+    attacker.hp = Math.min(attacker.maxHp, attacker.hp + skeletonBarrier);
+    floatingTexts.push({ x: attacker.x, y: attacker.y - 12, text: `+${skeletonBarrier} (Skeleton)`, color: '#39ff14', life: 40 });
+
+    if (talentsList.includes('t9_1') && Math.random() < 0.25) {
+      attacker.skillTimer = 0;
+    }
+
+  } else if (classType === 'MONK') {
+    // Seven-Sided Strike flurry
+    let strikes = talentsList.includes('t8_2') ? 8 : 7;
+    let dmgFactor = 0.4;
+    if (talentsList.includes('t2_1')) dmgFactor += 0.08;
+    if (talentsList.includes('t5_1')) dmgFactor += 0.12;
+    if (talentsList.includes('t10_1')) dmgFactor += 0.24;
+
+    const baseDmg = Math.round(attacker.attackPower * dmgFactor);
+    recapStats.shakeTimer = 0.2;
+    recapStats.shakeIntensity = 5;
+
+    for (let sIdx = 0; sIdx < strikes; sIdx++) {
+      setTimeout(() => {
+        if (target && target.hp > 0) {
+          const finalStrikeDmg = baseDmg;
+          target.hp = Math.max(0, target.hp - finalStrikeDmg);
+          target.flashTimer = 0.08;
+          target.flashColor = '#ff6b00';
+          floatingTexts.push({ x: target.x + (Math.random() * 30 - 15), y: target.y - 15, text: `${finalStrikeDmg}`, color: '#ff6b00', life: 30 });
+          createExplosion(particles, target.x, target.y, '#ff6b00', 6);
+
+          if (talentsList.includes('t2_2') && Math.random() < 0.4) {
+            target.stunTimer = Math.max(target.stunTimer || 0, 0.5);
+          }
+
+          if (attacker.isPlayer) {
+            attacker.damageDealt = (attacker.damageDealt || 0) + finalStrikeDmg;
+            recapStats.playerDamageDealt = (recapStats.playerDamageDealt || 0) + finalStrikeDmg;
+          } else {
+            attacker.damageDealt = (attacker.damageDealt || 0) + finalStrikeDmg;
+          }
+        }
+      }, sIdx * 90);
+    }
+
+    if (talentsList.includes('t3_1')) {
+      const shield = Math.round(attacker.maxHp * 0.10);
+      attacker.hp = Math.min(attacker.maxHp, attacker.hp + shield);
+    }
+
+  } else if (classType === 'ALCHEMIST') {
+    // Acid Bomb
+    let dmgFactor = 1.8;
+    if (talentsList.includes('t2_1')) dmgFactor += 0.45;
+    if (talentsList.includes('t8_2')) dmgFactor += 0.72;
+    if (talentsList.includes('t10_1')) dmgFactor += 1.26;
+
+    const dmg = Math.round(attacker.attackPower * dmgFactor);
+    const rangeRadius = talentsList.includes('t1_2') ? 100 : 80;
+
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistance(target, e) < rangeRadius) {
+        let defDebuff = talentsList.includes('t7_1') ? 25 : (talentsList.includes('t2_2') ? 25 : 15);
+        e.defense = Math.max(0, (e.defense || 0) - defDebuff);
+
+        e.hp = Math.max(0, e.hp - dmg);
+        e.flashTimer = 0.1;
+        e.flashColor = '#adff2f';
+        floatingTexts.push({ x: e.x, y: e.y - 15, text: `${dmg} (Acid Bomb)`, color: '#adff2f', life: 45 });
+        createExplosion(particles, e.x, e.y, '#adff2f', 15);
+
+        if (talentsList.includes('t7_2')) {
+          e.stunTimer = 0.8;
+        }
+
+        if (attacker.isPlayer) {
+          attacker.damageDealt = (attacker.damageDealt || 0) + dmg;
+          recapStats.playerDamageDealt = (recapStats.playerDamageDealt || 0) + dmg;
+        } else {
+          attacker.damageDealt = (attacker.damageDealt || 0) + dmg;
+        }
+
+        setTimeout(() => {
+          if (e.hp > 0) {
+            const poisonDmg = Math.round(attacker.attackPower * 0.5);
+            e.hp = Math.max(0, e.hp - poisonDmg);
+            floatingTexts.push({ x: e.x, y: e.y - 12, text: `${poisonDmg} (Acid Poison)`, color: '#22c55e', life: 30 });
+          }
+        }, 1000);
+      }
+    });
+
+  } else if (classType === 'BARD') {
+    // Dissonant Melody
+    let dmgFactor = 1.5;
+    if (talentsList.includes('t2_2')) dmgFactor += 0.3;
+    if (talentsList.includes('t8_2')) dmgFactor += 0.75;
+    if (talentsList.includes('t10_1')) dmgFactor += 1.05;
+
+    const dmg = Math.round(attacker.attackPower * dmgFactor);
+    const rangeRadius = talentsList.includes('t1_2') ? 120 : 100;
+
+    enemies.forEach(e => {
+      if (e.hp > 0 && getDistance(attacker, e) < rangeRadius) {
+        e.hp = Math.max(0, e.hp - dmg);
+        e.flashTimer = 0.1;
+        e.flashColor = '#ff007f';
+        floatingTexts.push({ x: e.x, y: e.y - 15, text: `${dmg}`, color: '#ff007f', life: 40 });
+        createExplosion(particles, e.x, e.y, '#ff007f', 12);
+
+        if (talentsList.includes('t3_2')) {
+          e.stunTimer = 0.8;
+        }
+
+        if (attacker.isPlayer) {
+          attacker.damageDealt = (attacker.damageDealt || 0) + dmg;
+          recapStats.playerDamageDealt = (recapStats.playerDamageDealt || 0) + dmg;
+        } else {
+          attacker.damageDealt = (attacker.damageDealt || 0) + dmg;
+        }
+      }
+    });
+
+    allies.forEach(a => {
+      if (a.hp > 0 && getDistance(attacker, a) < 150) {
+        const bonusAtkSpeed = talentsList.includes('t10_1') ? 0.40 : (talentsList.includes('t2_1') ? 0.35 : 0.25);
+        const originalAtkSpeed = a.atkSpeed;
+        a.atkSpeed = a.atkSpeed * (1 + bonusAtkSpeed);
+        floatingTexts.push({ x: a.x, y: a.y - 20, text: `Speed Boost!`, color: '#ff007f', life: 40 });
+
+        setTimeout(() => {
+          a.atkSpeed = originalAtkSpeed;
+        }, talentsList.includes('t4_1') ? 6000 : 4000);
+      }
+    });
+
+    if (talentsList.includes('t3_1') || talentsList.includes('t7_2')) {
+      const heal = Math.round((attacker.healPower || 15) * (talentsList.includes('t7_2') ? 2.0 : 1.5));
+      allies.forEach(a => {
+        if (a.hp > 0 && getDistance(attacker, a) < 150) {
+          a.hp = Math.min(a.maxHp, a.hp + heal);
+          floatingTexts.push({ x: a.x, y: a.y - 12, text: `+${heal}`, color: '#ffcc00', life: 35 });
+        }
+      });
+    }
   }
 };
 

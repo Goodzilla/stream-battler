@@ -3,16 +3,17 @@ import { Socket } from 'socket.io-client';
 import { TwitchConsole } from '../components/TwitchConsole';
 import { getDistance } from '../game/physics';
 import { ArrowLeft, Play, Users, Skull, ShieldAlert } from 'lucide-react';
-import { CLASSES } from 'shared';
+import { CLASSES, getArenaConfigForLevel } from 'shared';
 import confetti from 'canvas-confetti';
 import { soundManager } from '../game/soundManager';
-import { drawPixelSprite } from '../game/sprites';
+import { drawPixelSprite, drawProceduralBackground } from '../game/sprites';
 import {
   updateUnitPhysics,
   performBasicAttack,
   castActiveSkill,
   updateVisuals,
-  createExplosion
+  createExplosion,
+  getUnitDamageTheme
 } from '../game/combatEngine';
 import type {
   CombatUnit as RaidUnit,
@@ -30,11 +31,7 @@ interface StreamerLobbyProps {
 }
 
 const getBossSprite = (level: number) => {
-  if (level <= 20) return 'GOBLIN';
-  if (level <= 40) return 'SNAKE';
-  if (level <= 60) return 'ORC';
-  if (level <= 80) return 'LICH';
-  return 'DRAGON';
+  return getArenaConfigForLevel(level).enemySprite;
 };
 
 export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
@@ -193,17 +190,52 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
           range = 220;
           color = '#34c759';
           break;
+        case 'VALKYRIE':
+          baseHp = 250 + v.level * 28;
+          baseAtk = 18 + v.level * 2.0;
+          speed = 100;
+          range = 50;
+          color = '#ff0055';
+          break;
+        case 'NECROMANCER':
+          baseHp = 120 + v.level * 12;
+          baseAtk = 28 + v.level * 3.8;
+          speed = 90;
+          range = 190;
+          color = '#39ff14';
+          break;
+        case 'MONK':
+          baseHp = 160 + v.level * 18;
+          baseAtk = 18 + v.level * 2.2;
+          speed = 115;
+          range = 40;
+          color = '#ff6b00';
+          break;
+        case 'ALCHEMIST':
+          baseHp = 130 + v.level * 15;
+          baseAtk = 22 + v.level * 2.8;
+          speed = 110;
+          range = 150;
+          color = '#adff2f';
+          break;
+        case 'BARD':
+          baseHp = 140 + v.level * 16;
+          baseAtk = 16 + v.level * 1.8;
+          speed = 110;
+          range = 210;
+          color = '#ff007f';
+          break;
       }
 
       const unitMaxHp = v.maxHp || baseHp;
       const unitAttackPower = v.attackPower || baseAtk;
-      const unitCritChance = v.critChance !== undefined ? v.critChance : (v.charClass === 'ROGUE' ? 0.18 : 0.08);
-      const unitCritMult = v.critMult !== undefined ? v.critMult : (v.charClass === 'ROGUE' ? 2.0 : 1.5);
-      const unitAtkSpeed = v.atkSpeed !== undefined ? v.atkSpeed : (v.charClass === 'ROGUE' ? 1.4 : (v.charClass === 'RANGER' ? 1.1 : 0.8));
+      const unitCritChance = v.critChance !== undefined ? v.critChance : (['ROGUE', 'MONK', 'ALCHEMIST'].includes(v.charClass) ? 0.18 : 0.08);
+      const unitCritMult = v.critMult !== undefined ? v.critMult : (['ROGUE', 'MONK', 'ALCHEMIST'].includes(v.charClass) ? 2.0 : 1.5);
+      const unitAtkSpeed = v.atkSpeed !== undefined ? v.atkSpeed : (v.charClass === 'ROGUE' ? 1.4 : (v.charClass === 'MONK' ? 1.25 : (v.charClass === 'RANGER' ? 1.1 : 0.8)));
       const unitCdr = v.cdr !== undefined ? v.cdr : 0;
 
       const talentsList = v.selectedTalents || [];
-      let baseCd = v.charClass === 'WARRIOR' ? 6 : (v.charClass === 'MAGE' ? 5 : (v.charClass === 'CLERIC' ? 7 : (v.charClass === 'ROGUE' ? 8 : 8)));
+      let baseCd = CLASSES[v.charClass]?.activeSkill.cooldown || 8;
       if (v.charClass === 'WARRIOR') {
         if (talentsList.includes('t1_1')) baseCd -= 1.5;
         if (talentsList.includes('t5_2')) baseCd += 2.0;
@@ -227,6 +259,31 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         if (talentsList.includes('t5_1')) baseCd -= 2.0;
         if (talentsList.includes('t9_1')) baseCd -= 3.0;
         if (talentsList.includes('t10_2')) baseCd -= 4.0;
+      } else if (v.charClass === 'VALKYRIE') {
+        if (talentsList.includes('t1_1')) baseCd -= 1.0;
+        if (talentsList.includes('t4_2')) baseCd -= 1.5;
+        if (talentsList.includes('t9_1')) baseCd -= 2.0;
+        if (talentsList.includes('t10_2')) baseCd -= 3.0;
+      } else if (v.charClass === 'NECROMANCER') {
+        if (talentsList.includes('t1_1')) baseCd -= 1.0;
+        if (talentsList.includes('t4_1')) baseCd -= 1.5;
+        if (talentsList.includes('t6_1')) baseCd -= 2.0;
+        if (talentsList.includes('t10_2')) baseCd -= 3.0;
+      } else if (v.charClass === 'MONK') {
+        if (talentsList.includes('t1_1')) baseCd -= 1.0;
+        if (talentsList.includes('t4_2')) baseCd -= 1.5;
+        if (talentsList.includes('t6_1')) baseCd -= 2.0;
+        if (talentsList.includes('t10_2')) baseCd -= 3.5;
+      } else if (v.charClass === 'ALCHEMIST') {
+        if (talentsList.includes('t1_1')) baseCd -= 1.0;
+        if (talentsList.includes('t6_1')) baseCd -= 1.5;
+        if (talentsList.includes('t10_1')) baseCd -= 2.0;
+        if (talentsList.includes('t10_2')) baseCd -= 3.5;
+      } else if (v.charClass === 'BARD') {
+        if (talentsList.includes('t1_1')) baseCd -= 1.0;
+        if (talentsList.includes('t4_2')) baseCd -= 1.5;
+        if (talentsList.includes('t6_1')) baseCd -= 2.0;
+        if (talentsList.includes('t10_2')) baseCd -= 3.5;
       }
 
       // Add simple offset row positions for 1200x600 coordinate grid
@@ -346,67 +403,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
       }
 
       // Draw themed background based on boss level
-      if (bossLevel <= 20) {
-        // Grassy forest
-        ctx.fillStyle = '#08170e';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#0f2919';
-        for (let i = 0; i < 25; i++) {
-          ctx.fillRect((i * 47) % canvas.width, (i * 31) % canvas.height, 8, 3);
-          ctx.fillRect((i * 47) % canvas.width + 3, (i * 31) % canvas.height - 3, 2, 6);
-        }
-      } else if (bossLevel <= 40) {
-        // Poison Caves
-        ctx.fillStyle = '#0d0714';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#a855f7';
-        for (let i = 0; i < 15; i++) {
-          const px = (i * 73) % canvas.width;
-          const py = (i * 29) % canvas.height;
-          ctx.fillRect(px, py, 3, 3);
-          ctx.fillStyle = 'rgba(168, 85, 247, 0.12)';
-          ctx.beginPath();
-          ctx.arc(px + 1.5, py + 1.5, 8, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = '#a855f7';
-        }
-      } else if (bossLevel <= 60) {
-        // Ancient Ruins
-        ctx.fillStyle = '#171412';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = '#24201e';
-        ctx.lineWidth = 1.5;
-        for (let x = 0; x < canvas.width; x += 60) {
-          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
-        }
-        for (let y = 0; y < canvas.height; y += 60) {
-          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-        }
-      } else if (bossLevel <= 80) {
-        // Crypt theme
-        ctx.fillStyle = '#090a0f';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'rgba(14, 165, 233, 0.05)';
-        for (let i = 0; i < 5; i++) {
-          const px = 100 + i * 140;
-          ctx.fillRect(px, 0, 40, canvas.height);
-          ctx.fillStyle = 'rgba(14, 165, 233, 0.15)';
-          ctx.fillRect(px + 10, 0, 20, canvas.height);
-          ctx.fillStyle = 'rgba(14, 165, 233, 0.05)';
-        }
-      } else {
-        // Volcano Lava River
-        ctx.fillStyle = '#0a0807';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#d97706';
-        ctx.beginPath();
-        ctx.moveTo(0, canvas.height - 60);
-        ctx.bezierCurveTo(canvas.width / 3, canvas.height - 100, (canvas.width * 2) / 3, canvas.height - 30, canvas.width, canvas.height - 70);
-        ctx.lineTo(canvas.width, canvas.height);
-        ctx.lineTo(0, canvas.height);
-        ctx.closePath();
-        ctx.fill();
-      }
+      drawProceduralBackground(ctx, canvas.width, canvas.height, getArenaConfigForLevel(bossLevel));
 
       const boss = s.units.find(u => !u.isPlayer);
       const livingPlayers = s.units.filter(u => u.isPlayer && u.hp > 0);
@@ -636,19 +633,20 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                 allPlayers.forEach(p => {
                   if (p.hp <= 0) return;
                   const baseDmg = Math.max(1, Math.round(boss.attackPower * 2.2 - (p.defense || 0) * 0.1));
-                  const theme = boss.spriteType || boss.classType || 'GOBLIN';
+                  const theme = boss.spriteType || boss.classType || 'GOBLIN_SCOUT';
+                  const dmgTheme = getUnitDamageTheme(theme);
                   let physPortion = 1.0;
                   let firePortion = 0.0;
                   let coldPortion = 0.0;
                   let poisonPortion = 0.0;
 
-                  if (theme === 'SNAKE') {
+                  if (dmgTheme === 'SNAKE') {
                     physPortion = 0.5;
                     poisonPortion = 0.5;
-                  } else if (theme === 'LICH') {
+                  } else if (dmgTheme === 'LICH') {
                     physPortion = 0.0;
                     coldPortion = 1.0;
-                  } else if (theme === 'DRAGON') {
+                  } else if (dmgTheme === 'DRAGON') {
                     physPortion = 0.3;
                     firePortion = 0.7;
                   }
@@ -1165,10 +1163,16 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                         <div className="flex gap-3 text-[10px] font-mono">
                           <span className="text-emerald-400">+{rew.xp}xp</span>
                           <span className="text-yellow-400">+{rew.gold}g</span>
-                          {rew.itemDropped && (
-                            <span className="text-orange-400 font-bold border border-orange-500/20 px-1 rounded bg-orange-950/10">
-                              {rew.itemDropped.rarity} {rew.itemDropped.name}
+                          {rew.inventoryFull ? (
+                            <span className="text-red-500 font-bold border border-red-500/30 px-1 rounded bg-red-950/10 uppercase">
+                              Inventory Full
                             </span>
+                          ) : (
+                            rew.itemDropped && (
+                              <span className="text-orange-400 font-bold border border-orange-500/20 px-1 rounded bg-orange-950/10">
+                                {rew.itemDropped.rarity} {rew.itemDropped.name}
+                              </span>
+                            )
                           )}
                         </div>
                       </div>

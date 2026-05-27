@@ -1,6 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { prisma } from '../db';
 import { generateRandomItem, xpToNextLevel, calculateCharacterStats } from 'shared';
+import { resolveActiveClass } from '../routes/auth';
 
 export interface LobbyViewer {
   userId: string;
@@ -84,7 +85,8 @@ export const setupSocketHandlers = (io: Server) => {
         });
 
         if (user) {
-          const char = user.characters.find(c => c.class === user.activeClass);
+          const activeClass = resolveActiveClass(user);
+          const char = user.characters.find(c => c.class === activeClass);
           if (char) {
             const weapon = user.items.find(i => i.slot === 'WEAPON' && i.isEquipped && i.equippedCharacterId === char.id);
             const armor = user.items.find(i => i.slot === 'ARMOR' && i.isEquipped && i.equippedCharacterId === char.id);
@@ -235,7 +237,8 @@ export const setupSocketHandlers = (io: Server) => {
               }) as any;
             }
 
-            const char = user!.characters.find(c => c.class === user!.activeClass);
+            const activeClass = resolveActiveClass(user);
+            const char = user!.characters.find(c => c.class === activeClass);
             if (char) {
               const weapon = user!.items.find(i => i.slot === 'WEAPON' && i.isEquipped && i.equippedCharacterId === char.id);
               const armor = user!.items.find(i => i.slot === 'ARMOR' && i.isEquipped && i.equippedCharacterId === char.id);
@@ -340,7 +343,7 @@ export const setupSocketHandlers = (io: Server) => {
           });
 
           // Award loot if successful
-          const rewards: Record<string, { xp: number; gold: number; itemDropped?: any }> = {};
+          const rewards: Record<string, { xp: number; gold: number; itemDropped?: any; inventoryFull?: boolean }> = {};
 
           if (success) {
             for (const viewer of lobby.viewers) {
@@ -350,34 +353,38 @@ export const setupSocketHandlers = (io: Server) => {
               });
 
               if (user) {
-                const character = user.characters.find(c => c.class === user.activeClass);
+                const activeClass = resolveActiveClass(user);
+                const character = user.characters.find(c => c.class === activeClass);
                 if (character) {
                   const xpGained = bossLevel * 80;
                   const goldGained = bossLevel * 15;
 
-                  // Roll loot
-                  let itemDropped = null;
-                  const lootRoll = Math.random();
+                  // Check inventory
+                  const unequippedCount = await prisma.item.count({
+                    where: {
+                      userId: user.id,
+                      isEquipped: false
+                    }
+                  });
 
-                  // 25% chance of loot drop
-                  if (lootRoll < 0.25) {
+                  let itemDropped = null;
+                  let inventoryFull = false;
+
+                  if (unequippedCount >= 30) {
+                    inventoryFull = true;
+                  } else {
                     const rarityRoll = Math.random();
-                    let rarity: 'COMMON' | 'UNCOMMON' | 'RARE' | 'EPIC' | 'LEGENDARY' = 'COMMON';
+                    let rarity: 'RARE' | 'EPIC' | 'LEGENDARY' = 'RARE';
 
                     if (bossLevel >= 15) {
-                      if (rarityRoll < 0.02) rarity = 'LEGENDARY';
-                      else if (rarityRoll < 0.10) rarity = 'EPIC';
-                      else if (rarityRoll < 0.30) rarity = 'RARE';
-                      else if (rarityRoll < 0.60) rarity = 'UNCOMMON';
+                      if (rarityRoll < 0.05) rarity = 'LEGENDARY';
+                      else if (rarityRoll < 0.25) rarity = 'EPIC';
+                      else rarity = 'RARE';
                     } else if (bossLevel >= 10) {
-                      if (rarityRoll < 0.05) rarity = 'EPIC';
-                      else if (rarityRoll < 0.20) rarity = 'RARE';
-                      else if (rarityRoll < 0.50) rarity = 'UNCOMMON';
-                    } else if (bossLevel >= 5) {
-                      if (rarityRoll < 0.10) rarity = 'RARE';
-                      else if (rarityRoll < 0.35) rarity = 'UNCOMMON';
+                      if (rarityRoll < 0.15) rarity = 'EPIC';
+                      else rarity = 'RARE';
                     } else {
-                      if (rarityRoll < 0.15) rarity = 'UNCOMMON';
+                      rarity = 'RARE';
                     }
 
                     const slots: Array<'WEAPON' | 'ARMOR' | 'ACCESSORY'> = ['WEAPON', 'ARMOR', 'ACCESSORY'];
@@ -435,7 +442,8 @@ export const setupSocketHandlers = (io: Server) => {
                   rewards[viewer.userId] = {
                     xp: xpGained,
                     gold: goldGained,
-                    itemDropped
+                    itemDropped,
+                    inventoryFull
                   };
                 }
               }
