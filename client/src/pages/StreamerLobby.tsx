@@ -36,6 +36,10 @@ interface RaidUnit {
   // State
   stunTimer: number;
   isHealer?: boolean;
+  // Combat stats from gear/passives
+  defense?: number;
+  lifesteal?: number;
+  reflect?: number;
 }
 
 export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
@@ -156,6 +160,13 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
           break;
       }
 
+      const unitMaxHp = v.maxHp || baseHp;
+      const unitAttackPower = v.attackPower || baseAtk;
+      const unitCritChance = v.critChance !== undefined ? v.critChance : (v.charClass === 'ROGUE' ? 0.18 : 0.08);
+      const unitCritMult = v.critMult !== undefined ? v.critMult : (v.charClass === 'ROGUE' ? 2.0 : 1.5);
+      const unitAtkSpeed = v.atkSpeed !== undefined ? v.atkSpeed : (v.charClass === 'ROGUE' ? 1.4 : (v.charClass === 'RANGER' ? 1.1 : 0.8));
+      const unitCdr = v.cdr !== undefined ? v.cdr : 0;
+
       // Add simple offset row positions
       const row = index % 3;
       const col = Math.floor(index / 3);
@@ -166,21 +177,24 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         name: v.displayName,
         x: 80 - col * 40 + Math.random() * 10,
         y: 120 + row * 80 + Math.random() * 20,
-        maxHp: baseHp,
-        hp: baseHp,
+        maxHp: unitMaxHp,
+        hp: unitMaxHp,
         speed,
-        attackPower: baseAtk,
-        critChance: v.charClass === 'ROGUE' ? 0.18 : 0.08,
-        critMult: v.charClass === 'ROGUE' ? 2.0 : 1.5,
-        atkSpeed: v.charClass === 'ROGUE' ? 1.4 : (v.charClass === 'RANGER' ? 1.1 : 0.8),
+        attackPower: unitAttackPower,
+        critChance: unitCritChance,
+        critMult: unitCritMult,
+        atkSpeed: unitAtkSpeed,
         attackRange: range,
         color,
         classType: v.charClass,
         atkTimer: Math.random() * 1.0,
         skillTimer: Math.random() * 2.0,
-        activeSkillCd: v.charClass === 'WARRIOR' ? 6 : (v.charClass === 'MAGE' ? 5 : (v.charClass === 'CLERIC' ? 7 : 8)),
+        activeSkillCd: (v.charClass === 'WARRIOR' ? 6 : (v.charClass === 'MAGE' ? 5 : (v.charClass === 'CLERIC' ? 7 : 8))) * (1 - unitCdr),
         stunTimer: 0,
-        isHealer: v.charClass === 'CLERIC'
+        isHealer: v.charClass === 'CLERIC',
+        defense: v.defense || 0,
+        lifesteal: v.lifesteal || 0,
+        reflect: v.reflect || 0
       };
     });
 
@@ -326,6 +340,11 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
 
                   s.projectiles.push({ fx: p.x, fy: p.y, tx: target.x, ty: target.y, color: p.color, life: 6 });
                   s.damageTexts.push({ x: target.x + (Math.random() * 40 - 20), y: target.y - 20 - (Math.random() * 20), text: `${finalDmg}`, color: isCrit ? '#ff9500' : '#ffffff', life: 45, isCrit });
+
+                  // Apply lifesteal
+                  if (p.lifesteal && p.lifesteal > 0) {
+                    p.hp = Math.min(p.maxHp, p.hp + Math.round(finalDmg * p.lifesteal));
+                  }
                 }
               }
 
@@ -410,9 +429,16 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                 // Swipe hit target and anyone nearby
                 players.forEach(p => {
                   if (getDistance(boss, p) <= boss.attackRange + 20) {
-                    const dmg = boss.attackPower;
+                    const dmg = Math.max(1, Math.round(boss.attackPower - (p.defense || 0) * 0.1));
                     p.hp = Math.max(0, p.hp - dmg);
                     s.damageTexts.push({ x: p.x, y: p.y - 12, text: `${dmg}`, color: '#ff3b30', life: 40 });
+
+                    // Reflect
+                    if (p.reflect && p.reflect > 0) {
+                      const refl = Math.round(dmg * p.reflect);
+                      boss.hp = Math.max(0, boss.hp - refl);
+                      s.damageTexts.push({ x: boss.x + (Math.random() * 40 - 20), y: boss.y - 20, text: `${refl} (Reflect)`, color: '#af52de', life: 40 });
+                    }
                   }
                 });
               }
@@ -427,9 +453,16 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                 ctx.beginPath(); ctx.moveTo(boss.x, boss.y); ctx.lineTo(50, boss.y + (Math.random() * 200 - 100)); ctx.stroke();
 
                 players.forEach(p => {
-                  const dmg = Math.round(boss.attackPower * 2.2);
+                  const dmg = Math.max(1, Math.round(boss.attackPower * 2.2 - (p.defense || 0) * 0.1));
                   p.hp = Math.max(0, p.hp - dmg);
                   s.damageTexts.push({ x: p.x, y: p.y - 16, text: `${dmg} (Laser Arc!)`, color: '#ff9500', life: 55, isCrit: true });
+
+                  // Reflect
+                  if (p.reflect && p.reflect > 0) {
+                    const refl = Math.round(dmg * p.reflect);
+                    boss.hp = Math.max(0, boss.hp - refl);
+                    s.damageTexts.push({ x: boss.x + (Math.random() * 40 - 20), y: boss.y - 20, text: `${refl} (Reflect)`, color: '#af52de', life: 40 });
+                  }
                 });
               }
             } else {

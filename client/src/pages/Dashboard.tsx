@@ -218,7 +218,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const handleGambleItem = async (slot: string) => {
-    const gamblePrice = character.level * 15;
+    const gamblePrice = character.level * 40;
     if (shopGold < gamblePrice) {
       alert('Insufficient Gold!');
       return;
@@ -553,7 +553,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <div className="flex border-b border-white/5 gap-2 select-none overflow-x-auto pb-1">
             {[
               { id: 'inventory', label: 'Gear & Stash' },
-              { id: 'tree', label: 'Skill Matrix' },
+              { id: 'tree', label: 'Skill Tree' },
               { id: 'shop', label: 'Merchant Shop' },
               { id: 'solo', label: 'Solo Arena' },
               { id: 'raids', label: 'Lobbies & Raids' },
@@ -865,11 +865,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {shopStock.map((shopItem: any) => {
                       // Calculate purchase price
-                      let price = shopItem.itemLevel * 8;
+                      let price = shopItem.itemLevel * 20;
                       switch (shopItem.rarity) {
-                        case 'UNCOMMON': price += 15; break;
-                        case 'RARE': price += 40; break;
-                        case 'EPIC': price += 120; break;
+                        case 'UNCOMMON': price += 50; break;
+                        case 'RARE': price += 150; break;
+                        case 'EPIC': price += 450; break;
+                        case 'LEGENDARY': price += 1000; break;
                       }
 
                       return (
@@ -921,7 +922,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   Gheed's Mystery Artifacts (Gambling)
                 </h3>
                 <p className="text-[10px] text-slate-400 leading-relaxed m-0 mb-2">
-                  Roll the dice for a random item. Mystery artifacts have an index cost scaling with your active character's level: <span className="text-yellow-500 font-bold">{character.level * 15} Gold</span>. Low odds of Epic/Legendary gear.
+                  Roll the dice for a random item. Mystery artifacts have an index cost scaling with your active character's level: <span className="text-yellow-500 font-bold">{character.level * 40} Gold</span>. Low odds of Epic/Legendary gear.
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-white/5 pt-4">
@@ -935,7 +936,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       <span className="text-[18px] font-display font-bold text-white uppercase tracking-wider mt-1">? MYSTERY ?</span>
                       <div className="text-yellow-500 font-mono text-xs font-bold flex items-center gap-1">
                         <Coins className="w-3.5 h-3.5 shrink-0" />
-                        {character.level * 15} Gold
+                        {character.level * 40} Gold
                       </div>
                     </button>
                   ))}

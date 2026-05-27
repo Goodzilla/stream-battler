@@ -262,7 +262,7 @@ characterRouter.post('/report-solo-battle', async (req: Request, res: Response) 
   try {
     const limitFactor = countOfKills ? Math.min(countOfKills, 30) : 10;
     const maxCredibleXp = mapLevel * 100 * limitFactor;
-    const maxCredibleGold = mapLevel * 50 * limitFactor;
+    const maxCredibleGold = mapLevel * 10 * limitFactor;
 
     if (xpGained > maxCredibleXp || goldGained > maxCredibleGold) {
       res.status(400).json({ error: 'Cheat protection: rewards reported exceed limits' });
@@ -286,14 +286,22 @@ characterRouter.post('/report-solo-battle', async (req: Request, res: Response) 
 
     // 3. Roll random loot items (linked directly to User stash)
     const lootCreated = [];
-    const rollCount = Math.random() < 0.3 ? (Math.random() < 0.2 ? 2 : 1) : 0;
-
-    for (let i = 0; i < rollCount; i++) {
+    
+    // 15% chance of 1 loot drop
+    if (Math.random() < 0.15) {
       const rarRoll = Math.random();
       let rarity: 'COMMON' | 'UNCOMMON' | 'RARE' | 'EPIC' = 'COMMON';
-      if (rarRoll < 0.05) rarity = 'EPIC';
-      else if (rarRoll < 0.15) rarity = 'RARE';
-      else if (rarRoll < 0.40) rarity = 'UNCOMMON';
+
+      if (mapLevel >= 10) {
+        if (rarRoll < 0.02) rarity = 'EPIC';
+        else if (rarRoll < 0.10) rarity = 'RARE';
+        else if (rarRoll < 0.35) rarity = 'UNCOMMON';
+      } else if (mapLevel >= 5) {
+        if (rarRoll < 0.05) rarity = 'RARE';
+        else if (rarRoll < 0.25) rarity = 'UNCOMMON';
+      } else {
+        if (rarRoll < 0.10) rarity = 'UNCOMMON';
+      }
 
       const slots: Array<'WEAPON' | 'ARMOR' | 'ACCESSORY'> = ['WEAPON', 'ARMOR', 'ACCESSORY'];
       const slot = slots[Math.floor(Math.random() * slots.length)];

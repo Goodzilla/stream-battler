@@ -106,12 +106,12 @@ shopRouter.post('/buy', async (req: Request, res: Response) => {
   }
 
   // Calculate price based on item level and rarity
-  let price = shopItem.itemLevel * 8;
+  let price = shopItem.itemLevel * 20;
   switch (shopItem.rarity) {
-    case 'UNCOMMON': price += 15; break;
-    case 'RARE': price += 40; break;
-    case 'EPIC': price += 120; break;
-    case 'LEGENDARY': price += 500; break; // Shop items capped at Epic, but just in case
+    case 'UNCOMMON': price += 50; break;
+    case 'RARE': price += 150; break;
+    case 'EPIC': price += 450; break;
+    case 'LEGENDARY': price += 1000; break;
   }
 
   if (req.user!.gold < price) {
@@ -173,8 +173,8 @@ shopRouter.post('/gamble', async (req: Request, res: Response) => {
     return;
   }
 
-  // Cost scales with character level: Level * 15 gold
-  const price = activeChar.level * 15;
+  // Cost scales with character level: Level * 40 gold
+  const price = activeChar.level * 40;
 
   if (req.user!.gold < price) {
     res.status(400).json({ error: `Insufficient Gold. Gambling requires ${price} Gold.` });

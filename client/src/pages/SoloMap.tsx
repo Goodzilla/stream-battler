@@ -471,7 +471,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
                 setTotalKills(s.kills);
                 // Accumulate loot XP/gold
                 s.xpGained += mapLevel * 15;
-                s.goldGained += mapLevel * 6;
+                s.goldGained += mapLevel * 1;
                 addExplosion(u.x, u.y, '#ff3b30', 25);
               }
               return false;
@@ -716,7 +716,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
             </div>
             <div className="flex justify-between">
               <span className="text-slate-400">Gold Accumulation:</span>
-              <span className="text-yellow-400 font-bold">+{totalKills * mapLevel * 6}</span>
+              <span className="text-yellow-400 font-bold">+{totalKills * mapLevel * 1}</span>
             </div>
 
             <div className="p-3 bg-yellow-950/20 border border-yellow-900/20 text-yellow-500 rounded-lg leading-relaxed flex gap-2">

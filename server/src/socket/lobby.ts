@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { prisma } from '../db';
-import { generateRandomItem, xpToNextLevel } from '../game/formulas';
+import { generateRandomItem, xpToNextLevel, calculateCharacterStats } from '../game/formulas';
 
 export interface LobbyViewer {
   userId: string;
@@ -10,6 +10,16 @@ export interface LobbyViewer {
   level: number;
   weaponRarity: string;
   armorRarity: string;
+  // Combat stats
+  maxHp: number;
+  attackPower: number;
+  defense: number;
+  critChance: number;
+  critMult: number;
+  atkSpeed: number;
+  lifesteal: number;
+  reflect: number;
+  cdr: number;
 }
 
 export interface LobbyState {
@@ -71,6 +81,14 @@ export const setupSocketHandlers = (io: Server) => {
             const weapon = user.items.find(i => i.slot === 'WEAPON' && i.isEquipped && i.equippedCharacterId === char.id);
             const armor = user.items.find(i => i.slot === 'ARMOR' && i.isEquipped && i.equippedCharacterId === char.id);
 
+            const charStats = calculateCharacterStats(
+              char.class,
+              char.level,
+              JSON.parse(char.talents || '[]'),
+              JSON.parse(char.passives || '[]'),
+              user.items.filter(i => i.isEquipped && i.equippedCharacterId === char.id) as any
+            );
+
             const viewerData: LobbyViewer = {
               userId: user.id,
               username: user.username,
@@ -78,7 +96,16 @@ export const setupSocketHandlers = (io: Server) => {
               charClass: char.class,
               level: char.level,
               weaponRarity: weapon ? weapon.rarity : 'COMMON',
-              armorRarity: armor ? armor.rarity : 'COMMON'
+              armorRarity: armor ? armor.rarity : 'COMMON',
+              maxHp: charStats.maxHp,
+              attackPower: charStats.attackPower,
+              defense: charStats.defense,
+              critChance: charStats.critChance,
+              critMult: charStats.critMult,
+              atkSpeed: charStats.atkSpeed,
+              lifesteal: charStats.lifesteal,
+              reflect: charStats.reflect,
+              cdr: charStats.cdr
             };
 
             // Deduplicate viewers
@@ -193,6 +220,14 @@ export const setupSocketHandlers = (io: Server) => {
               const weapon = user!.items.find(i => i.slot === 'WEAPON' && i.isEquipped && i.equippedCharacterId === char.id);
               const armor = user!.items.find(i => i.slot === 'ARMOR' && i.isEquipped && i.equippedCharacterId === char.id);
 
+              const charStats = calculateCharacterStats(
+                char.class,
+                char.level,
+                JSON.parse(char.talents || '[]'),
+                JSON.parse(char.passives || '[]'),
+                user!.items.filter(i => i.isEquipped && i.equippedCharacterId === char.id) as any
+              );
+
               const viewerData: LobbyViewer = {
                 userId: user!.id,
                 username: user!.username,
@@ -200,7 +235,16 @@ export const setupSocketHandlers = (io: Server) => {
                 charClass: char.class,
                 level: char.level,
                 weaponRarity: weapon ? weapon.rarity : 'COMMON',
-                armorRarity: armor ? armor.rarity : 'COMMON'
+                armorRarity: armor ? armor.rarity : 'COMMON',
+                maxHp: charStats.maxHp,
+                attackPower: charStats.attackPower,
+                defense: charStats.defense,
+                critChance: charStats.critChance,
+                critMult: charStats.critMult,
+                atkSpeed: charStats.atkSpeed,
+                lifesteal: charStats.lifesteal,
+                reflect: charStats.reflect,
+                cdr: charStats.cdr
               };
 
               lobby.viewers = lobby.viewers.filter(v => v.userId !== user!.id);
@@ -272,20 +316,32 @@ export const setupSocketHandlers = (io: Server) => {
                 const character = user.characters.find(c => c.class === user.activeClass);
                 if (character) {
                   const xpGained = bossLevel * 80;
-                  const goldGained = bossLevel * 40;
+                  const goldGained = bossLevel * 15;
 
                   // Roll loot
                   let itemDropped = null;
                   const lootRoll = Math.random();
 
-                  // 25% chance of loot drop, supports LEGENDARIES!
+                  // 25% chance of loot drop
                   if (lootRoll < 0.25) {
                     const rarityRoll = Math.random();
-                    let rarity: 'COMMON' | 'UNCOMMON' | 'RARE' | 'EPIC' | 'LEGENDARY' = 'UNCOMMON';
+                    let rarity: 'COMMON' | 'UNCOMMON' | 'RARE' | 'EPIC' | 'LEGENDARY' = 'COMMON';
 
-                    if (rarityRoll < 0.05) rarity = 'LEGENDARY';
-                    else if (rarityRoll < 0.20) rarity = 'EPIC';
-                    else if (rarityRoll < 0.50) rarity = 'RARE';
+                    if (bossLevel >= 15) {
+                      if (rarityRoll < 0.02) rarity = 'LEGENDARY';
+                      else if (rarityRoll < 0.10) rarity = 'EPIC';
+                      else if (rarityRoll < 0.30) rarity = 'RARE';
+                      else if (rarityRoll < 0.60) rarity = 'UNCOMMON';
+                    } else if (bossLevel >= 10) {
+                      if (rarityRoll < 0.05) rarity = 'EPIC';
+                      else if (rarityRoll < 0.20) rarity = 'RARE';
+                      else if (rarityRoll < 0.50) rarity = 'UNCOMMON';
+                    } else if (bossLevel >= 5) {
+                      if (rarityRoll < 0.10) rarity = 'RARE';
+                      else if (rarityRoll < 0.35) rarity = 'UNCOMMON';
+                    } else {
+                      if (rarityRoll < 0.15) rarity = 'UNCOMMON';
+                    }
 
                     const slots: Array<'WEAPON' | 'ARMOR' | 'ACCESSORY'> = ['WEAPON', 'ARMOR', 'ACCESSORY'];
                     const slot = slots[Math.floor(Math.random() * slots.length)];
