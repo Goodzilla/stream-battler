@@ -163,6 +163,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ onBackToDashboard }) =
                   <th className="p-4 w-24 text-center">Level</th>
                   <th className="p-4">Weapon</th>
                   <th className="p-4">Armor</th>
+                  <th className="p-4">Accessory</th>
                 </tr>
               </thead>
               <tbody>
@@ -207,6 +208,15 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ onBackToDashboard }) =
                         {char.equipped.armor ? (
                           <span className={getRarityColor(char.equipped.armor.rarity)}>
                             {char.equipped.armor.name}
+                          </span>
+                        ) : (
+                          <span className="text-slate-700">None</span>
+                        )}
+                      </td>
+                      <td className="p-4 truncate max-w-[150px]">
+                        {char.equipped.accessory ? (
+                          <span className={getRarityColor(char.equipped.accessory.rarity)}>
+                            {char.equipped.accessory.name}
                           </span>
                         ) : (
                           <span className="text-slate-700">None</span>

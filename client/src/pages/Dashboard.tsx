@@ -12,7 +12,7 @@ import confetti from 'canvas-confetti';
 // Import sub components
 import { DashboardHeader } from '../components/dashboard/DashboardHeader';
 import { ClassSwitcher } from '../components/dashboard/ClassSwitcher';
-import { GearStash } from '../components/dashboard/GearStash';
+import { GearStash, getItemGoldValue } from '../components/dashboard/GearStash';
 import { ClassTalentsTab } from '../components/dashboard/ClassTalentsTab';
 import { MerchantShopTab } from '../components/dashboard/MerchantShopTab';
 import { AdminPanelTab } from '../components/dashboard/AdminPanelTab';
@@ -45,6 +45,26 @@ const raidTiers = [
     };
   })
 ];
+
+const StatRow: React.FC<{
+  label: string;
+  value: React.ReactNode;
+  tooltipTitle: string;
+  tooltipDesc: string;
+  textColor?: string;
+  valColor?: string;
+}> = ({ label, value, tooltipTitle, tooltipDesc, textColor = 'text-slate-400', valColor = 'text-white' }) => (
+  <div className="group relative flex justify-between font-mono py-1 border-b border-white/5 cursor-help hover:bg-white/5 px-2 -mx-2 rounded transition-colors duration-150 select-none">
+    <span className={textColor}>{label}</span>
+    <span className={`${valColor} font-bold`}>{value}</span>
+    
+    <div className="absolute z-[99] w-64 p-3 bg-[#0d121e] border border-white/10 rounded-lg shadow-[0_0_20px_rgba(0,0,0,0.8)] hidden group-hover:block pointer-events-none text-[11px] font-sans text-slate-300 normal-case leading-relaxed animate-fadeIn
+      md:left-full md:ml-3 md:top-1/2 md:-translate-y-1/2 md:bottom-auto bottom-full left-1/2 -translate-x-1/2 mb-2 md:translate-x-0">
+      <div className="font-display font-semibold text-neon-cyan mb-1 tracking-wider uppercase text-[9px]">{tooltipTitle}</div>
+      {tooltipDesc}
+    </div>
+  </div>
+);
 
 interface DashboardProps {
   user: any;
@@ -191,18 +211,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
-  const handleDismantleItem = async (itemId: string) => {
-    try {
-      const data = await apiFetch('/inventory/dismantle', {
-        method: 'POST',
-        body: JSON.stringify({ itemId })
-      });
-      onUpdateCharacter(data.character);
-      setSelectedItem(null);
-      setShopGold(data.character.user.gold);
-    } catch (err: any) {
-      showAlert(err.message);
-    }
+  const handleDismantleItem = (itemId: string) => {
+    const item = items.find((i: any) => i.id === itemId);
+    if (!item) return;
+    const goldValue = getItemGoldValue(item);
+    showConfirm(
+      `Are you sure you want to sell ${item.name} for ${goldValue} Gold?`,
+      async () => {
+        try {
+          const data = await apiFetch('/inventory/dismantle', {
+            method: 'POST',
+            body: JSON.stringify({ itemId })
+          });
+          onUpdateCharacter(data.character);
+          setSelectedItem(null);
+          setShopGold(data.character.user.gold);
+        } catch (err: any) {
+          showAlert(err.message);
+        }
+      },
+      'SELL ITEM'
+    );
   };
 
   const handleDismantleAllItems = () => {
@@ -210,8 +239,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
       showAlert('Your backpack inventory is empty!');
       return;
     }
+    const totalGold = inventory.reduce((sum: number, item: any) => sum + getItemGoldValue(item), 0);
     showConfirm(
-      'Are you sure you want to sell all unequipped items in your backpack?',
+      `Are you sure you want to sell all ${inventory.length} unequipped items in your backpack for a total of ${totalGold} Gold?`,
       async () => {
         try {
           const data = await apiFetch('/inventory/dismantle-all', {
@@ -220,7 +250,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
           onUpdateCharacter(data.character);
           setSelectedItem(null);
           setShopGold(data.character.user.gold);
-          showAlert(`Sold all unequipped items for ${data.goldGained} Gold!`);
         } catch (err: any) {
           showAlert(err.message);
         }
@@ -287,7 +316,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const handleGambleItem = async (slot: string) => {
-    const gamblePrice = character.level * 40;
+    const gamblePrice = character.level * 60;
     if (shopGold < gamblePrice) {
       showAlert('Insufficient Gold!');
       return;
@@ -550,60 +579,98 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   Combat Stats
                 </h3>
                 
-                <div className="flex justify-between font-mono py-1 border-b border-white/5">
-                  <span>Maximum HP:</span>
-                  <span className="text-white font-bold">{characterStats?.maxHp}</span>
-                </div>
-                <div className="flex justify-between font-mono py-1 border-b border-white/5">
-                  <span>Attack Power:</span>
-                  <span className="text-white font-bold">{characterStats?.attackPower}</span>
-                </div>
-                <div className="flex justify-between font-mono py-1 border-b border-white/5">
-                  <span>Defense Armor:</span>
-                  <span className="text-white font-bold">{characterStats?.defense}</span>
-                </div>
-                <div className="flex justify-between font-mono py-1 border-b border-white/5">
-                  <span>Crit Chance / Mult:</span>
-                  <span className="text-white font-bold">
-                    {Math.round((characterStats?.critChance || 0) * 100)}% / {characterStats?.critMult}x
-                  </span>
-                </div>
-                <div className="flex justify-between font-mono py-1 border-b border-white/5">
-                  <span>Attack Speed:</span>
-                  <span className="text-white font-bold">{characterStats?.atkSpeed} /s</span>
-                </div>
-                <div className="flex justify-between font-mono py-1 border-b border-white/5">
-                  <span>Movement Speed:</span>
-                  <span className="text-white font-bold">{characterStats?.moveSpeed}</span>
-                </div>
-                <div className="flex justify-between font-mono py-1 border-b border-white/5 text-emerald-400">
-                  <span>Lifesteal:</span>
-                  <span className="font-bold">{Math.round((characterStats?.lifesteal || 0) * 100)}%</span>
-                </div>
-                <div className="flex justify-between font-mono py-1 border-b border-white/5 text-purple-400">
-                  <span>Reflect Armor:</span>
-                  <span className="font-bold">{Math.round((characterStats?.reflect || 0) * 100)}%</span>
-                </div>
-                <div className="flex justify-between font-mono py-1 border-b border-white/5 text-cyan-400">
-                  <span>Cooldown Reduc.:</span>
-                  <span className="font-bold">{Math.round((characterStats?.cdr || 0) * 100)}%</span>
-                </div>
-                <div className="flex justify-between font-mono py-1 border-b border-white/5 text-orange-400">
-                  <span>Fire Res:</span>
-                  <span className="font-bold">{Math.round((characterStats?.fireRes || 0) * 100)}%</span>
-                </div>
-                <div className="flex justify-between font-mono py-1 border-b border-white/5 text-sky-400">
-                  <span>Cold Res:</span>
-                  <span className="font-bold">{Math.round((characterStats?.coldRes || 0) * 100)}%</span>
-                </div>
-                <div className="flex justify-between font-mono py-1 border-b border-white/5 text-emerald-400">
-                  <span>Poison Res:</span>
-                  <span className="font-bold">{Math.round((characterStats?.poisonRes || 0) * 100)}%</span>
-                </div>
-                <div className="flex justify-between font-mono py-1 text-slate-300">
-                  <span>Physical Res:</span>
-                  <span className="font-bold">{Math.round((characterStats?.physRes || 0) * 100)}%</span>
-                </div>
+                <StatRow
+                  label="Maximum HP:"
+                  value={characterStats?.maxHp}
+                  tooltipTitle="Maximum HP"
+                  tooltipDesc="Total health pool. If it drops to 0 during combat, your character is defeated."
+                />
+                <StatRow
+                  label="Attack Power:"
+                  value={characterStats?.attackPower}
+                  tooltipTitle="Attack Power"
+                  tooltipDesc="Increases basic attack damage and offensive skill effectiveness."
+                />
+                <StatRow
+                  label="Defense Armor:"
+                  value={characterStats?.defense}
+                  tooltipTitle="Defense Armor"
+                  tooltipDesc="Flat reduction for incoming physical hits. Scales with level requirements."
+                />
+                <StatRow
+                  label="Crit Chance / Mult:"
+                  value={`${Math.round((characterStats?.critChance || 0) * 100)}% / ${characterStats?.critMult}x`}
+                  tooltipTitle="Critical Strike"
+                  tooltipDesc="Crit Chance is the probability of landing a Critical Strike. Crit Mult is the damage multiplier applied on a crit (default 1.5x)."
+                />
+                <StatRow
+                  label="Attack Speed:"
+                  value={`${characterStats?.atkSpeed} /s`}
+                  tooltipTitle="Attack Speed"
+                  tooltipDesc="The rate of basic attacks performed per second. Higher values result in faster damage output."
+                />
+                <StatRow
+                  label="Movement Speed:"
+                  value={characterStats?.moveSpeed}
+                  tooltipTitle="Movement Speed"
+                  tooltipDesc="The speed at which your character moves across the arena grid to close distance or kite."
+                />
+                <StatRow
+                  label="Lifesteal:"
+                  value={`${Math.round((characterStats?.lifesteal || 0) * 100)}%`}
+                  tooltipTitle="Lifesteal"
+                  tooltipDesc="Heals your character for a percentage of the damage dealt by basic attacks."
+                  textColor="text-emerald-400"
+                  valColor="text-emerald-400"
+                />
+                <StatRow
+                  label="Reflect Armor:"
+                  value={`${Math.round((characterStats?.reflect || 0) * 100)}%`}
+                  tooltipTitle="Reflect Armor"
+                  tooltipDesc="Reflects a percentage of incoming raw damage back to the attacker as purple shadow damage."
+                  textColor="text-purple-400"
+                  valColor="text-purple-400"
+                />
+                <StatRow
+                  label="Cooldown Reduc.:"
+                  value={`${Math.round((characterStats?.cdr || 0) * 100)}%`}
+                  tooltipTitle="Cooldown Reduction"
+                  tooltipDesc="Reduces the recharge time of your class's active skill (capped at 75% max)."
+                  textColor="text-cyan-400"
+                  valColor="text-cyan-400"
+                />
+                <StatRow
+                  label="Fire Res:"
+                  value={`${Math.round((characterStats?.fireRes || 0) * 100)}%`}
+                  tooltipTitle="Fire Resistance"
+                  tooltipDesc="Reduces damage taken from fire attacks, lava hazards, and burning hazards (capped at 75% max)."
+                  textColor="text-orange-400"
+                  valColor="text-orange-400"
+                />
+                <StatRow
+                  label="Cold Res:"
+                  value={`${Math.round((characterStats?.coldRes || 0) * 100)}%`}
+                  tooltipTitle="Cold Resistance"
+                  tooltipDesc="Reduces damage taken from ice and cold abilities, freezes, and chilling slowing effects (capped at 75% max)."
+                  textColor="text-sky-400"
+                  valColor="text-sky-400"
+                />
+                <StatRow
+                  label="Poison Res:"
+                  value={`${Math.round((characterStats?.poisonRes || 0) * 100)}%`}
+                  tooltipTitle="Poison Resistance"
+                  tooltipDesc="Reduces damage taken from acid flasks, poison attacks, and damage-over-time status effects (capped at 75% max)."
+                  textColor="text-emerald-400"
+                  valColor="text-emerald-400"
+                />
+                <StatRow
+                  label="Physical Res:"
+                  value={`${Math.round((characterStats?.physRes || 0) * 100)}%`}
+                  tooltipTitle="Physical Resistance"
+                  tooltipDesc="Percentage reduction for all incoming physical damage. Stacks additively on top of flat armor reduction (capped at 75% max)."
+                  textColor="text-slate-300"
+                  valColor="text-slate-300"
+                />
               </div>
             </div>
 

@@ -259,7 +259,7 @@ export const performBasicAttack = (
 
     // Apply reflect damage
     if (target.reflect && target.reflect > 0) {
-      const refl = Math.round(finalDmg * target.reflect);
+      const refl = Math.round(rawDmg * target.reflect);
       attacker.hp = Math.max(0, attacker.hp - refl);
       attacker.flashTimer = 0.1;
       attacker.flashColor = '#af52de';

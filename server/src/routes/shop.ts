@@ -175,8 +175,8 @@ shopRouter.post('/gamble', async (req: Request, res: Response) => {
     return;
   }
 
-  // Cost scales with character level: Level * 40 gold
-  const price = activeChar.level * 40;
+  // Cost scales with character level: Level * 60 gold
+  const price = activeChar.level * 60;
 
   if (req.user!.gold < price) {
     res.status(400).json({ error: `Insufficient Gold. Gambling requires ${price} Gold.` });
@@ -184,17 +184,17 @@ shopRouter.post('/gamble', async (req: Request, res: Response) => {
   }
 
   try {
-    // Roll random rarity: Common 50%, Uncommon 30%, Rare 14%, Epic 5.5%, Legendary 0.5%
+    // Roll random rarity: Common 9%, Uncommon 30%, Rare 51%, Epic 9%, Legendary 1%
     const r = Math.random();
     let rarity: 'COMMON' | 'UNCOMMON' | 'RARE' | 'EPIC' | 'LEGENDARY' = 'COMMON';
     
-    if (r < 0.005) {
+    if (r < 0.01) {
       rarity = 'LEGENDARY';
-    } else if (r < 0.06) {
+    } else if (r < 0.10) {
       rarity = 'EPIC';
-    } else if (r < 0.20) {
+    } else if (r < 0.61) {
       rarity = 'RARE';
-    } else if (r < 0.50) {
+    } else if (r < 0.91) {
       rarity = 'UNCOMMON';
     }
 

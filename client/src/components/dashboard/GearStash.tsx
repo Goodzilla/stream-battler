@@ -34,6 +34,17 @@ const formatAffix = (type: string, value: number): string => {
   return `+${value} ${label}`;
 };
 
+export const getItemGoldValue = (item: { itemLevel: number; rarity: string }) => {
+  let value = item.itemLevel * 3;
+  switch (item.rarity) {
+    case 'UNCOMMON': value += 8; break;
+    case 'RARE': value += 20; break;
+    case 'EPIC': value += 60; break;
+    case 'LEGENDARY': value += 200; break;
+  }
+  return value;
+};
+
 export const GearStash: React.FC<GearStashProps> = ({
   equipped,
   inventory,
@@ -178,7 +189,7 @@ export const GearStash: React.FC<GearStashProps> = ({
             </h3>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 text-xs font-mono border-t border-white/5 pt-4">
+          <div className="grid grid-cols-3 gap-4 text-xs font-mono border-t border-white/5 pt-4">
             <div>
               <span className="text-slate-500 block">Item Slot:</span>
               <span className="text-white font-bold">{selectedItem.slot}</span>
@@ -186,6 +197,10 @@ export const GearStash: React.FC<GearStashProps> = ({
             <div>
               <span className="text-slate-500 block">Required Level:</span>
               <span className="text-white font-bold">lvl {selectedItem.itemLevel}</span>
+            </div>
+            <div>
+              <span className="text-slate-500 block">Sell Value:</span>
+              <span className="text-yellow-500 font-bold">{getItemGoldValue(selectedItem)} Gold</span>
             </div>
             {selectedItem.baseAttack > 0 && (
               <div>

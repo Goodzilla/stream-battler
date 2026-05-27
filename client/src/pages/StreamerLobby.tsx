@@ -672,7 +672,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                   createExplosion(s.particles, p.x, p.y, '#ff9500', 15);
 
                   if (p.reflect && p.reflect > 0) {
-                    const refl = Math.round(dmg * p.reflect);
+                    const refl = Math.round((boss.attackPower * 2.2) * p.reflect);
                     boss.hp = Math.max(0, boss.hp - refl);
                     p.damageDealt = (p.damageDealt || 0) + refl;
                     boss.flashTimer = 0.1;

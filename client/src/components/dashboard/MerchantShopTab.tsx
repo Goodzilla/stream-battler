@@ -136,7 +136,7 @@ export const MerchantShopTab: React.FC<MerchantShopTabProps> = ({
           Gheed's Mystery Artifacts (Gambling)
         </h3>
         <p className="text-[10px] text-slate-400 leading-relaxed m-0 mb-2">
-          Roll the dice for a random item. Mystery artifacts have an index cost scaling with your active character's level: <span className="text-yellow-500 font-bold">{character.level * 40} Gold</span>. Low odds of Epic/Legendary gear.
+          Roll the dice for a random item. Mystery artifacts have an index cost scaling with your active character's level: <span className="text-yellow-500 font-bold">{character.level * 60} Gold</span>. High odds of Rare (51%), Epic (9%), and Legendary (1%) gear.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-white/5 pt-4">
@@ -150,7 +150,7 @@ export const MerchantShopTab: React.FC<MerchantShopTabProps> = ({
               <span className="text-[18px] font-display font-bold text-white uppercase tracking-wider mt-1">? MYSTERY ?</span>
               <div className="text-yellow-500 font-mono text-xs font-bold flex items-center gap-1">
                 <Coins className="w-3.5 h-3.5 shrink-0" />
-                {character.level * 40} Gold
+                {character.level * 60} Gold
               </div>
             </button>
           ))}
