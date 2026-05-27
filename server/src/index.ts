@@ -70,10 +70,30 @@ if (process.env.NODE_ENV === 'production' || true) {
 // Bind WebSocket handlers
 setupSocketHandlers(io);
 
+// Ensure heikob is admin on startup
+async function ensureAdmin() {
+  try {
+    const { prisma } = await import('./db');
+    const user = await prisma.user.findFirst({
+      where: { username: 'heikob' }
+    });
+    if (user && !user.isAdmin) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { isAdmin: true }
+      });
+      console.log('Successfully promoted heikob to admin.');
+    }
+  } catch (err) {
+    console.error('Error ensuring admin user:', err);
+  }
+}
+
 // Start server
 server.listen(Number(PORT), () => {
   console.log(`Stream Battler Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
+  ensureAdmin();
 });
 
 // Graceful shutdown

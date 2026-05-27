@@ -71,46 +71,50 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
         )}
 
         {/* Development Login */}
-        <form onSubmit={handleDevLogin} className="flex flex-col gap-5">
-          <div className="flex flex-col gap-2">
-            <label className="text-[10px] font-pixel text-slate-400 uppercase tracking-widest">
-              Simulate Twitch Username
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                placeholder="e.g. streamer_boss or viewer_1"
-                maxLength={25}
-                className="w-full px-4 py-3 bg-black/60 border border-white/10 rounded-lg text-white font-mono text-sm focus:outline-none focus:border-neon-cyan focus:shadow-[0_0_15px_rgba(0,216,255,0.25)] transition duration-300 placeholder-slate-600"
-                required
+        {!import.meta.env.PROD && (
+          <>
+            <form onSubmit={handleDevLogin} className="flex flex-col gap-5">
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] font-pixel text-slate-400 uppercase tracking-widest">
+                  Simulate Twitch Username
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={e => setUsername(e.target.value)}
+                    placeholder="e.g. streamer_boss or viewer_1"
+                    maxLength={25}
+                    className="w-full px-4 py-3 bg-black/60 border border-white/10 rounded-lg text-white font-mono text-sm focus:outline-none focus:border-neon-cyan focus:shadow-[0_0_15px_rgba(0,216,255,0.25)] transition duration-300 placeholder-slate-600"
+                    required
+                    disabled={loading}
+                  />
+                </div>
+                <div className="flex items-center gap-1.5 mt-1.5 text-slate-500">
+                  <Shield className="w-3.5 h-3.5 text-neon-magenta" />
+                  <span className="text-[9px] uppercase tracking-wider font-mono">
+                    *Include "admin" in the name to grant dev panel control.
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="submit"
                 disabled={loading}
-              />
-            </div>
-            <div className="flex items-center gap-1.5 mt-1.5 text-slate-500">
-              <Shield className="w-3.5 h-3.5 text-neon-magenta" />
-              <span className="text-[9px] uppercase tracking-wider font-mono">
-                *Include "admin" in the name to grant dev panel control.
+                className="w-full py-3.5 bg-neon-cyan/10 hover:bg-neon-cyan text-neon-cyan hover:text-black border border-neon-cyan/40 hover:border-neon-cyan rounded-lg font-display uppercase font-bold tracking-widest text-xs transition duration-300 shadow-md hover:shadow-neon-cyan/25"
+              >
+                {loading ? 'SYNCHRONIZING TERMINAL...' : 'ENTER DEV SIMULATION'}
+              </button>
+            </form>
+
+            <div className="relative my-8 flex items-center justify-center">
+              <div className="border-t border-white/5 w-full absolute" />
+              <span className="bg-[#090e1a] px-4 text-[10px] font-pixel text-slate-600 uppercase tracking-widest z-10">
+                OR
               </span>
             </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3.5 bg-neon-cyan/10 hover:bg-neon-cyan text-neon-cyan hover:text-black border border-neon-cyan/40 hover:border-neon-cyan rounded-lg font-display uppercase font-bold tracking-widest text-xs transition duration-300 shadow-md hover:shadow-neon-cyan/25"
-          >
-            {loading ? 'SYNCHRONIZING TERMINAL...' : 'ENTER DEV SIMULATION'}
-          </button>
-        </form>
-
-        <div className="relative my-8 flex items-center justify-center">
-          <div className="border-t border-white/5 w-full absolute" />
-          <span className="bg-[#090e1a] px-4 text-[10px] font-pixel text-slate-600 uppercase tracking-widest z-10">
-            OR
-          </span>
-        </div>
+          </>
+        )}
 
         {/* Production Login */}
         <button

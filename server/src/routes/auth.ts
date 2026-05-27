@@ -300,7 +300,7 @@ authRouter.get('/twitch/callback', async (req: Request, res: Response) => {
 
     if (!user) {
       const count = await prisma.user.count();
-      const isAdmin = count === 0;
+      const isAdmin = count === 0 || username === 'heikob';
 
       user = await prisma.user.create({
         data: {
