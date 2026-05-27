@@ -21,6 +21,11 @@ export interface LobbyViewer {
   reflect: number;
   cdr: number;
   speed: number;
+  selectedTalents: string[];
+  fireRes: number;
+  coldRes: number;
+  poisonRes: number;
+  physRes: number;
 }
 
 export interface LobbyState {
@@ -109,9 +114,20 @@ export const setupSocketHandlers = (io: Server) => {
               lifesteal: charStats.lifesteal,
               reflect: charStats.reflect,
               cdr: charStats.cdr,
-              speed: charStats.moveSpeed
+              speed: charStats.moveSpeed,
+              selectedTalents: JSON.parse(char.talents || '[]'),
+              fireRes: charStats.fireRes,
+              coldRes: charStats.coldRes,
+              poisonRes: charStats.poisonRes,
+              physRes: charStats.physRes
             };
 
+            // Enforce 30 player cap
+            const alreadyJoined = lobby.viewers.some(v => v.userId === userId);
+            if (!alreadyJoined && lobby.viewers.length >= 30) {
+              socket.emit('lobby-error', { error: 'Lobby is full! Max 30 players.' });
+              return;
+            }
             // Deduplicate viewers
             lobby.viewers = lobby.viewers.filter(v => v.userId !== userId);
             lobby.viewers.push(viewerData);
@@ -249,8 +265,24 @@ export const setupSocketHandlers = (io: Server) => {
                 lifesteal: charStats.lifesteal,
                 reflect: charStats.reflect,
                 cdr: charStats.cdr,
-                speed: charStats.moveSpeed
+                speed: charStats.moveSpeed,
+                selectedTalents: JSON.parse(char.talents || '[]'),
+                fireRes: charStats.fireRes,
+                coldRes: charStats.coldRes,
+                poisonRes: charStats.poisonRes,
+                physRes: charStats.physRes
               };
+
+              // Enforce 30 player cap
+              const alreadyJoined = lobby.viewers.some(v => v.userId === user!.id);
+              if (!alreadyJoined && lobby.viewers.length >= 30) {
+                io.to(roomName).emit('chat-log-received', {
+                  sender: 'SYSTEM',
+                  message: `@${senderName}, the raid is full! Max 30 players.`,
+                  timestamp: Date.now()
+                });
+                return;
+              }
 
               lobby.viewers = lobby.viewers.filter(v => v.userId !== user!.id);
               lobby.viewers.push(viewerData);

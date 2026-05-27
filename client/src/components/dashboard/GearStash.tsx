@@ -8,6 +8,7 @@ interface GearStashProps {
   onEquipItem: (itemId: string) => void;
   onUnequipItem: (itemId: string) => void;
   onDismantleItem: (itemId: string) => void;
+  onDismantleAll: () => void;
 }
 
 const formatAffix = (type: string, value: number): string => {
@@ -21,8 +22,12 @@ const formatAffix = (type: string, value: number): string => {
   if (type === 'lifesteal') label = 'LIFESTEAL';
   if (type === 'reflect') label = 'REFLECT';
   if (type === 'cdr') label = 'CDR';
+  if (type === 'fireRes') label = 'FIRE RESISTANCE';
+  if (type === 'coldRes') label = 'COLD RESISTANCE';
+  if (type === 'poisonRes') label = 'POISON RESISTANCE';
+  if (type === 'physRes') label = 'PHYSICAL RESISTANCE';
   
-  const percentTypes = ['critChance', 'atkSpeedPct', 'moveSpeedPct', 'lifesteal', 'reflect', 'cdr'];
+  const percentTypes = ['critChance', 'atkSpeedPct', 'moveSpeedPct', 'lifesteal', 'reflect', 'cdr', 'fireRes', 'coldRes', 'poisonRes', 'physRes'];
   if (percentTypes.includes(type)) {
     return `+${Math.round(value * 100)}% ${label}`;
   }
@@ -36,7 +41,8 @@ export const GearStash: React.FC<GearStashProps> = ({
   setSelectedItem,
   onEquipItem,
   onUnequipItem,
-  onDismantleItem
+  onDismantleItem,
+  onDismantleAll
 }) => {
   return (
     <div className="flex flex-col gap-6 animate-scaleUp">
@@ -97,9 +103,19 @@ export const GearStash: React.FC<GearStashProps> = ({
 
       {/* Row 2: Backpack Inventory Stash Full-width Layout */}
       <div className="glass-panel p-5 border-white/5 bg-black/25">
-        <h3 className="m-0 text-white font-display text-xs uppercase tracking-wider mb-4 text-neon-cyan">
-          Backpack Inventory Stash
-        </h3>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="m-0 text-white font-display text-xs uppercase tracking-wider text-neon-cyan">
+            Backpack Inventory Stash
+          </h3>
+          {inventory.length > 0 && (
+            <button
+              onClick={onDismantleAll}
+              className="px-3 py-1 bg-red-950/40 hover:bg-red-600 text-red-400 hover:text-white border border-red-800/40 hover:border-red-600 rounded text-[10px] font-display font-bold uppercase tracking-wider transition duration-300"
+            >
+              Sell All
+            </button>
+          )}
+        </div>
         <div className="grid grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-3">
           {Array.from({ length: 30 }).map((_, idx) => {
             const item = inventory[idx];

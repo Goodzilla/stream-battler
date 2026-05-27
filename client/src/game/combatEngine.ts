@@ -1,4 +1,5 @@
 import { seek, getDistance, getDirection } from './physics';
+import { soundManager } from './soundManager';
 
 export interface CombatUnit {
   id: string;
@@ -30,6 +31,12 @@ export interface CombatUnit {
   damageDealt?: number;
   healingDone?: number;
   damageTaken?: number;
+  selectedTalents?: string[];
+  fireRes?: number;
+  coldRes?: number;
+  poisonRes?: number;
+  physRes?: number;
+  spriteType?: string;
 }
 
 export interface FloatingText {
@@ -155,8 +162,44 @@ export const performBasicAttack = (
   } else {
     // Damage action
     const isCrit = Math.random() < attacker.critChance;
+    if (isCrit) {
+      soundManager.playCrit();
+    } else {
+      soundManager.playHit();
+    }
     const rawDmg = attacker.attackPower * (isCrit ? attacker.critMult : 1.0);
-    const finalDmg = Math.max(1, Math.round(rawDmg - (target.defense || 0) * defScale));
+    let finalDmg = Math.max(1, Math.round(rawDmg - (target.defense || 0) * defScale));
+
+    if (target.isPlayer && !attacker.isPlayer) {
+      const theme = attacker.spriteType || attacker.classType || 'GOBLIN';
+      let physPortion = 1.0;
+      let firePortion = 0.0;
+      let coldPortion = 0.0;
+      let poisonPortion = 0.0;
+
+      if (theme === 'SNAKE') {
+        physPortion = 0.5;
+        poisonPortion = 0.5;
+      } else if (theme === 'LICH') {
+        physPortion = 0.0;
+        coldPortion = 1.0;
+      } else if (theme === 'DRAGON') {
+        physPortion = 0.3;
+        firePortion = 0.7;
+      }
+
+      const physRes = target.physRes || 0;
+      const fireRes = target.fireRes || 0;
+      const coldRes = target.coldRes || 0;
+      const poisonRes = target.poisonRes || 0;
+
+      const reducedPhys = finalDmg * physPortion * (1 - physRes);
+      const reducedFire = finalDmg * firePortion * (1 - fireRes);
+      const reducedCold = finalDmg * coldPortion * (1 - coldRes);
+      const reducedPoison = finalDmg * poisonPortion * (1 - poisonRes);
+
+      finalDmg = Math.max(1, Math.round(reducedPhys + reducedFire + reducedCold + reducedPoison));
+    }
 
     target.hp = Math.max(0, target.hp - finalDmg);
     target.flashTimer = 0.1;
@@ -238,21 +281,71 @@ export const castActiveSkill = (
   _defScale = 0.1
 ) => {
   attacker.skillTimer = attacker.activeSkillCd;
+  soundManager.playSkill();
   createExplosion(particles, attacker.x, attacker.y, '#ffffff', 20);
 
   const classType = attacker.classType || 'WARRIOR';
+  const talentsList = attacker.selectedTalents || [];
 
   if (classType === 'WARRIOR') {
     // Shield bash: stun target
-    target.stunTimer = 1.5;
-    const dmg = Math.round(attacker.attackPower * 2.0);
+    let stunDuration = 1.5;
+    if (talentsList.includes('t1_2')) stunDuration += 0.5;
+    if (talentsList.includes('t5_2')) stunDuration += 1.0;
+    if (talentsList.includes('t10_1')) stunDuration += 0.5;
+
+    let dmgFactor = 2.0;
+    if (talentsList.includes('t2_1')) dmgFactor += 0.3; // +30% damage
+    if (talentsList.includes('t5_1') && attacker.hp / attacker.maxHp < 0.5) dmgFactor += 0.5; // +50% damage low health
+    if (talentsList.includes('t8_1')) dmgFactor += 0.6; // +60% damage
+    if (talentsList.includes('t10_2')) dmgFactor += 1.5; // +150% damage
+
+    let dmg = Math.round(attacker.attackPower * dmgFactor);
+    
+    // Sundering Slam
+    if (talentsList.includes('t2_2')) {
+      target.defense = Math.max(0, (target.defense || 0) - 10);
+    }
+    
+    // Staggering Blow
+    if (talentsList.includes('t9_2')) {
+      dmg = Math.round(dmg * 1.2);
+    }
+
+    target.stunTimer = stunDuration;
     target.hp = Math.max(0, target.hp - dmg);
     target.flashTimer = 0.1;
     target.flashColor = '#ffffff';
 
-    recapStats.shakeTimer = 0.25;
-    recapStats.shakeIntensity = 8;
-    
+    let shake = talentsList.includes('t10_2') ? 12 : 8;
+    recapStats.shakeTimer = talentsList.includes('t10_2') ? 0.4 : 0.25;
+    recapStats.shakeIntensity = shake;
+
+    // Shield Barrier (acts as heal for 15% Max HP)
+    if (talentsList.includes('t3_1')) {
+      const shieldHeal = Math.round(attacker.maxHp * 0.15);
+      attacker.hp = Math.min(attacker.maxHp, attacker.hp + shieldHeal);
+      floatingTexts.push({ x: attacker.x, y: attacker.y - 12, text: `+${shieldHeal} (Barrier)`, color: '#eab308', life: 40 });
+    }
+
+    // Vampiric Bash (heals for 50% damage dealt)
+    if (talentsList.includes('t6_1')) {
+      const vHeal = Math.round(dmg * 0.5);
+      attacker.hp = Math.min(attacker.maxHp, attacker.hp + vHeal);
+      floatingTexts.push({ x: attacker.x, y: attacker.y - 20, text: `+${vHeal} (Lifesteal)`, color: '#10b981', life: 40 });
+    }
+
+    // Perfect Guard
+    if (talentsList.includes('t7_2')) {
+      attacker.defense = (attacker.defense || 0) + 8;
+    }
+
+    // Crystalline Bash (30% chance to reset cooldown)
+    if (talentsList.includes('t9_1') && Math.random() < 0.3) {
+      attacker.skillTimer = 0;
+      floatingTexts.push({ x: attacker.x, y: attacker.y - 25, text: `RESET!`, color: '#38bdf8', life: 40 });
+    }
+
     if (attacker.isPlayer) {
       attacker.damageDealt = (attacker.damageDealt || 0) + dmg;
       recapStats.playerDamageDealt = (recapStats.playerDamageDealt || 0) + dmg;
@@ -271,10 +364,63 @@ export const castActiveSkill = (
     });
     createExplosion(particles, target.x, target.y, '#ffffff', 20);
 
+    // Stun Blast & Sonic Shock (AoE blasts)
+    const hasStunBlast = talentsList.includes('t3_2');
+    const hasSonicShock = talentsList.includes('t7_1');
+    if (hasStunBlast || hasSonicShock) {
+      const radius = hasStunBlast ? 60 : 80;
+      enemies.forEach(e => {
+        if (e.id !== target.id && e.hp > 0 && getDistance(target, e) < radius) {
+          const extraDmg = hasStunBlast ? Math.round(dmg * 0.4) : 0;
+          if (extraDmg > 0) {
+            e.hp = Math.max(0, e.hp - extraDmg);
+            createExplosion(particles, e.x, e.y, '#ffffff', 8);
+            floatingTexts.push({ x: e.x, y: e.y - 12, text: `${extraDmg}`, color: '#ff3b30', life: 40 });
+          }
+          if (hasSonicShock) {
+            e.stunTimer = 0.8;
+            floatingTexts.push({ x: e.x, y: e.y - 20, text: `Stunned!`, color: '#38bdf8', life: 40 });
+          }
+        }
+      });
+    }
+
+    // Echoing Shock (second shockwave for 50% damage after 0.5s)
+    if (talentsList.includes('t4_1')) {
+      setTimeout(() => {
+        if (target && target.hp > 0) {
+          const echoDmg = Math.round(dmg * 0.5);
+          target.hp = Math.max(0, target.hp - echoDmg);
+          target.flashTimer = 0.08;
+          target.flashColor = '#ffffff';
+          createExplosion(particles, target.x, target.y, '#ffffff', 10);
+          floatingTexts.push({ x: target.x, y: target.y - 20, text: `${echoDmg} (Echo)`, color: '#ff3b30', life: 35 });
+        }
+      }, 500);
+    }
+
   } else if (classType === 'MAGE') {
     // Fireball AoE
-    const dmg = Math.round(attacker.attackPower * 2.5);
-    target.hp = Math.max(0, target.hp - dmg);
+    let dmgFactor = 2.5;
+    if (talentsList.includes('t2_1')) dmgFactor += 0.25; // +25%
+    if (talentsList.includes('t5_1')) dmgFactor += 0.40; // +40%
+    if (talentsList.includes('t8_1')) dmgFactor += 0.30; // +30%
+    if (talentsList.includes('t10_1')) dmgFactor += 0.80; // +80%
+
+    let rangeRadius = 100;
+    if (talentsList.includes('t1_2')) rangeRadius += 20;
+    if (talentsList.includes('t3_2')) rangeRadius += 45;
+    if (talentsList.includes('t8_1')) rangeRadius += 50;
+
+    const dmg = Math.round(attacker.attackPower * dmgFactor);
+    
+    // Ignore Defense (Meltdown)
+    let ignoreDefFactor = 0.1; // default scale
+    if (talentsList.includes('t4_2')) {
+      ignoreDefFactor = 0.07; // ignore 30% of defense
+    }
+
+    target.hp = Math.max(0, target.hp - Math.round(dmg - (target.defense || 0) * ignoreDefFactor));
     target.flashTimer = 0.1;
     target.flashColor = '#ff9500';
 
@@ -289,6 +435,18 @@ export const castActiveSkill = (
       target.damageTaken = (target.damageTaken || 0) + dmg;
     }
 
+    // Flame Shield
+    if (talentsList.includes('t8_2')) {
+      attacker.defense = (attacker.defense || 0) + 12;
+    }
+
+    // Cauterize (heals you for 25% of damage dealt to primary target)
+    if (talentsList.includes('t5_2')) {
+      const cHeal = Math.round(dmg * 0.25);
+      attacker.hp = Math.min(attacker.maxHp, attacker.hp + cHeal);
+      floatingTexts.push({ x: attacker.x, y: attacker.y - 15, text: `+${cHeal}`, color: '#10b981', life: 40 });
+    }
+
     floatingTexts.push({
       x: target.x,
       y: target.y - 25,
@@ -299,10 +457,27 @@ export const castActiveSkill = (
     });
     createExplosion(particles, target.x, target.y, '#ff9500', 30);
 
+    // Ignite (burn patch DoT)
+    if (talentsList.includes('t2_2')) {
+      setTimeout(() => {
+        if (target && target.hp > 0) {
+          const burnDmg = Math.round(attacker.attackPower * 0.45);
+          target.hp = Math.max(0, target.hp - burnDmg);
+          floatingTexts.push({ x: target.x, y: target.y - 12, text: `${burnDmg} (Ignite)`, color: '#ef4444', life: 35 });
+        }
+      }, 1000);
+    }
+
+    // Blast wave stun
+    if (talentsList.includes('t3_1')) {
+      target.stunTimer = 0.8;
+    }
+
     // Blast nearby targets
+    const splashFactor = talentsList.includes('t6_2') ? 0.9 : 0.6;
     enemies.forEach(e => {
-      if (e.id !== target.id && e.hp > 0 && getDistance(target, e) < 100) {
-        const spl = Math.round(dmg * 0.6);
+      if (e.id !== target.id && e.hp > 0 && getDistance(target, e) < rangeRadius) {
+        const spl = Math.round(dmg * splashFactor);
         e.hp = Math.max(0, e.hp - spl);
         e.flashTimer = 0.1;
         e.flashColor = '#ff9500';
@@ -317,12 +492,62 @@ export const castActiveSkill = (
 
         floatingTexts.push({ x: e.x, y: e.y - 15, text: `${spl}`, color: '#00d8ff', life: 40 });
         createExplosion(particles, e.x, e.y, '#ff9500', 10);
+
+        // Living Bomb (explode for 40% after 1.5s)
+        if (talentsList.includes('t7_1')) {
+          setTimeout(() => {
+            if (e.hp > 0) {
+              const bombDmg = Math.round(dmg * 0.4);
+              e.hp = Math.max(0, e.hp - bombDmg);
+              floatingTexts.push({ x: e.x, y: e.y - 20, text: `${bombDmg} (Living Bomb)`, color: '#ef4444', life: 35 });
+              createExplosion(particles, e.x, e.y, '#ff9500', 12);
+            }
+          }, 1500);
+        }
       }
     });
 
+    // Double Cast
+    if (talentsList.includes('t4_1') && Math.random() < 0.25) {
+      setTimeout(() => {
+        if (target && target.hp > 0) {
+          const secondDmg = Math.round(dmg * 0.8);
+          target.hp = Math.max(0, target.hp - secondDmg);
+          floatingTexts.push({ x: target.x, y: target.y - 12, text: `${secondDmg} (Double)`, color: '#00d8ff', life: 35 });
+        }
+      }, 300);
+    }
+    
+    // Meteor Shower (split fireballs targets adjacent enemies)
+    if (talentsList.includes('t9_2')) {
+      const extraTargets = enemies.filter(e => e.id !== target.id && e.hp > 0).slice(0, 2);
+      extraTargets.forEach(e => {
+        const extraDmg = Math.round(dmg * 0.5);
+        e.hp = Math.max(0, e.hp - extraDmg);
+        floatingTexts.push({ x: e.x, y: e.y - 12, text: `${extraDmg} (Split)`, color: '#ff9500', life: 35 });
+        createExplosion(particles, e.x, e.y, '#ff9500', 8);
+      });
+    }
+
   } else if (classType === 'CLERIC') {
     // Holy Nova: heal all living allies, damage adjacent enemies
-    const heal = Math.round(attacker.attackPower * 3.0); // clergy stats
+    let healFactor = 3.0;
+    if (talentsList.includes('t2_1')) healFactor += 0.75; // +25%
+    if (talentsList.includes('t4_2')) healFactor -= 0.60; // -20%
+    if (talentsList.includes('t5_2')) healFactor += 1.20; // +40%
+    if (talentsList.includes('t10_1')) healFactor += 1.50; // +50%
+
+    let dmgFactor = 1.5;
+    if (talentsList.includes('t2_2')) dmgFactor += 0.60; // +40%
+    if (talentsList.includes('t4_2')) dmgFactor += 0.75; // +50%
+    if (talentsList.includes('t5_2')) dmgFactor -= 0.30; // -20%
+    if (talentsList.includes('t10_1')) dmgFactor += 0.75; // +50%
+
+    let areaRadius = 140;
+    if (talentsList.includes('t1_2')) areaRadius += 30;
+
+    const heal = Math.round(attacker.attackPower * healFactor);
+    
     allies.forEach(pl => {
       if (pl.hp <= 0) return;
       pl.hp = Math.min(pl.maxHp, pl.hp + heal);
@@ -333,15 +558,29 @@ export const castActiveSkill = (
       recapStats.playerHealingDone = (recapStats.playerHealingDone || 0) + heal;
       floatingTexts.push({ x: pl.x, y: pl.y - 12, text: `+${heal}`, color: '#ffcc00', life: 40 });
       createExplosion(particles, pl.x, pl.y, '#ffcc00', 8);
+
+      // Grace Shield
+      if (talentsList.includes('t3_1')) {
+        const shieldVal = Math.round(pl.maxHp * 0.15);
+        pl.hp = Math.min(pl.maxHp, pl.hp + shieldVal);
+        floatingTexts.push({ x: pl.x, y: pl.y - 20, text: `+${shieldVal} (Shield)`, color: '#facc15', life: 40 });
+      }
     });
 
-    const dmg = Math.round(attacker.attackPower * 1.5);
+    const dmg = Math.round(attacker.attackPower * dmgFactor);
     recapStats.shakeTimer = 0.15;
     recapStats.shakeIntensity = 4;
     createExplosion(particles, attacker.x, attacker.y, '#ffcc00', 25);
 
+    // Devotion Aura
+    if (talentsList.includes('t7_2')) {
+      allies.forEach(pl => {
+        if (pl.hp > 0) pl.defense = (pl.defense || 0) + 6;
+      });
+    }
+
     enemies.forEach(e => {
-      if (e.hp > 0 && getDistance(attacker, e) < 140) {
+      if (e.hp > 0 && getDistance(attacker, e) < areaRadius) {
         e.hp = Math.max(0, e.hp - dmg);
         e.flashTimer = 0.1;
         e.flashColor = '#ffcc00';
@@ -356,16 +595,72 @@ export const castActiveSkill = (
 
         floatingTexts.push({ x: e.x, y: e.y - 15, text: `${dmg}`, color: '#ffcc00', life: 40 });
         createExplosion(particles, e.x, e.y, '#ffcc00', 12);
+
+        // Blinding Nova stun
+        if (talentsList.includes('t3_2')) {
+          e.stunTimer = 0.8;
+        }
+
+        // Purifying Fire DoT
+        if (talentsList.includes('t7_1')) {
+          setTimeout(() => {
+            if (e.hp > 0) {
+              const burnVal = Math.round(heal * 0.3); // 10% x 3s
+              e.hp = Math.max(0, e.hp - burnVal);
+              floatingTexts.push({ x: e.x, y: e.y - 12, text: `${burnVal} (Nova Burn)`, color: '#f59e0b', life: 35 });
+            }
+          }, 1000);
+        }
       }
     });
 
+    // Resplendent Nova double cast
+    if (talentsList.includes('t6_1') && Math.random() < 0.2) {
+      setTimeout(() => {
+        allies.forEach(pl => {
+          if (pl.hp > 0) {
+            const secondHeal = Math.round(heal * 0.4);
+            pl.hp = Math.min(pl.maxHp, pl.hp + secondHeal);
+            floatingTexts.push({ x: pl.x, y: pl.y - 12, text: `+${secondHeal}`, color: '#ffcc00', life: 30 });
+          }
+        });
+      }, 350);
+    }
+
   } else if (classType === 'ROGUE') {
     // Blade Dance: multi hit
-    const dmg = Math.round(attacker.attackPower * 0.7);
-    for (let strike = 0; strike < 5; strike++) {
+    let strikes = 5;
+    if (talentsList.includes('t1_1')) strikes += 1;
+    if (talentsList.includes('t5_1')) strikes += 2; // Thousand Blades (7 strikes)
+    if (talentsList.includes('t10_1')) strikes += 3; // Death Blossom (8 strikes)
+
+    let dmgFactor = 0.7;
+    if (talentsList.includes('t2_1')) dmgFactor += 0.14; // +20%
+    if (talentsList.includes('t5_1')) dmgFactor -= 0.10; // -15% strength
+    if (talentsList.includes('t7_1')) dmgFactor += 0.245; // +35%
+    if (talentsList.includes('t10_2')) dmgFactor += 0.14; // +20%
+
+    let baseDmg = Math.round(attacker.attackPower * dmgFactor);
+    
+    // Blade Mastery critical strike multiplier (+40% crit mult)
+    let isCrit = Math.random() < attacker.critChance;
+    if (talentsList.includes('t4_1')) {
+      isCrit = Math.random() < (attacker.critChance + 0.15);
+    }
+    const mult = isCrit ? (attacker.critMult + (talentsList.includes('t9_1') ? 0.4 : 0)) : 1.0;
+    let finalStrikeDmg = Math.round(baseDmg * mult);
+
+    for (let strike = 0; strike < strikes; strike++) {
       setTimeout(() => {
         if (target && target.hp > 0) {
-          target.hp = Math.max(0, target.hp - dmg);
+          let strikeDmg = finalStrikeDmg;
+
+          // Assassinate (+40% damage to targets below 50% HP)
+          if (talentsList.includes('t5_2') && target.hp / target.maxHp < 0.5) {
+            strikeDmg = Math.round(strikeDmg * 1.4);
+          }
+
+          target.hp = Math.max(0, target.hp - strikeDmg);
           target.flashTimer = 0.08;
           target.flashColor = '#af52de';
           
@@ -373,53 +668,137 @@ export const castActiveSkill = (
           recapStats.shakeIntensity = 4;
 
           if (attacker.isPlayer) {
-            attacker.damageDealt = (attacker.damageDealt || 0) + dmg;
-            recapStats.playerDamageDealt = (recapStats.playerDamageDealt || 0) + dmg;
+            attacker.damageDealt = (attacker.damageDealt || 0) + strikeDmg;
+            recapStats.playerDamageDealt = (recapStats.playerDamageDealt || 0) + strikeDmg;
           } else {
-            attacker.damageDealt = (attacker.damageDealt || 0) + dmg;
-            target.damageTaken = (target.damageTaken || 0) + dmg;
+            attacker.damageDealt = (attacker.damageDealt || 0) + strikeDmg;
+            target.damageTaken = (target.damageTaken || 0) + strikeDmg;
           }
 
           floatingTexts.push({
             x: target.x + (Math.random() * 40 - 20),
             y: target.y - 15,
-            text: `${dmg}`,
+            text: `${strikeDmg}`,
             color: '#af52de',
             life: 35
           });
           createExplosion(particles, target.x, target.y, '#af52de', 10);
+
+          // Lifesteal Cuts (+15% lifesteal)
+          if (talentsList.includes('t3_1')) {
+            const ls = Math.round(strikeDmg * 0.15);
+            attacker.hp = Math.min(attacker.maxHp, attacker.hp + ls);
+          }
+
+          // Staggering Cut (stun 0.2s)
+          if (talentsList.includes('t4_2')) {
+            target.stunTimer = 0.2;
+          }
+
+          // Poison Blades
+          if (talentsList.includes('t1_2') && strike === strikes - 1) {
+            setTimeout(() => {
+              if (target && target.hp > 0) {
+                target.hp = Math.max(0, target.hp - 20);
+                floatingTexts.push({ x: target.x, y: target.y - 20, text: `20 (Poison)`, color: '#a855f7', life: 35 });
+              }
+            }, 1000);
+          }
+
+          // Serrated Edge bleed
+          if (talentsList.includes('t8_2') && strike === strikes - 1) {
+            setTimeout(() => {
+              if (target && target.hp > 0) {
+                const bleed = Math.round(strikeDmg * 0.25);
+                target.hp = Math.max(0, target.hp - bleed);
+                floatingTexts.push({ x: target.x, y: target.y - 25, text: `${bleed} (Bleed)`, color: '#b91c1c', life: 35 });
+              }
+            }, 800);
+          }
         }
       }, strike * 100);
     }
 
   } else if (classType === 'RANGER') {
     // Arrow Rain AoE
-    const dmg = Math.round(attacker.attackPower * 1.8);
+    let dmgFactor = 1.8;
+    if (talentsList.includes('t2_1')) dmgFactor += 0.25; // +25%
+    if (talentsList.includes('t5_2')) dmgFactor += 0.40; // +40%
+    if (talentsList.includes('t6_1')) dmgFactor += 0.15; // +15%
+    if (talentsList.includes('t8_2')) dmgFactor += 0.50; // +50%
+    if (talentsList.includes('t10_1')) dmgFactor += 0.80; // +80%
+
+    let rangeRadius = 80;
+    if (talentsList.includes('t2_2')) rangeRadius += 30;
+
+    const dmg = Math.round(attacker.attackPower * dmgFactor);
     recapStats.shakeTimer = 0.25;
     recapStats.shakeIntensity = 7;
 
+    const hasPinning = talentsList.includes('t3_1');
+    const hasThunder = talentsList.includes('t8_1');
+    const hasGodBow = talentsList.includes('t10_1');
+
     enemies.forEach(e => {
-      if (e.hp > 0 && getDistance(target, e) < 80) {
-        e.hp = Math.max(0, e.hp - dmg);
+      if (e.hp > 0 && getDistance(target, e) < rangeRadius) {
+        let eDmg = dmg;
+        
+        // Piercing Volley (ignores 25% defense)
+        let ignoreFactor = 0.1;
+        if (talentsList.includes('t4_2')) {
+          ignoreFactor = 0.075;
+        }
+
+        e.hp = Math.max(0, e.hp - Math.round(eDmg - (e.defense || 0) * ignoreFactor));
         e.flashTimer = 0.1;
         e.flashColor = '#34c759';
 
         if (attacker.isPlayer) {
-          attacker.damageDealt = (attacker.damageDealt || 0) + dmg;
-          recapStats.playerDamageDealt = (recapStats.playerDamageDealt || 0) + dmg;
+          attacker.damageDealt = (attacker.damageDealt || 0) + eDmg;
+          recapStats.playerDamageDealt = (recapStats.playerDamageDealt || 0) + eDmg;
         } else {
-          attacker.damageDealt = (attacker.damageDealt || 0) + dmg;
-          e.damageTaken = (e.damageTaken || 0) + dmg;
+          attacker.damageDealt = (attacker.damageDealt || 0) + eDmg;
+          e.damageTaken = (e.damageTaken || 0) + eDmg;
         }
 
         floatingTexts.push({
           x: e.x,
           y: e.y - 15,
-          text: `${dmg} (Arrow Rain)`,
+          text: `${eDmg} (Arrow Rain)`,
           color: '#34c759',
           life: 45
         });
         createExplosion(particles, e.x, e.y, '#34c759', 20);
+
+        // Stun effects
+        if (hasThunder) {
+          e.stunTimer = 0.8;
+        } else if (hasPinning && Math.random() < 0.2) {
+          e.stunTimer = 1.0;
+          floatingTexts.push({ x: e.x, y: e.y - 20, text: `Pinned!`, color: '#38bdf8', life: 35 });
+        } else if (hasGodBow) {
+          e.stunTimer = 0.5;
+        }
+
+        // Poison Tips DoT
+        if (talentsList.includes('t4_1')) {
+          setTimeout(() => {
+            if (e.hp > 0) {
+              e.hp = Math.max(0, e.hp - 24);
+              floatingTexts.push({ x: e.x, y: e.y - 20, text: `24 (Poison)`, color: '#a855f7', life: 35 });
+            }
+          }, 1000);
+        }
+
+        // Caltrop Rain
+        if (talentsList.includes('t9_2')) {
+          setTimeout(() => {
+            if (e.hp > 0) {
+              e.hp = Math.max(0, e.hp - 20);
+              floatingTexts.push({ x: e.x, y: e.y - 12, text: `20 (Caltrops)`, color: '#94a3b8', life: 30 });
+            }
+          }, 500);
+        }
       }
     });
   }

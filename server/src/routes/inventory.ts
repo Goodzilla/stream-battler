@@ -157,3 +157,63 @@ inventoryRouter.post('/dismantle', async (req: Request, res: Response) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// DISMANTLE/SELL ALL UNEQUIPPED ITEMS FOR GOLD
+inventoryRouter.post('/dismantle-all', async (req: Request, res: Response) => {
+  try {
+    const unequippedItems = await prisma.item.findMany({
+      where: {
+        userId: req.user!.id,
+        isEquipped: false
+      }
+    });
+
+    if (unequippedItems.length === 0) {
+      res.json({
+        character: getActiveCharacter(req.user),
+        goldGained: 0,
+        message: 'No unequipped items to sell'
+      });
+      return;
+    }
+
+    let totalGoldGained = 0;
+    const itemIdsToDelete = [];
+
+    for (const item of unequippedItems) {
+      let baseGold = item.itemLevel * 3;
+      switch (item.rarity) {
+        case 'UNCOMMON': baseGold += 8; break;
+        case 'RARE': baseGold += 20; break;
+        case 'EPIC': baseGold += 60; break;
+        case 'LEGENDARY': baseGold += 200; break;
+      }
+      totalGoldGained += baseGold;
+      itemIdsToDelete.push(item.id);
+    }
+
+    // Delete all these items
+    await prisma.item.deleteMany({
+      where: {
+        id: { in: itemIdsToDelete }
+      }
+    });
+
+    // Update user gold
+    const updatedUser = await prisma.user.update({
+      where: { id: req.user!.id },
+      data: {
+        gold: req.user!.gold + totalGoldGained
+      },
+      include: { characters: true, items: true }
+    });
+
+    res.json({
+      character: getActiveCharacter(updatedUser),
+      goldGained: totalGoldGained
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+

@@ -199,6 +199,27 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
+  const handleDismantleAllItems = async () => {
+    if (inventory.length === 0) {
+      alert('Your backpack inventory is empty!');
+      return;
+    }
+    if (!window.confirm('Are you sure you want to sell all unequipped items in your backpack?')) {
+      return;
+    }
+    try {
+      const data = await apiFetch('/inventory/dismantle-all', {
+        method: 'POST'
+      });
+      onUpdateCharacter(data.character);
+      setSelectedItem(null);
+      setShopGold(data.character.user.gold);
+      alert(`Sold all unequipped items for ${data.goldGained} Gold!`);
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
   const handleSelectTalent = async (talentId: string) => {
     const currentTalents: string[] = JSON.parse(character.talents || '[]');
     const match = talentId.match(/^t(\d+)_\d+$/);
@@ -222,8 +243,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // Shop actions
   const handleRefreshShop = async () => {
-    if (shopGold < 10) {
-      alert('You need 10 gold to refresh the shop!');
+    const refreshPrice = character.level * 10;
+    if (shopGold < refreshPrice) {
+      alert(`You need ${refreshPrice} gold to refresh the shop!`);
       return;
     }
     try {
@@ -539,9 +561,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <span>Reflect Armor:</span>
                   <span className="font-bold">{Math.round((characterStats?.reflect || 0) * 100)}%</span>
                 </div>
-                <div className="flex justify-between font-mono py-1 text-cyan-400">
+                <div className="flex justify-between font-mono py-1 border-b border-white/5 text-cyan-400">
                   <span>Cooldown Reduc.:</span>
                   <span className="font-bold">{Math.round((characterStats?.cdr || 0) * 100)}%</span>
+                </div>
+                <div className="flex justify-between font-mono py-1 border-b border-white/5 text-orange-400">
+                  <span>Fire Res:</span>
+                  <span className="font-bold">{Math.round((characterStats?.fireRes || 0) * 100)}%</span>
+                </div>
+                <div className="flex justify-between font-mono py-1 border-b border-white/5 text-sky-400">
+                  <span>Cold Res:</span>
+                  <span className="font-bold">{Math.round((characterStats?.coldRes || 0) * 100)}%</span>
+                </div>
+                <div className="flex justify-between font-mono py-1 border-b border-white/5 text-emerald-400">
+                  <span>Poison Res:</span>
+                  <span className="font-bold">{Math.round((characterStats?.poisonRes || 0) * 100)}%</span>
+                </div>
+                <div className="flex justify-between font-mono py-1 text-slate-300">
+                  <span>Physical Res:</span>
+                  <span className="font-bold">{Math.round((characterStats?.physRes || 0) * 100)}%</span>
                 </div>
               </div>
             </div>
@@ -593,6 +631,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onEquipItem={handleEquipItem}
                 onUnequipItem={handleUnequipItem}
                 onDismantleItem={handleDismantleItem}
+                onDismantleAll={handleDismantleAllItems}
               />
             )}
 
@@ -656,11 +695,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
                 { name: 'Forest of Trials', level: 1, desc: 'A dense wood where goblins roam. Ideal for starters.' },
-                { name: 'Neon Caves', level: 15, desc: 'Glowing crystal tunnels with swift venomous serpents.' },
+                { name: 'Echoing Groves', level: 5, desc: 'Deeper into the forest, goblin scouts set traps.' },
+                { name: 'Serpent Caves', level: 10, desc: 'Damp caverns containing slithering neon adders.' },
+                { name: 'Neon Caves', level: 15, desc: 'Glowing crystal tunnels with swift venomous snakes.' },
+                { name: 'Whispering Woods', level: 20, desc: 'Haunted woodlands where rogue goblins hide.' },
+                { name: 'Orc Campsite', level: 25, desc: 'A temporary camp set up by vanguard orc grunts.' },
+                { name: 'Skeletal Catacombs', level: 30, desc: 'Underground catacombs guarded by skeletal warriors.' },
                 { name: 'Obsidian Ruins', level: 35, desc: 'Cursed obsidian pillars and heavy orc raiders.' },
+                { name: 'Poison Gardens', level: 40, desc: 'Overgrown ruins rich with toxic fumes and slithering vipers.' },
+                { name: 'Orc Stronghold', level: 45, desc: 'A heavily fortified encampment of orc berserkers.' },
+                { name: 'Catacombs of Doom', level: 50, desc: 'Deep chambers where ancient skeleton acolytes practice necromancy.' },
                 { name: 'Lich Crypt', level: 55, desc: 'A dark, cold maze guarded by ancient skeleton acolyths.' },
+                { name: 'Ancient Fortress', level: 60, desc: 'The historic keep of the orc kings, filled with elite warriors.' },
+                { name: 'Shadow Crypt', level: 65, desc: 'A void-touched tomb filled with skeleton liches.' },
+                { name: 'Dragon Ridge', level: 70, desc: 'Rocky volcanic cliffs populated by small fire drakes.' },
                 { name: 'Volcanic Caldera', level: 75, desc: 'Lava flows, magma giants, and legendary fire dragons.' },
-                { name: 'Abyssal Maw', level: 90, desc: 'The final frontier. Face the strongest challenges here.' }
+                { name: 'Frozen Tombs', level: 80, desc: 'Icy crypts holding preserved ancient skeletal commanders.' },
+                { name: 'Magma Chamber', level: 85, desc: 'Subterranean lava chambers guarded by high-rank lava dragons.' },
+                { name: 'Abyssal Maw', level: 90, desc: 'The final frontier. Face the strongest challenges here.' },
+                { name: 'Dragon Throne', level: 95, desc: 'The apex of the volcano. Defeat the ancient dragon sovereign.' }
               ].map(zone => {
                 const isUnderlevel = character.level < zone.level;
                 return (
@@ -672,7 +725,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   >
                     <div className="w-full">
                       <div className="flex justify-between items-center w-full mb-1">
-                        <h4 className="m-0 text-white font-display text-sm tracking-wide">
+                        <h4 className="m-0 text-white font-display text-xs font-bold tracking-wide">
                           {zone.name.toUpperCase()}
                         </h4>
                         <span className="text-[10px] font-mono text-slate-500">Zone lvl {zone.level}</span>

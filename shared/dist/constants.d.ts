@@ -36,3 +36,14 @@ export interface SkillNode {
 }
 export declare const PASSIVE_SKILL_TREE: Record<string, SkillNode>;
 export declare const validatePassiveAllocation: (allocatedNodes: string[]) => boolean;
+export interface ArenaConfig {
+    name: string;
+    level: number;
+    theme: 'FOREST' | 'POISON_CAVES' | 'RUINS' | 'CRYPT' | 'VOLCANO';
+    enemySprite: 'GOBLIN' | 'SNAKE' | 'ORC' | 'LICH' | 'DRAGON';
+    enemyNames: string[];
+    desc: string;
+    bgColor: string;
+    detailColor: string;
+}
+export declare const ARENA_CONFIGS: Record<number, ArenaConfig>;

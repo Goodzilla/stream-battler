@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../utils/api';
-import { calculateCharacterStats, CLASSES } from 'shared';
+import { calculateCharacterStats, CLASSES, ARENA_CONFIGS } from 'shared';
+import { soundManager } from '../game/soundManager';
 import { getDistance } from '../game/physics';
 import { ArrowLeft, Play, AlertCircle } from 'lucide-react';
 import confetti from 'canvas-confetti';
@@ -33,7 +34,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const [currentMapLevel, setCurrentMapLevel] = useState(mapLevel);
+  const currentMapLevel = mapLevel;
   const [battleState, setBattleState] = useState<'PREP' | 'FIGHTING' | 'VICTORY' | 'DEFEAT'>('PREP');
   const [wave, setWave] = useState(1);
   const [xpEarned, setXpEarned] = useState(0);
@@ -85,6 +86,33 @@ export const SoloMap: React.FC<SoloMapProps> = ({
   // Initialize Battle
   const initBattle = () => {
     const classConfig = CLASSES[character.class];
+    const selectedTalents: string[] = JSON.parse(character.talents || '[]');
+    
+    let baseCd = classConfig.activeSkill.cooldown;
+    if (character.class === 'WARRIOR') {
+      if (selectedTalents.includes('t1_1')) baseCd -= 1.5;
+      if (selectedTalents.includes('t5_2')) baseCd += 2.0;
+      if (selectedTalents.includes('t6_2')) baseCd -= 2.0;
+      if (selectedTalents.includes('t10_1')) baseCd -= 3.0;
+    } else if (character.class === 'MAGE') {
+      if (selectedTalents.includes('t1_1')) baseCd -= 1.0;
+      if (selectedTalents.includes('t6_1')) baseCd -= 1.5;
+      if (selectedTalents.includes('t10_2')) baseCd -= 2.5;
+    } else if (character.class === 'CLERIC') {
+      if (selectedTalents.includes('t1_1')) baseCd -= 1.5;
+      if (selectedTalents.includes('t5_1')) baseCd -= 2.0;
+      if (selectedTalents.includes('t10_1')) baseCd -= 1.0;
+      if (selectedTalents.includes('t10_2')) baseCd -= 3.0;
+    } else if (character.class === 'ROGUE') {
+      if (selectedTalents.includes('t2_2')) baseCd -= 1.5;
+      if (selectedTalents.includes('t6_1')) baseCd -= 2.0;
+      if (selectedTalents.includes('t10_2')) baseCd -= 3.0;
+    } else if (character.class === 'RANGER') {
+      if (selectedTalents.includes('t1_2')) baseCd -= 1.5;
+      if (selectedTalents.includes('t5_1')) baseCd -= 2.0;
+      if (selectedTalents.includes('t9_1')) baseCd -= 3.0;
+      if (selectedTalents.includes('t10_2')) baseCd -= 4.0;
+    }
 
     // Configure Player Unit
     const playerUnit: CombatUnit = {
@@ -105,9 +133,17 @@ export const SoloMap: React.FC<SoloMapProps> = ({
       classType: character.class,
       atkTimer: 0,
       skillTimer: 0,
-      activeSkillCd: classConfig.activeSkill.cooldown * (1 - stats.cdr),
+      activeSkillCd: Math.max(1, baseCd * (1 - stats.cdr)),
       stunTimer: 0,
-      isHealer: character.class === 'CLERIC'
+      isHealer: character.class === 'CLERIC',
+      defense: stats.defense,
+      lifesteal: stats.lifesteal,
+      reflect: stats.reflect,
+      fireRes: stats.fireRes,
+      coldRes: stats.coldRes,
+      poisonRes: stats.poisonRes,
+      physRes: stats.physRes,
+      selectedTalents
     };
 
     stateRef.current = {
@@ -134,6 +170,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
     setBattleState('FIGHTING');
     
     spawnEnemies(1);
+    soundManager.startMusic();
   };
 
   // Spawn enemy wave
@@ -144,26 +181,13 @@ export const SoloMap: React.FC<SoloMapProps> = ({
 
     const newEnemies: CombatUnit[] = [];
 
-    for (let i = 0; i < enemyCount; i++) {
-      let name = `Goblin Scout`;
-      let spriteType = 'GOBLIN';
+    const arena = ARENA_CONFIGS[currentMapLevel] || ARENA_CONFIGS[1];
 
-      if (currentMapLevel <= 20) {
-        name = i % 2 === 0 ? `Goblin Scout v${waveNum}` : `Goblin Raider v${waveNum}`;
-        spriteType = 'GOBLIN';
-      } else if (currentMapLevel <= 40) {
-        name = i % 2 === 0 ? `Spitting Adder v${waveNum}` : `Slither Viper v${waveNum}`;
-        spriteType = 'SNAKE';
-      } else if (currentMapLevel <= 60) {
-        name = i % 2 === 0 ? `Orc Grunt v${waveNum}` : `Orc Berserker v${waveNum}`;
-        spriteType = 'ORC';
-      } else if (currentMapLevel <= 80) {
-        name = i % 2 === 0 ? `Skeletal Guard v${waveNum}` : `Lich Acolyte v${waveNum}`;
-        spriteType = 'LICH';
-      } else {
-        name = i % 2 === 0 ? `Young Drake v${waveNum}` : `Lava Dragon v${waveNum}`;
-        spriteType = 'DRAGON';
-      }
+    for (let i = 0; i < enemyCount; i++) {
+      const name = i % 2 === 0
+        ? `${arena.enemyNames[0]} v${waveNum}`
+        : `${arena.enemyNames[1] || arena.enemyNames[0]} v${waveNum}`;
+      const spriteType = arena.enemySprite;
 
       newEnemies.push({
         id: `enemy_${waveNum}_${i}`,
@@ -282,35 +306,32 @@ export const SoloMap: React.FC<SoloMapProps> = ({
       }
 
       // Draw themed background based on map level
-      if (currentMapLevel <= 20) {
-        // Grassy forest
-        ctx.fillStyle = '#08170e';
+      const arena = ARENA_CONFIGS[currentMapLevel] || ARENA_CONFIGS[1];
+      if (arena.theme === 'FOREST') {
+        ctx.fillStyle = arena.bgColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#0f2919';
+        ctx.fillStyle = arena.detailColor;
         for (let i = 0; i < 25; i++) {
           ctx.fillRect((i * 47) % canvas.width, (i * 31) % canvas.height, 8, 3);
           ctx.fillRect((i * 47) % canvas.width + 3, (i * 31) % canvas.height - 3, 2, 6);
         }
-      } else if (currentMapLevel <= 40) {
-        // Poison Caves
-        ctx.fillStyle = '#0d0714';
+      } else if (arena.theme === 'POISON_CAVES') {
+        ctx.fillStyle = arena.bgColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#a855f7';
+        ctx.fillStyle = arena.detailColor;
         for (let i = 0; i < 15; i++) {
           const px = (i * 73) % canvas.width;
           const py = (i * 29) % canvas.height;
           ctx.fillRect(px, py, 3, 3);
-          ctx.fillStyle = 'rgba(168, 85, 247, 0.12)';
+          ctx.fillStyle = arena.detailColor + '1f'; // ~12% opacity
           ctx.beginPath();
           ctx.arc(px + 1.5, py + 1.5, 8, 0, Math.PI * 2);
           ctx.fill();
-          ctx.fillStyle = '#a855f7';
         }
-      } else if (currentMapLevel <= 60) {
-        // Ancient Ruins
-        ctx.fillStyle = '#171412';
+      } else if (arena.theme === 'RUINS') {
+        ctx.fillStyle = arena.bgColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = '#24201e';
+        ctx.strokeStyle = arena.detailColor;
         ctx.lineWidth = 1.5;
         for (let x = 0; x < canvas.width; x += 60) {
           ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
@@ -318,23 +339,21 @@ export const SoloMap: React.FC<SoloMapProps> = ({
         for (let y = 0; y < canvas.height; y += 60) {
           ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
         }
-      } else if (currentMapLevel <= 80) {
-        // Crypt theme
-        ctx.fillStyle = '#090a0f';
+      } else if (arena.theme === 'CRYPT') {
+        ctx.fillStyle = arena.bgColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'rgba(14, 165, 233, 0.05)';
+        ctx.fillStyle = arena.detailColor + '0d'; // ~5% opacity
         for (let i = 0; i < 5; i++) {
           const px = 100 + i * 140;
           ctx.fillRect(px, 0, 40, canvas.height);
-          ctx.fillStyle = 'rgba(14, 165, 233, 0.15)';
+          ctx.fillStyle = arena.detailColor + '26'; // ~15% opacity
           ctx.fillRect(px + 10, 0, 20, canvas.height);
-          ctx.fillStyle = 'rgba(14, 165, 233, 0.05)';
+          ctx.fillStyle = arena.detailColor + '0d';
         }
       } else {
-        // Volcano Lava River
-        ctx.fillStyle = '#0a0807';
+        ctx.fillStyle = arena.bgColor;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#d97706';
+        ctx.fillStyle = arena.detailColor;
         ctx.beginPath();
         ctx.moveTo(0, canvas.height - 60);
         ctx.bezierCurveTo(canvas.width / 3, canvas.height - 100, (canvas.width * 2) / 3, canvas.height - 30, canvas.width, canvas.height - 70);
@@ -351,6 +370,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
         if (!player) {
           s.battleState = 'DEFEAT';
           setBattleState('DEFEAT');
+          soundManager.playDefeat();
           handleReportResults();
         } else if (enemies.length === 0) {
           // All enemies dead! Advance wave or win
@@ -358,6 +378,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
             s.battleState = 'VICTORY';
             setBattleState('VICTORY');
             confetti({ particleCount: 60, spread: 80, origin: { y: 0.6 } });
+            soundManager.playVictory();
             handleReportResults();
           } else {
             s.wave += 1;
@@ -604,6 +625,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
 
     return () => {
       cancelAnimationFrame(animId);
+      soundManager.stopMusic();
     };
   }, [mapLevel, battleState]);
 
@@ -716,26 +738,13 @@ export const SoloMap: React.FC<SoloMapProps> = ({
                 <h3 className="m-0 text-white font-display text-lg tracking-wider">
                   PREPARATION LOBBY
                 </h3>
-                <p className="text-xs text-slate-400 max-w-sm leading-relaxed">
-                  Adjust the arena difficulty stage before launching. Defeat 3 waves of enemies to secure your gold, XP, and potential loot drops!
+                <p className="text-xs text-slate-400 max-w-sm leading-relaxed text-center">
+                  Defeat 3 waves of enemies to secure your gold, XP, and potential loot drops!
                 </p>
-                <div className="w-64 my-2">
-                  <div className="flex justify-between text-xs text-slate-400 font-mono mb-1">
-                    <span>STAGE LEVEL:</span>
-                    <span className="text-cyan-400 font-bold">Lvl {currentMapLevel}</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="1"
-                    max="100"
-                    value={currentMapLevel}
-                    onChange={e => setCurrentMapLevel(parseInt(e.target.value))}
-                    className="w-full accent-cyan-500 cursor-pointer"
-                  />
-                  <div className="flex justify-between text-[9px] text-slate-600 font-mono mt-0.5">
-                    <span>Lvl 1</span>
-                    <span>Lvl 100</span>
-                  </div>
+                <div className="my-4 p-4 rounded-xl bg-black/40 border border-white/5 flex flex-col items-center gap-1 w-64">
+                  <span className="text-[10px] font-pixel text-neon-cyan uppercase tracking-widest">[ Selected Arena ]</span>
+                  <span className="text-white font-display text-xs font-bold mt-1 uppercase text-center">{(ARENA_CONFIGS[currentMapLevel] || ARENA_CONFIGS[1]).name}</span>
+                  <span className="text-cyan-400 font-mono text-xs font-bold mt-0.5">Level {currentMapLevel}</span>
                 </div>
                 <button
                   onClick={initBattle}

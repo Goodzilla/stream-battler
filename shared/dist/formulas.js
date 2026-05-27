@@ -18,6 +18,10 @@ export const calculateCharacterStats = (charClass, level, talentsList, passivesL
     let lifesteal = 0;
     let reflect = 0;
     let cdr = 0;
+    let fireRes = 0;
+    let coldRes = 0;
+    let poisonRes = 0;
+    let physRes = 0;
     // 2. Add Passive Skill Tree allocations
     for (const nodeKey of passivesList) {
         const node = PASSIVE_SKILL_TREE[nodeKey];
@@ -68,6 +72,18 @@ export const calculateCharacterStats = (charClass, level, talentsList, passivesL
                     break;
                 case 'cdr':
                     cdr += affix.value;
+                    break;
+                case 'fireRes':
+                    fireRes += affix.value;
+                    break;
+                case 'coldRes':
+                    coldRes += affix.value;
+                    break;
+                case 'poisonRes':
+                    poisonRes += affix.value;
+                    break;
+                case 'physRes':
+                    physRes += affix.value;
                     break;
             }
         }
@@ -185,7 +201,11 @@ export const calculateCharacterStats = (charClass, level, talentsList, passivesL
         healPower: Math.round(healPower),
         lifesteal: Math.round(lifesteal * 100) / 100,
         reflect: Math.round(reflect * 100) / 100,
-        cdr: Math.round(Math.min(0.75, cdr) * 100) / 100 // Cap CDR at 75%
+        cdr: Math.round(Math.min(0.75, cdr) * 100) / 100, // Cap CDR at 75%
+        fireRes: Math.round(Math.min(0.75, Math.max(0, fireRes)) * 100) / 100,
+        coldRes: Math.round(Math.min(0.75, Math.max(0, coldRes)) * 100) / 100,
+        poisonRes: Math.round(Math.min(0.75, Math.max(0, poisonRes)) * 100) / 100,
+        physRes: Math.round(Math.min(0.75, Math.max(0, physRes)) * 100) / 100
     };
 };
 // Item naming database
@@ -251,14 +271,18 @@ export const generateRandomItem = (itemLevel, rarity, slot, charClass) => {
         { type: 'moveSpeedPct', weight: 0.6, min: 0.02, max: 0.05 },
         { type: 'lifesteal', weight: 0.5, min: 0.01, max: 0.03 },
         { type: 'reflect', weight: 0.5, min: 0.01, max: 0.03 },
-        { type: 'cdr', weight: 0.5, min: 0.02, max: 0.05 }
+        { type: 'cdr', weight: 0.5, min: 0.02, max: 0.05 },
+        { type: 'fireRes', weight: 0.6, min: 0.02, max: 0.10 },
+        { type: 'coldRes', weight: 0.6, min: 0.02, max: 0.10 },
+        { type: 'poisonRes', weight: 0.6, min: 0.02, max: 0.10 },
+        { type: 'physRes', weight: 0.6, min: 0.02, max: 0.10 }
     ];
     let filteredPool = affixPool;
     if (slot === 'WEAPON') {
         filteredPool = affixPool.filter(a => ['attackPower', 'critChance', 'atkSpeedPct', 'lifesteal'].includes(a.type));
     }
     else if (slot === 'ARMOR') {
-        filteredPool = affixPool.filter(a => ['maxHp', 'defense', 'moveSpeedPct', 'reflect'].includes(a.type));
+        filteredPool = affixPool.filter(a => ['maxHp', 'defense', 'moveSpeedPct', 'reflect', 'fireRes', 'coldRes', 'poisonRes', 'physRes'].includes(a.type));
     }
     const affixes = [];
     const selectedTypes = new Set();
@@ -267,11 +291,18 @@ export const generateRandomItem = (itemLevel, rarity, slot, charClass) => {
         if (selectedTypes.has(affixOpt.type))
             continue;
         selectedTypes.add(affixOpt.type);
-        const minVal = affixOpt.min * (1 + itemLevel * 0.01);
-        const maxVal = affixOpt.max * (1 + itemLevel * 0.015);
+        let minVal, maxVal;
+        if (['fireRes', 'coldRes', 'poisonRes', 'physRes'].includes(affixOpt.type)) {
+            minVal = 0.02 + (itemLevel / 100) * 0.18;
+            maxVal = 0.10 + (itemLevel / 100) * 0.65;
+        }
+        else {
+            minVal = affixOpt.min * (1 + itemLevel * 0.01);
+            maxVal = affixOpt.max * (1 + itemLevel * 0.015);
+        }
         let rolledVal = minVal + Math.random() * (maxVal - minVal);
         // Format decimals appropriately
-        if (affixOpt.type === 'critChance' || affixOpt.type === 'atkSpeedPct' || affixOpt.type === 'moveSpeedPct' || affixOpt.type === 'lifesteal' || affixOpt.type === 'reflect' || affixOpt.type === 'cdr') {
+        if (affixOpt.type === 'critChance' || affixOpt.type === 'atkSpeedPct' || affixOpt.type === 'moveSpeedPct' || affixOpt.type === 'lifesteal' || affixOpt.type === 'reflect' || affixOpt.type === 'cdr' || ['fireRes', 'coldRes', 'poisonRes', 'physRes'].includes(affixOpt.type)) {
             rolledVal = Math.round(rolledVal * 1000) / 1000;
         }
         else {

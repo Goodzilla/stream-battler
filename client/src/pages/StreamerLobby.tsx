@@ -5,6 +5,7 @@ import { getDistance } from '../game/physics';
 import { ArrowLeft, Play, Users, Skull, ShieldAlert } from 'lucide-react';
 import { CLASSES } from 'shared';
 import confetti from 'canvas-confetti';
+import { soundManager } from '../game/soundManager';
 import { drawPixelSprite } from '../game/sprites';
 import {
   updateUnitPhysics,
@@ -51,6 +52,12 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
   const [recapStats, setRecapStats] = useState<any[] | null>(null);
   const [recapTick, setRecapTick] = useState(0);
   void recapTick;
+  const [masterVolume, setMasterVolume] = useState(0.5);
+  const [musicVolume, setMusicVolume] = useState(0.2);
+
+  useEffect(() => {
+    soundManager.setVolume(masterVolume, musicVolume);
+  }, [masterVolume, musicVolume]);
 
 
   const stateRef = useRef<{
@@ -95,15 +102,25 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
       setRecapStats(results.recapStats || null);
       if (results.success) {
         confetti({ particleCount: 80, spread: 90, origin: { y: 0.6 } });
+        soundManager.playVictory();
+      } else {
+        soundManager.playDefeat();
       }
+    };
+
+    const handleLobbyError = (err: any) => {
+      alert(err.error || 'A lobby error occurred');
     };
 
     socket.on('lobby-update', handleLobbyUpdate);
     socket.on('raid-ended', handleRaidEnded);
+    socket.on('lobby-error', handleLobbyError);
 
     return () => {
       socket.off('lobby-update', handleLobbyUpdate);
       socket.off('raid-ended', handleRaidEnded);
+      socket.off('lobby-error', handleLobbyError);
+      soundManager.stopMusic();
     };
   }, [socket, streamerName, bossName, bossLevel]);
 
@@ -116,6 +133,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
 
     socket.emit('start-raid', { streamerName });
     setBattleState('FIGHTING');
+    soundManager.startMusic();
     initRaidEngine();
   };
 
@@ -184,6 +202,33 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
       const unitAtkSpeed = v.atkSpeed !== undefined ? v.atkSpeed : (v.charClass === 'ROGUE' ? 1.4 : (v.charClass === 'RANGER' ? 1.1 : 0.8));
       const unitCdr = v.cdr !== undefined ? v.cdr : 0;
 
+      const talentsList = v.selectedTalents || [];
+      let baseCd = v.charClass === 'WARRIOR' ? 6 : (v.charClass === 'MAGE' ? 5 : (v.charClass === 'CLERIC' ? 7 : (v.charClass === 'ROGUE' ? 8 : 8)));
+      if (v.charClass === 'WARRIOR') {
+        if (talentsList.includes('t1_1')) baseCd -= 1.5;
+        if (talentsList.includes('t5_2')) baseCd += 2.0;
+        if (talentsList.includes('t6_2')) baseCd -= 2.0;
+        if (talentsList.includes('t10_1')) baseCd -= 3.0;
+      } else if (v.charClass === 'MAGE') {
+        if (talentsList.includes('t1_1')) baseCd -= 1.0;
+        if (talentsList.includes('t6_1')) baseCd -= 1.5;
+        if (talentsList.includes('t10_2')) baseCd -= 2.5;
+      } else if (v.charClass === 'CLERIC') {
+        if (talentsList.includes('t1_1')) baseCd -= 1.5;
+        if (talentsList.includes('t5_1')) baseCd -= 2.0;
+        if (talentsList.includes('t10_1')) baseCd -= 1.0;
+        if (talentsList.includes('t10_2')) baseCd -= 3.0;
+      } else if (v.charClass === 'ROGUE') {
+        if (talentsList.includes('t2_2')) baseCd -= 1.5;
+        if (talentsList.includes('t6_1')) baseCd -= 2.0;
+        if (talentsList.includes('t10_2')) baseCd -= 3.0;
+      } else if (v.charClass === 'RANGER') {
+        if (talentsList.includes('t1_2')) baseCd -= 1.5;
+        if (talentsList.includes('t5_1')) baseCd -= 2.0;
+        if (talentsList.includes('t9_1')) baseCd -= 3.0;
+        if (talentsList.includes('t10_2')) baseCd -= 4.0;
+      }
+
       // Add simple offset row positions for 1200x600 coordinate grid
       const row = index % 5;
       const col = Math.floor(index / 5);
@@ -206,15 +251,20 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         classType: v.charClass,
         atkTimer: Math.random() * 1.0,
         skillTimer: Math.random() * 2.0,
-        activeSkillCd: (v.charClass === 'WARRIOR' ? 6 : (v.charClass === 'MAGE' ? 5 : (v.charClass === 'CLERIC' ? 7 : 8))) * (1 - unitCdr),
+        activeSkillCd: Math.max(1, baseCd * (1 - unitCdr)),
         stunTimer: 0,
         isHealer: v.charClass === 'CLERIC',
         defense: v.defense || 0,
         lifesteal: v.lifesteal || 0,
         reflect: v.reflect || 0,
+        fireRes: v.fireRes || 0,
+        coldRes: v.coldRes || 0,
+        poisonRes: v.poisonRes || 0,
+        physRes: v.physRes || 0,
         damageDealt: 0,
         healingDone: 0,
-        damageTaken: 0
+        damageTaken: 0,
+        selectedTalents: talentsList
       };
     });
 
@@ -585,7 +635,35 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
 
                 allPlayers.forEach(p => {
                   if (p.hp <= 0) return;
-                  const dmg = Math.max(1, Math.round(boss.attackPower * 2.2 - (p.defense || 0) * 0.1));
+                  const baseDmg = Math.max(1, Math.round(boss.attackPower * 2.2 - (p.defense || 0) * 0.1));
+                  const theme = boss.spriteType || boss.classType || 'GOBLIN';
+                  let physPortion = 1.0;
+                  let firePortion = 0.0;
+                  let coldPortion = 0.0;
+                  let poisonPortion = 0.0;
+
+                  if (theme === 'SNAKE') {
+                    physPortion = 0.5;
+                    poisonPortion = 0.5;
+                  } else if (theme === 'LICH') {
+                    physPortion = 0.0;
+                    coldPortion = 1.0;
+                  } else if (theme === 'DRAGON') {
+                    physPortion = 0.3;
+                    firePortion = 0.7;
+                  }
+
+                  const physRes = p.physRes || 0;
+                  const fireRes = p.fireRes || 0;
+                  const coldRes = p.coldRes || 0;
+                  const poisonRes = p.poisonRes || 0;
+
+                  const reducedPhys = baseDmg * physPortion * (1 - physRes);
+                  const reducedFire = baseDmg * firePortion * (1 - fireRes);
+                  const reducedCold = baseDmg * coldPortion * (1 - coldRes);
+                  const reducedPoison = baseDmg * poisonPortion * (1 - poisonRes);
+
+                  const dmg = Math.max(1, Math.round(reducedPhys + reducedFire + reducedCold + reducedPoison));
                   p.hp = Math.max(0, p.hp - dmg);
                   p.damageTaken = (p.damageTaken || 0) + dmg;
                   p.flashTimer = 0.15;
@@ -891,6 +969,40 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                 <div className="flex justify-between">
                   <span>Joined Viewers:</span>
                   <span className="text-[#00d8ff] font-bold">{lobby?.viewers.length || 0}</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 my-6 border-b border-white/5 pb-6">
+                <span className="text-[10px] font-pixel text-neon-cyan uppercase tracking-widest">[ Sound Settings ]</span>
+                <div className="flex flex-col gap-1.5 mt-2">
+                  <div className="flex justify-between text-[11px] text-slate-400 font-mono">
+                    <span>MASTER VOLUME:</span>
+                    <span className="text-white font-bold">{Math.round(masterVolume * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={masterVolume}
+                    onChange={e => setMasterVolume(parseFloat(e.target.value))}
+                    className="w-full accent-cyan-500 cursor-pointer h-1.5 bg-white/10 rounded-lg appearance-none"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5 mt-1">
+                  <div className="flex justify-between text-[11px] text-slate-400 font-mono">
+                    <span>MUSIC VOLUME:</span>
+                    <span className="text-white font-bold">{Math.round(musicVolume * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={musicVolume}
+                    onChange={e => setMusicVolume(parseFloat(e.target.value))}
+                    className="w-full accent-cyan-500 cursor-pointer h-1.5 bg-white/10 rounded-lg appearance-none"
+                  />
                 </div>
               </div>
 

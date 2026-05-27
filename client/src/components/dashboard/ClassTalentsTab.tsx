@@ -18,9 +18,9 @@ export const ClassTalentsTab: React.FC<ClassTalentsTabProps> = ({
         Class Talents
       </h3>
       
-      <div className="flex flex-col gap-4 max-h-[600px] overflow-y-auto pr-2">
-        {Array.from({ length: 20 }, (_, idx) => idx + 1).map(tier => {
-          const reqLevel = tier * 5;
+      <div className="flex flex-col gap-4">
+        {Array.from({ length: 10 }, (_, idx) => idx + 1).map(tier => {
+          const reqLevel = tier * 10;
           const isUnlocked = character.level >= reqLevel;
           const tierTalents = Object.values(talentList).filter(
             (t: any) => t.tier === tier

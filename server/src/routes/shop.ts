@@ -56,8 +56,10 @@ shopRouter.post('/refresh', async (req: Request, res: Response) => {
     return;
   }
 
-  if (req.user!.gold < 10) {
-    res.status(400).json({ error: 'Insufficient gold. Refreshing costs 10 Gold.' });
+  const price = 10 * activeChar.level;
+
+  if (req.user!.gold < price) {
+    res.status(400).json({ error: `Insufficient gold. Refreshing costs ${price} Gold.` });
     return;
   }
 
@@ -67,7 +69,7 @@ shopRouter.post('/refresh', async (req: Request, res: Response) => {
     const updatedUser = await prisma.user.update({
       where: { id: req.user!.id },
       data: {
-        gold: req.user!.gold - 10,
+        gold: req.user!.gold - price,
         shopStock: newStockStr
       },
       include: { characters: true, items: true }

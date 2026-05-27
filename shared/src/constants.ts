@@ -114,140 +114,116 @@ export interface TalentConfig {
 
 export const TALENTS: Record<string, Record<string, TalentConfig>> = {
   WARRIOR: {
-    t1_1: { id: 't1_1', name: 'Juggernaut', description: '+20% Maximum Life, +5% Armor', tier: 1, effects: { maxHpPct: 0.20, armorPct: 0.05 } },
-    t1_2: { id: 't1_2', name: 'Heavy Impact', description: 'Shield Bash stuns for 2.5s and deals 50% more damage', tier: 1, effects: { shieldBashStun: 1.0, shieldBashDmg: 0.5 } },
-    t2_1: { id: 't2_1', name: 'Bloodthirst', description: 'Gain 10% Lifesteal on all physical attacks', tier: 2, effects: { lifesteal: 0.10 } },
-    t2_2: { id: 't2_2', name: 'Challenger Aura', description: 'Taunt nearby enemies periodically, increasing defense by 15% for each enemy within close range', tier: 2, effects: { defensePct: 0.15 } },
-    t3_1: { id: 't3_1', name: 'Retaliate', description: 'Reflect 15% of incoming damage back to attackers as physical damage', tier: 3, effects: { reflect: 0.15 } },
-    t3_2: { id: 't3_2', name: 'Enrage', description: 'Attack speed increases by up to 30% based on missing health', tier: 3, effects: { lowHealthAtkSpeed: 0.30 } },
-    t4_1: { id: 't4_1', name: 'Undying Stand', description: 'Upon taking fatal damage, survive with 1 HP and become immune to damage for 4s (120s cooldown)', tier: 4, effects: { undying: 1.0 } },
-    t4_2: { id: 't4_2', name: 'Colossus', description: 'Deals 20% more damage and immunizes against slows and stuns', tier: 4, effects: { damagePct: 0.20, crowdControlImmune: 1.0 } }
+    t1_1: { id: 't1_1', name: 'Shield Rush', description: 'Shield Bash cooldown reduced by 1.5 seconds', tier: 1, effects: {} },
+    t1_2: { id: 't1_2', name: 'Impact Bash', description: 'Shield Bash stun duration increased by 0.5s', tier: 1, effects: {} },
+    t2_1: { id: 't2_1', name: 'Heavy Impact', description: 'Shield Bash deals +30% damage', tier: 2, effects: {} },
+    t2_2: { id: 't2_2', name: 'Sundering Slam', description: 'Shield Bash reduces target defense by 10 for 5s', tier: 2, effects: {} },
+    t3_1: { id: 't3_1', name: 'Shield Barrier', description: 'Shield Bash grants a temporary barrier (+15% Max HP) for 3s', tier: 3, effects: {} },
+    t3_2: { id: 't3_2', name: 'Stun Blast', description: 'Shield Bash deals damage in a small 60px AoE around the target', tier: 3, effects: {} },
+    t4_1: { id: 't4_1', name: 'Echoing Shock', description: 'Shield Bash triggers a second shockwave for 50% damage after 0.5s', tier: 4, effects: {} },
+    t4_2: { id: 't4_2', name: 'Aegis Shield', description: 'Shield Bash increases reflect by 15% for 4s after casting', tier: 4, effects: { reflect: 0.15 } },
+    t5_1: { id: 't5_1', name: 'Revenge Bash', description: 'Shield Bash deals +50% damage if Warrior is below 50% HP', tier: 5, effects: {} },
+    t5_2: { id: 't5_2', name: 'Stunning Counter', description: 'Shield Bash stun increased by 1.0s, but cooldown increased by 2.0s', tier: 5, effects: {} },
+    t6_1: { id: 't6_1', name: 'Vampiric Bash', description: 'Shield Bash heals you for 50% of damage dealt', tier: 6, effects: {} },
+    t6_2: { id: 't6_2', name: 'Iron Wall', description: 'Shield Bash cooldown reduced by 2.0s', tier: 6, effects: {} },
+    t7_1: { id: 't7_1', name: 'Sonic Shock', description: 'Shield Bash stuns adjacent enemies within 80px range for 0.8s', tier: 7, effects: {} },
+    t7_2: { id: 't7_2', name: 'Perfect Guard', description: 'Shield Bash grants 20% damage reduction for 3s after casting', tier: 7, effects: {} },
+    t8_1: { id: 't8_1', name: 'Tremor', description: 'Shield Bash deals +60% damage', tier: 8, effects: {} },
+    t8_2: { id: 't8_2', name: 'Iron Fortress', description: 'Shield Bash increases reflect by 25% for 4s after casting', tier: 8, effects: { reflect: 0.25 } },
+    t9_1: { id: 't9_1', name: 'Crystalline Bash', description: 'Shield Bash has a 30% chance to reset its own cooldown on hit', tier: 9, effects: {} },
+    t9_2: { id: 't9_2', name: 'Staggering Blow', description: 'Shield Bash increases target damage taken by 20% for 4s', tier: 9, effects: {} },
+    t10_1: { id: 't10_1', name: 'God King Aegis', description: 'Shield Bash cooldown reduced by 3.0s and stun duration increased by 0.5s', tier: 10, effects: {} },
+    t10_2: { id: 't10_2', name: 'Cataclysm Bash', description: 'Shield Bash deals +150% damage and triggers screen shake', tier: 10, effects: {} }
   },
   MAGE: {
-    t1_1: { id: 't1_1', name: 'Spellweaver', description: '+15% Spell Damage, +10% Mana Regeneration', tier: 1, effects: { spellDmgPct: 0.15, manaRegen: 1.5 } },
-    t1_2: { id: 't1_2', name: 'Pyromaniac', description: 'Fireball now leaves a burning patch on the ground dealing 40% damage per second for 3s', tier: 1, effects: { fireballBurn: 1.0 } },
-    t2_1: { id: 't2_1', name: 'Frost Barrier', description: 'Enemies attacking you are slowed by 30%. Gain +20 Armor', tier: 2, effects: { armor: 20, chillOnHit: 0.30 } },
-    t2_2: { id: 't2_2', name: 'Shatting Impact', description: 'Critical strikes freeze enemies for 1s', tier: 2, effects: { critFreeze: 1.0 } },
-    t3_1: { id: 't3_1', name: 'Arcane Surge', description: 'Every 5th spell cast is guaranteed to critical strike and cost no mana', tier: 3, effects: { arcaneSurge: 1.0 } },
-    t3_2: { id: 't3_2', name: 'Amplification', description: '+20% Area of Effect and +10% Skill Cooldown Reduction', tier: 3, effects: { aoePct: 0.20, cdr: 0.10 } },
-    t4_1: { id: 't4_1', name: 'Doublecast', description: 'All active skills cast twice consecutively', tier: 4, effects: { doubleCast: 1.0 } },
-    t4_2: { id: 't4_2', name: 'Meteor Swarm', description: 'Periodically calls down meteors on random enemies dealing 80% damage', tier: 4, effects: { meteorProc: 1.0 } }
+    t1_1: { id: 't1_1', name: 'Quick Cast', description: 'Fireball cooldown reduced by 1.0s', tier: 1, effects: {} },
+    t1_2: { id: 't1_2', name: 'Intense Heat', description: 'Fireball blast range increased by 20px', tier: 1, effects: {} },
+    t2_1: { id: 't2_1', name: 'Blazing Blast', description: 'Fireball deals +25% damage', tier: 2, effects: {} },
+    t2_2: { id: 't2_2', name: 'Ignite', description: 'Fireball burns targets for 15% attack power per second for 3s', tier: 2, effects: {} },
+    t3_1: { id: 't3_1', name: 'Blast Wave', description: 'Fireball stuns hit targets for 0.8s', tier: 3, effects: {} },
+    t3_2: { id: 't3_2', name: 'Conflagration', description: 'Fireball blast range increased by 45px', tier: 3, effects: {} },
+    t4_1: { id: 't4_1', name: 'Double Spark', description: 'Fireball has a 25% chance to cast twice consecutively', tier: 4, effects: {} },
+    t4_2: { id: 't4_2', name: 'Meltdown', description: 'Fireball ignores 30% of target defense', tier: 4, effects: {} },
+    t5_1: { id: 't5_1', name: 'Pyroclast', description: 'Fireball deals +40% damage', tier: 5, effects: {} },
+    t5_2: { id: 't5_2', name: 'Cauterize', description: 'Fireball heals you for 25% of damage dealt to primary target', tier: 5, effects: {} },
+    t6_1: { id: 't6_1', name: 'Flicker', description: 'Fireball cooldown reduced by 1.5s', tier: 6, effects: {} },
+    t6_2: { id: 't6_2', name: 'Supernova', description: 'Fireball splash damage to adjacent enemies increased to 90%', tier: 6, effects: {} },
+    t7_1: { id: 't7_1', name: 'Living Bomb', description: 'Enemies hit by Fireball explode for 40% damage after 1.5s', tier: 7, effects: {} },
+    t7_2: { id: 't7_2', name: 'Freeze Fire', description: 'Fireball slows hit enemies by 50% for 3s', tier: 7, effects: {} },
+    t8_1: { id: 't8_1', name: 'Volcanic Burst', description: 'Fireball blast range increased by 50px and deals +30% damage', tier: 8, effects: {} },
+    t8_2: { id: 't8_2', name: 'Flame Shield', description: 'Casting Fireball grants +20% defense for 3s after casting', tier: 8, effects: {} },
+    t9_1: { id: 't9_1', name: 'Amplified Singularity', description: 'Fireball critical strike chance inside area increased by 25%', tier: 9, effects: { critChance: 0.05 } },
+    t9_2: { id: 't9_2', name: 'Meteor Shower', description: 'Fireball splits into 2 fireballs targeting adjacent enemies', tier: 9, effects: {} },
+    t10_1: { id: 't10_1', name: 'Armageddon', description: 'Fireball deals +80% damage and leaves a burning patch for 4s', tier: 10, effects: {} },
+    t10_2: { id: 't10_2', name: 'Chronoshift', description: 'Fireball cooldown reduced by 2.5s', tier: 10, effects: {} }
   },
   CLERIC: {
-    t1_1: { id: 't1_1', name: 'Divine Touch', description: '+20% Healing Power, active spells also shield allies for 10% of healing done', tier: 1, effects: { healPowerPct: 0.20, healShield: 0.10 } },
-    t1_2: { id: 't1_2', name: 'Wrath of the Heavens', description: 'Holy Nova deals 100% more damage, and heals for 20% less', tier: 1, effects: { holyNovaDmg: 1.0, holyNovaHeal: -0.20 } },
-    t2_1: { id: 't2_1', name: 'Sanctuary Aura', description: 'Allies within range gain +15 HP regen and +10 Defense', tier: 2, effects: { groupRegen: 15, groupDef: 10 } },
-    t2_2: { id: 't2_2', name: 'Zealot', description: 'Gain 5% of healing power as bonus Attack Power', tier: 2, effects: { healToAtk: 0.05 } },
-    t3_1: { id: 't3_1', name: 'Divine Grace', description: '+15% Move Speed and +15% Cooldown Reduction', tier: 3, effects: { moveSpeedPct: 0.15, cdr: 0.15 } },
-    t3_2: { id: 't3_2', name: 'Resurrection Ward', description: 'When an ally dies, automatically revive them with 40% health (180s cooldown)', tier: 3, effects: { autoRevive: 1.0 } },
-    t4_1: { id: 't4_1', name: 'Avatar of Light', description: 'Heals are doubled, and attacks emit small light bolts targeting random enemies', tier: 4, effects: { doubleHeal: 1.0, lightBoltProc: 1.0 } },
-    t4_2: { id: 't4_2', name: 'Judgement', description: 'Allies attacking target enemies healed by you deal 15% more damage', tier: 4, effects: { groupDmgBuff: 0.15 } }
+    t1_1: { id: 't1_1', name: 'Quick Prayers', description: 'Holy Nova cooldown reduced by 1.5s', tier: 1, effects: {} },
+    t1_2: { id: 't1_2', name: 'Extended Radiance', description: 'Holy Nova healing and damage range increased by 30px', tier: 1, effects: {} },
+    t2_1: { id: 't2_1', name: 'Soothing Light', description: 'Holy Nova healing increased by 25%', tier: 2, effects: {} },
+    t2_2: { id: 't2_2', name: 'Smite Nova', description: 'Holy Nova damage increased by 40%', tier: 2, effects: {} },
+    t3_1: { id: 't3_1', name: 'Grace Shield', description: 'Holy Nova shields healed allies for 15% of max HP for 3s', tier: 3, effects: {} },
+    t3_2: { id: 't3_2', name: 'Blinding Nova', description: 'Holy Nova stuns hit enemies for 0.8s', tier: 3, effects: {} },
+    t4_1: { id: 't4_1', name: 'Purity', description: 'Holy Nova reduces damage taken by allies by 10% for 3s', tier: 4, effects: {} },
+    t4_2: { id: 't4_2', name: 'Judgement Light', description: 'Holy Nova damage +50%, but healing is reduced by 20%', tier: 4, effects: {} },
+    t5_1: { id: 't5_1', name: 'Divine Intervention', description: 'Holy Nova cooldown reduced by 2.0s', tier: 5, effects: {} },
+    t5_2: { id: 't5_2', name: 'Sanctuary', description: 'Holy Nova healing +40%, but damage is reduced by 20%', tier: 5, effects: {} },
+    t6_1: { id: 't6_1', name: 'Resplendent Nova', description: 'Holy Nova has a 20% chance to double cast', tier: 6, effects: {} },
+    t6_2: { id: 't6_2', name: 'Vampiric Glow', description: 'Holy Nova grants you 10% lifesteal for 4s', tier: 6, effects: { lifesteal: 0.10 } },
+    t7_1: { id: 't7_1', name: 'Purifying Fire', description: 'Holy Nova burns enemies for 10% healing value per second for 3s', tier: 7, effects: {} },
+    t7_2: { id: 't7_2', name: 'Devotion Aura', description: 'Holy Nova increases allies defense by 15% for 4s', tier: 7, effects: {} },
+    t8_1: { id: 't8_1', name: 'Archangel Light', description: 'Holy Nova healing and damage increased by 30%', tier: 8, effects: {} },
+    t8_2: { id: 't8_2', name: 'Light Speed', description: 'Holy Nova increases allies movement speed by 25% for 3s', tier: 8, effects: {} },
+    t9_1: { id: 't9_1', name: 'Salvation', description: 'Holy Nova automatically triggers when an ally falls below 20% HP', tier: 9, effects: {} },
+    t9_2: { id: 't9_2', name: 'Absolute Smite', description: 'Holy Nova ignores enemy defenses', tier: 9, effects: {} },
+    t10_1: { id: 't10_1', name: 'Seraphim Ascendancy', description: 'Holy Nova healing and damage both +50%, cooldown -1s', tier: 10, effects: {} },
+    t10_2: { id: 't10_2', name: 'Eternity Light', description: 'Holy Nova cooldown reduced by 3.0s', tier: 10, effects: {} }
   },
   ROGUE: {
-    t1_1: { id: 't1_1', name: 'Assassinate', description: '+25% Critical Strike Multiplier, +5% Crit Chance', tier: 1, effects: { critMultPct: 0.25, critChance: 0.05 } },
-    t1_2: { id: 't1_2', name: 'Toxify', description: 'Critical strikes poison enemies for 15% of weapon damage per second for 4s', tier: 1, effects: { poisonOnCrit: 0.15 } },
-    t2_1: { id: 't2_1', name: 'Fleet Footed', description: '+15% Move Speed, +10% Dodge Chance', tier: 2, effects: { moveSpeedPct: 0.15, dodgeChance: 0.10 } },
-    t2_2: { id: 't2_2', name: 'Opportunity', description: 'Blade Dance deals 30% more damage to enemies below 50% health', tier: 2, effects: { executeDmgPct: 0.30 } },
-    t3_1: { id: 't3_1', name: 'Adrenaline Rush', description: 'Upon landing a critical strike, gain 20% Attack Speed for 3s', tier: 3, effects: { critAtkSpeedProc: 0.20 } },
-    t3_2: { id: 't3_2', name: 'Shadow Cloak', description: 'Reduces threat. Periodically dodge all attacks for 2s (15s cooldown)', tier: 3, effects: { shadowCloak: 1.0 } },
-    t4_1: { id: 't4_1', name: 'Executioner', description: 'Instantly kill non-boss targets below 15% HP. Bosses take double damage instead', tier: 4, effects: { executioner: 1.0 } },
-    t4_2: { id: 't4_2', name: 'Blade Master', description: 'Dual-wielding attacks strike twice. Total attack speed increases by 25%', tier: 4, effects: { doubleStrikeChance: 0.30, atkSpeedPct: 0.25 } }
+    t1_1: { id: 't1_1', name: 'Swift Cuts', description: 'Blade Dance strikes 6 times instead of 5', tier: 1, effects: {} },
+    t1_2: { id: 't1_2', name: 'Poison Blades', description: 'Blade Dance strikes apply a poison that deals 10 damage/s for 4s', tier: 1, effects: {} },
+    t2_1: { id: 't2_1', name: 'Fatal Strikes', description: 'Blade Dance strike damage increased by 20%', tier: 2, effects: {} },
+    t2_2: { id: 't2_2', name: 'Agile Step', description: 'Blade Dance cooldown reduced by 1.5s', tier: 2, effects: {} },
+    t3_1: { id: 't3_1', name: 'Lifesteal Cuts', description: 'Blade Dance strikes have +15% lifesteal', tier: 3, effects: {} },
+    t3_2: { id: 't3_2', name: 'Wind Dance', description: 'Blade Dance increases your attack speed by 20% for 3s', tier: 3, effects: {} },
+    t4_1: { id: 't4_1', name: 'Shadow Strike', description: 'Blade Dance hits have +15% critical strike chance', tier: 4, effects: {} },
+    t4_2: { id: 't4_2', name: 'Staggering Cut', description: 'Blade Dance strikes stun targets for 0.2s each', tier: 4, effects: {} },
+    t5_1: { id: 't5_1', name: 'Thousand Blades', description: 'Blade Dance strikes 7 times instead of 5, but deals 15% less damage per strike', tier: 5, effects: {} },
+    t5_2: { id: 't5_2', name: 'Assassinate', description: 'Blade Dance deals +40% damage to targets below 50% HP', tier: 5, effects: {} },
+    t6_1: { id: 't6_1', name: 'Fleeing Step', description: 'Blade Dance cooldown reduced by 2.0s', tier: 6, effects: {} },
+    t6_2: { id: 't6_2', name: 'Dodge Step', description: 'Blade Dance grants +30% dodge/reflect chance for 2s', tier: 6, effects: {} },
+    t7_1: { id: 't7_1', name: 'Heavy Blades', description: 'Blade Dance strike damage increased by 35%', tier: 7, effects: {} },
+    t7_2: { id: 't7_2', name: 'Debilitate', description: 'Blade Dance reduces target attack speed by 25% for 4s', tier: 7, effects: {} },
+    t8_1: { id: 't8_1', name: 'Cunning Slice', description: 'Blade Dance has a 25% chance to reset its cooldown on kill', tier: 8, effects: {} },
+    t8_2: { id: 't8_2', name: 'Serrated Edge', description: 'Blade Dance strikes cause target to bleed for 25% of damage over 3s', tier: 8, effects: {} },
+    t9_1: { id: 't9_1', name: 'Blade Mastery', description: 'Blade Dance strikes have +40% crit multiplier', tier: 9, effects: {} },
+    t9_2: { id: 't9_2', name: 'Phantom Dance', description: 'You are completely immune to damage during Blade Dance', tier: 9, effects: {} },
+    t10_1: { id: 't10_1', name: 'Death Blossom', description: 'Blade Dance strikes 8 times instead of 5', tier: 10, effects: {} },
+    t10_2: { id: 't10_2', name: 'Slayer Step', description: 'Blade Dance cooldown reduced by 3.0s and deals +20% damage', tier: 10, effects: {} }
   },
   RANGER: {
-    t1_1: { id: 't1_1', name: 'Eagle Eye', description: '+20% Attack Range, +10% Projectile Velocity', tier: 1, effects: { rangePct: 0.20, projectileVelocity: 0.10 } },
-    t1_2: { id: 't1_2', name: 'Split Shot', description: 'Basic attacks now fire an additional arrow targeting a secondary enemy for 40% damage', tier: 1, effects: { splitShot: 0.40 } },
-    t2_1: { id: 't2_1', name: 'Point Blank', description: 'Deal up to 25% more damage to targets close to you', tier: 2, effects: { pointBlankDmg: 0.25 } },
-    t2_2: { id: 't2_2', name: 'Numbing Traps', description: 'Explosive Trap roots enemies for 1.5s instead of slowing them', tier: 2, effects: { trapRoot: 1.0 } },
-    t3_1: { id: 't3_1', name: 'Swift Feather', description: 'Gain 25% Movement Speed while no enemies are within close range', tier: 3, effects: { distanceSpeedPct: 0.25 } },
-    t3_2: { id: 't3_2', name: 'Piercing Shots', description: 'All arrow attacks pierce targets, striking enemies behind them for 50% damage', tier: 3, effects: { piercePct: 0.50 } },
-    t4_1: { id: 't4_1', name: 'Barrage', description: 'Arrow Rain fires twice as many arrows and has a 30% reduced cooldown', tier: 4, effects: { barrageRain: 1.0, arrowRainCdr: 0.30 } },
-    t4_2: { id: 't4_2', name: 'Sniper Focus', description: 'Every 3 seconds of standing still increases next attack damage by 50% (stacks up to 3 times)', tier: 4, effects: { sniperFocus: 1.0 } }
+    t1_1: { id: 't1_1', name: 'Heavy Volley', description: 'Arrow Rain slow effect increased from 30% to 50%', tier: 1, effects: {} },
+    t1_2: { id: 't1_2', name: 'Long Draw', description: 'Arrow Rain cooldown reduced by 1.5s', tier: 1, effects: {} },
+    t2_1: { id: 't2_1', name: 'Barbed Arrows', description: 'Arrow Rain damage increased by 25%', tier: 2, effects: {} },
+    t2_2: { id: 't2_2', name: 'Wide Volley', description: 'Arrow Rain area radius increased by 30px', tier: 2, effects: {} },
+    t3_1: { id: 't3_1', name: 'Pinning Volley', description: 'Arrow Rain has a 20% chance to stun hit enemies for 1s', tier: 3, effects: {} },
+    t3_2: { id: 't3_2', name: 'Hunter Pace', description: 'Arrow Rain increases your movement speed by 20% for 3s', tier: 3, effects: {} },
+    t4_1: { id: 't4_1', name: 'Poison Tips', description: 'Arrow Rain poisons hit enemies for 12 damage/s for 3s', tier: 4, effects: {} },
+    t4_2: { id: 't4_2', name: 'Piercing Volley', description: 'Arrow Rain ignores 25% of target defense', tier: 4, effects: {} },
+    t5_1: { id: 't5_1', name: 'Fletching Focus', description: 'Arrow Rain cooldown reduced by 2.0s', tier: 5, effects: {} },
+    t5_2: { id: 't5_2', name: 'Sharp Shrapnel', description: 'Arrow Rain damage increased by 40%', tier: 5, effects: {} },
+    t6_1: { id: 't6_1', name: 'Sentry Storm', description: 'Arrow Rain deals +15% damage and slow duration increased to 5s', tier: 6, effects: {} },
+    t6_2: { id: 't6_2', name: 'Crippling Rain', description: 'Arrow Rain reduces hit enemies attack speed by 20% for 3s', tier: 6, effects: {} },
+    t7_1: { id: 't7_1', name: 'Eagle Focus', description: 'Arrow Rain critical strike chance inside area increased by 15%', tier: 7, effects: {} },
+    t7_2: { id: 't7_2', name: 'Rapid Fire', description: 'Arrow Rain increases basic attack speed by 25% for 3s', tier: 7, effects: {} },
+    t8_1: { id: 't8_1', name: 'Thunder Volley', description: 'Arrow Rain stuns all targets inside for 0.8s on initial hit', tier: 8, effects: {} },
+    t8_2: { id: 't8_2', name: 'Storm Bow', description: 'Arrow Rain damage increased by 50%', tier: 8, effects: {} },
+    t9_1: { id: 't9_1', name: 'Wind Tunnel', description: 'Arrow Rain cooldown reduced by 3.0s', tier: 9, effects: {} },
+    t9_2: { id: 't9_2', name: 'Caltrop Rain', description: 'Arrow Rain area leaves caltrops that deal 10 reflect damage to enemies who step inside', tier: 9, effects: {} },
+    t10_1: { id: 't10_1', name: 'God bow Storm', description: 'Arrow Rain deals +80% damage and stuns for 0.5s', tier: 10, effects: {} },
+    t10_2: { id: 't10_2', name: 'Time dilation', description: 'Arrow Rain cooldown reduced by 4.0s', tier: 10, effects: {} }
   }
 };
-
-const buildTalents = () => {
-  const classes = ['WARRIOR', 'MAGE', 'CLERIC', 'ROGUE', 'RANGER'];
-  for (const cls of classes) {
-    if (!TALENTS[cls]) {
-      TALENTS[cls] = {};
-    }
-    for (let tier = 5; tier <= 20; tier++) {
-      const isOdd = tier % 2 !== 0;
-
-      if (isOdd) {
-        // Odd: Offensive
-        const atkVal = 0.05 + (tier - 5) * 0.015;
-        TALENTS[cls][`t${tier}_1`] = {
-          id: `t${tier}_1`,
-          name: `Heroic Might Tier ${tier}`,
-          description: `+${Math.round(atkVal * 100)}% Attack Power`,
-          tier,
-          effects: { atkMultPct: atkVal }
-        };
-
-        if (cls === 'ROGUE' || cls === 'RANGER') {
-          const critVal = 0.02 + (tier - 5) * 0.005;
-          TALENTS[cls][`t${tier}_2`] = {
-            id: `t${tier}_2`,
-            name: `Deadly Precision Tier ${tier}`,
-            description: `+${Math.round(critVal * 100)}% Crit Chance`,
-            tier,
-            effects: { critChance: critVal }
-          };
-        } else {
-          const speedVal = 0.04 + (tier - 5) * 0.01;
-          TALENTS[cls][`t${tier}_2`] = {
-            id: `t${tier}_2`,
-            name: `Swift Strikes Tier ${tier}`,
-            description: `+${Math.round(speedVal * 100)}% Attack Speed`,
-            tier,
-            effects: { atkSpeedPct: speedVal }
-          };
-        }
-      } else {
-        // Even: Defensive/Utility
-        const hpVal = 0.06 + (tier - 5) * 0.015;
-        TALENTS[cls][`t${tier}_1`] = {
-          id: `t${tier}_1`,
-          name: `Colossus Core Tier ${tier}`,
-          description: `+${Math.round(hpVal * 100)}% Max HP`,
-          tier,
-          effects: { maxHpPct: hpVal }
-        };
-
-        if (cls === 'CLERIC') {
-          const cdrVal = 0.03 + (tier - 5) * 0.008;
-          TALENTS[cls][`t${tier}_2`] = {
-            id: `t${tier}_2`,
-            name: `Divine Focus Tier ${tier}`,
-            description: `+${Math.round(cdrVal * 100)}% Cooldown Reduction`,
-            tier,
-            effects: { cdr: cdrVal }
-          };
-        } else if (cls === 'WARRIOR') {
-          const defVal = 0.05 + (tier - 5) * 0.015;
-          TALENTS[cls][`t${tier}_2`] = {
-            id: `t${tier}_2`,
-            name: `Indomitable Aegis Tier ${tier}`,
-            description: `+${Math.round(defVal * 100)}% Defense Armor`,
-            tier,
-            effects: { defensePct: defVal }
-          };
-        } else {
-          const lifeVal = 0.02 + (tier - 5) * 0.005;
-          TALENTS[cls][`t${tier}_2`] = {
-            id: `t${tier}_2`,
-            name: `Vampiric Touch Tier ${tier}`,
-            description: `+${Math.round(lifeVal * 100)}% Lifesteal`,
-            tier,
-            effects: { lifesteal: lifeVal }
-          };
-        }
-      }
-    }
-  }
-};
-buildTalents();
 
 export interface SkillNode {
   id: string;
@@ -475,4 +451,38 @@ export const validatePassiveAllocation = (allocatedNodes: string[]): boolean => 
   }
 
   return visited.size === allocatedNodes.length;
+};
+
+export interface ArenaConfig {
+  name: string;
+  level: number;
+  theme: 'FOREST' | 'POISON_CAVES' | 'RUINS' | 'CRYPT' | 'VOLCANO';
+  enemySprite: 'GOBLIN' | 'SNAKE' | 'ORC' | 'LICH' | 'DRAGON';
+  enemyNames: string[];
+  desc: string;
+  bgColor: string;
+  detailColor: string;
+}
+
+export const ARENA_CONFIGS: Record<number, ArenaConfig> = {
+  1: { name: 'Forest of Trials', level: 1, theme: 'FOREST', enemySprite: 'GOBLIN', enemyNames: ['Goblin Scout', 'Goblin Thief'], desc: 'A dense wood where goblins roam. Ideal for starters.', bgColor: '#08170e', detailColor: '#0f2919' },
+  5: { name: 'Echoing Groves', level: 5, theme: 'FOREST', enemySprite: 'GOBLIN', enemyNames: ['Goblin Raider', 'Goblin Archer'], desc: 'Deeper into the forest, goblin scouts set traps.', bgColor: '#06130b', detailColor: '#0a1d11' },
+  10: { name: 'Serpent Caves', level: 10, theme: 'POISON_CAVES', enemySprite: 'SNAKE', enemyNames: ['Young Adder', 'Green Snake'], desc: 'Damp caverns containing slithering neon adders.', bgColor: '#0b0512', detailColor: '#8a2be2' },
+  15: { name: 'Neon Caves', level: 15, theme: 'POISON_CAVES', enemySprite: 'SNAKE', enemyNames: ['Spitting Adder', 'Slither Viper'], desc: 'Glowing crystal tunnels with swift venomous snakes.', bgColor: '#050a14', detailColor: '#00ffff' },
+  20: { name: 'Whispering Woods', level: 20, theme: 'FOREST', enemySprite: 'GOBLIN', enemyNames: ['Feral Goblin', 'Forest Goblin'], desc: 'Haunted woodlands where rogue goblins hide.', bgColor: '#03080c', detailColor: '#0b1d28' },
+  25: { name: 'Orc Campsite', level: 25, theme: 'RUINS', enemySprite: 'ORC', enemyNames: ['Orc Vanguard', 'Orc Scout'], desc: 'A temporary camp set up by vanguard orc grunts.', bgColor: '#141210', detailColor: '#201c18' },
+  30: { name: 'Skeletal Catacombs', level: 30, theme: 'CRYPT', enemySprite: 'LICH', enemyNames: ['Skeletal Grunt', 'Rattled Skeleton'], desc: 'Underground catacombs guarded by skeletal warriors.', bgColor: '#07080b', detailColor: '#1e3a8a' },
+  35: { name: 'Obsidian Ruins', level: 35, theme: 'RUINS', enemySprite: 'ORC', enemyNames: ['Orc Grunt', 'Orc Raider'], desc: 'Cursed obsidian pillars and heavy orc raiders.', bgColor: '#110b08', detailColor: '#281a13' },
+  40: { name: 'Poison Gardens', level: 40, theme: 'POISON_CAVES', enemySprite: 'SNAKE', enemyNames: ['Poisonous Cobra', 'Giant Mamba'], desc: 'Overgrown ruins rich with toxic fumes and slithering vipers.', bgColor: '#0d1a0d', detailColor: '#10b981' },
+  45: { name: 'Orc Stronghold', level: 45, theme: 'RUINS', enemySprite: 'ORC', enemyNames: ['Orc Berserker', 'Orc Gladiator'], desc: 'A heavily fortified encampment of orc berserkers.', bgColor: '#1a1510', detailColor: '#302820' },
+  50: { name: 'Catacombs of Doom', level: 50, theme: 'CRYPT', enemySprite: 'LICH', enemyNames: ['Skeletal Guard', 'Crypt Wight'], desc: 'Deep chambers where ancient skeleton acolytes practice necromancy.', bgColor: '#030712', detailColor: '#3b82f6' },
+  55: { name: 'Lich Crypt', level: 55, theme: 'CRYPT', enemySprite: 'LICH', enemyNames: ['Lich Acolyte', 'Ancient Mummy'], desc: 'A dark, cold maze guarded by ancient skeleton acolyths.', bgColor: '#0f172a', detailColor: '#6366f1' },
+  60: { name: 'Ancient Fortress', level: 60, theme: 'RUINS', enemySprite: 'ORC', enemyNames: ['Orc Commander', 'Orc Warlord'], desc: 'The historic keep of the orc kings, filled with elite warriors.', bgColor: '#1c1917', detailColor: '#44403c' },
+  65: { name: 'Shadow Crypt', level: 65, theme: 'CRYPT', enemySprite: 'LICH', enemyNames: ['Skeletal Lich', 'Wraith Priest'], desc: 'A void-touched tomb filled with skeleton liches.', bgColor: '#180018', detailColor: '#4b0082' },
+  70: { name: 'Dragon Ridge', level: 70, theme: 'VOLCANO', enemySprite: 'DRAGON', enemyNames: ['Volcano Hatchling', 'Wyvern'], desc: 'Rocky volcanic cliffs populated by small fire drakes.', bgColor: '#1c0a00', detailColor: '#d97706' },
+  75: { name: 'Volcanic Caldera', level: 75, theme: 'VOLCANO', enemySprite: 'DRAGON', enemyNames: ['Young Drake', 'Volcano Dragon'], desc: 'Lava flows, magma giants, and legendary fire dragons.', bgColor: '#0f0500', detailColor: '#ef4444' },
+  80: { name: 'Frozen Tombs', level: 80, theme: 'CRYPT', enemySprite: 'LICH', enemyNames: ['Frost Skeleton', 'Lich Overlord'], desc: 'Icy crypts holding preserved ancient skeletal commanders.', bgColor: '#0f172a', detailColor: '#38bdf8' },
+  85: { name: 'Magma Chamber', level: 85, theme: 'VOLCANO', enemySprite: 'DRAGON', enemyNames: ['Infernal Drake', 'Magma Dragon'], desc: 'Subterranean lava chambers guarded by high-rank lava dragons.', bgColor: '#0c0200', detailColor: '#f97316' },
+  90: { name: 'Abyssal Maw', level: 90, theme: 'VOLCANO', enemySprite: 'DRAGON', enemyNames: ['Void Drake', 'Abyssal Dragon'], desc: 'The final frontier. Face the strongest challenges here.', bgColor: '#000000', detailColor: '#8b5cf6' },
+  95: { name: 'Dragon Throne', level: 95, theme: 'VOLCANO', enemySprite: 'DRAGON', enemyNames: ['Ancient Sovereign', 'Lava Dragon King'], desc: 'The apex of the volcano. Defeat the ancient dragon sovereign.', bgColor: '#000000', detailColor: '#b91c1c' }
 };

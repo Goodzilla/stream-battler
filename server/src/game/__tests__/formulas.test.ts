@@ -51,12 +51,10 @@ describe('Character Stats Calculator', () => {
     expect(stats.critChance).toBe(0.10); // 0.05 base + 0.05 weapon
   });
 
-  it('should apply talent percentage multipliers', () => {
-    // Juggernaut (t1_1) warrior talent: +20% HP, +5% Armor
-    const stats = calculateCharacterStats('WARRIOR', 5, ['t1_1'], ['start'], []);
-    // baseHp = 180 + 4*12 = 228. node = 10. Total flat = 238.
-    // Mult = 1.20. final HP = 238 * 1.2 = 285.6 -> 286
-    expect(stats.maxHp).toBe(286);
+  it('should apply talent flat/percentage effects', () => {
+    // Aegis Shield (t4_2) warrior talent: increases reflect by 15%
+    const stats = calculateCharacterStats('WARRIOR', 5, ['t4_2'], ['start'], []);
+    expect(stats.reflect).toBe(0.15);
   });
 });
 
@@ -95,3 +93,61 @@ describe('Vector Physics Math', () => {
     expect(nextPos.y).toBe(0);
   });
 });
+
+describe('Resistances and Affix Restrictions', () => {
+  it('should not allow weapons to roll resistances', () => {
+    // Generate many legendary weapons and verify none have resistance affixes
+    for (let i = 0; i < 20; i++) {
+      const weapon = generateRandomItem(50, 'LEGENDARY', 'WEAPON', 'WARRIOR');
+      const resAffixes = weapon.affixes.filter(a => ['fireRes', 'coldRes', 'poisonRes', 'physRes'].includes(a.type));
+      expect(resAffixes.length).toBe(0);
+    }
+  });
+
+  it('should allow armor and accessories to roll resistances with correct scaling', () => {
+    // Generate many legendary armors/accessories and check scaling limits
+    for (let i = 0; i < 20; i++) {
+      const armor = generateRandomItem(100, 'LEGENDARY', 'ARMOR', 'WARRIOR');
+      for (const affix of armor.affixes) {
+        if (['fireRes', 'coldRes', 'poisonRes', 'physRes'].includes(affix.type)) {
+          expect(affix.value).toBeLessThanOrEqual(0.75);
+          expect(affix.value).toBeGreaterThanOrEqual(0.02);
+        }
+      }
+    }
+  });
+
+  it('should cap character resistances at 75%', () => {
+    const highResArmor = {
+      name: 'Plate of Fire Immersion',
+      slot: 'ARMOR' as const,
+      rarity: 'LEGENDARY' as const,
+      itemLevel: 100,
+      baseAttack: 0,
+      baseDefense: 50,
+      affixes: [
+        { type: 'fireRes', value: 0.60 },
+        { type: 'coldRes', value: 0.85 } // Over capped
+      ],
+      isEquipped: true
+    };
+
+    const highResRing = {
+      name: 'Ring of Flame',
+      slot: 'ACCESSORY' as const,
+      rarity: 'RARE' as const,
+      itemLevel: 100,
+      baseAttack: 0,
+      baseDefense: 5,
+      affixes: [
+        { type: 'fireRes', value: 0.35 } // Together 0.95
+      ],
+      isEquipped: true
+    };
+
+    const stats = calculateCharacterStats('WARRIOR', 1, [], ['start'], [highResArmor, highResRing]);
+    expect(stats.fireRes).toBe(0.75); // Capped at 75%
+    expect(stats.coldRes).toBe(0.75); // Capped at 75%
+  });
+});
+

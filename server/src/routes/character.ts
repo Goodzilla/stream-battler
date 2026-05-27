@@ -201,7 +201,7 @@ characterRouter.post('/select-talents', async (req: Request, res: Response) => {
   }
 
   try {
-    const maxTier = Math.floor(activeChar.level / 5);
+    const maxTier = Math.floor(activeChar.level / 10);
     const validTalents: string[] = [];
     const chosenTiers = new Set<number>();
 
@@ -212,7 +212,7 @@ characterRouter.post('/select-talents', async (req: Request, res: Response) => {
       const tier = parseInt(match[1]);
 
       if (tier > maxTier) {
-        res.status(400).json({ error: `Talent tier ${tier} requires Level ${tier * 5}. Current level: ${activeChar.level}` });
+        res.status(400).json({ error: `Talent tier ${tier} requires Level ${tier * 10}. Current level: ${activeChar.level}` });
         return;
       }
 

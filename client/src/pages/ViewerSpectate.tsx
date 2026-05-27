@@ -4,6 +4,7 @@ import { ArrowLeft, Users } from 'lucide-react';
 import { lerp, getDistance } from '../game/physics';
 import confetti from 'canvas-confetti';
 import { drawPixelSprite } from '../game/sprites';
+import { soundManager } from '../game/soundManager';
 
 interface ViewerSpectateProps {
   user: any;
@@ -82,6 +83,7 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
       if (updatedLobby.status === 'FIGHTING' && stateRef.current.battleState === 'LOBBY') {
         stateRef.current.battleState = 'FIGHTING';
         setBattleState('FIGHTING');
+        soundManager.startMusic();
         initSpectateCanvas();
       }
     };
@@ -90,6 +92,7 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
       setLobby(updatedLobby);
       stateRef.current.battleState = 'FIGHTING';
       setBattleState('FIGHTING');
+      soundManager.startMusic();
       initSpectateCanvas();
     };
 
@@ -165,6 +168,12 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
       setBattleState(results.success ? 'VICTORY' : 'DEFEAT');
       setRecapStats(results.recapStats || null);
 
+      if (results.success) {
+        soundManager.playVictory();
+      } else {
+        soundManager.playDefeat();
+      }
+
       // Check if there's a reward for this viewer!
       if (results.rewards && results.rewards[user.id]) {
         setPersonalReward(results.rewards[user.id]);
@@ -179,11 +188,16 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
       onBackToDashboard();
     };
 
+    const handleLobbyError = (err: any) => {
+      alert(err.error || 'A lobby error occurred');
+    };
+
     socket.on('lobby-update', handleLobbyUpdate);
     socket.on('raid-started', handleRaidStarted);
     socket.on('raid-state-broadcast', handleRaidBroadcast);
     socket.on('raid-ended', handleRaidEnded);
     socket.on('lobby-closed', handleLobbyClosed);
+    socket.on('lobby-error', handleLobbyError);
 
     return () => {
       socket.off('lobby-update', handleLobbyUpdate);
@@ -191,6 +205,8 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
       socket.off('raid-state-broadcast', handleRaidBroadcast);
       socket.off('raid-ended', handleRaidEnded);
       socket.off('lobby-closed', handleLobbyClosed);
+      socket.off('lobby-error', handleLobbyError);
+      soundManager.stopMusic();
     };
 
   }, [socket, streamerName, user.id]);

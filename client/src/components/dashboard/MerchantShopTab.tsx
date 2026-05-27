@@ -22,8 +22,12 @@ const formatAffix = (type: string, value: number): string => {
   if (type === 'lifesteal') label = 'LIFESTEAL';
   if (type === 'reflect') label = 'REFLECT';
   if (type === 'cdr') label = 'CDR';
+  if (type === 'fireRes') label = 'FIRE RESISTANCE';
+  if (type === 'coldRes') label = 'COLD RESISTANCE';
+  if (type === 'poisonRes') label = 'POISON RESISTANCE';
+  if (type === 'physRes') label = 'PHYSICAL RESISTANCE';
   
-  const percentTypes = ['critChance', 'atkSpeedPct', 'moveSpeedPct', 'lifesteal', 'reflect', 'cdr'];
+  const percentTypes = ['critChance', 'atkSpeedPct', 'moveSpeedPct', 'lifesteal', 'reflect', 'cdr', 'fireRes', 'coldRes', 'poisonRes', 'physRes'];
   if (percentTypes.includes(type)) {
     return `+${Math.round(value * 100)}% ${label}`;
   }
@@ -59,7 +63,7 @@ export const MerchantShopTab: React.FC<MerchantShopTabProps> = ({
             className="px-4 py-2 border border-yellow-500/30 text-yellow-500 text-xs font-display font-bold uppercase tracking-wider rounded hover:bg-yellow-500 hover:text-black transition duration-300 flex items-center gap-2"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            Refresh Stock (10g)
+            Refresh Stock ({character.level * 10}g)
           </button>
         </div>
 

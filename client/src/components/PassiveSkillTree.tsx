@@ -74,13 +74,27 @@ export const PassiveSkillTree: React.FC<PassiveSkillTreeProps> = ({ character, o
     return node.connections.some(connId => allocated.includes(connId));
   };
 
-  // Click handler to allocate a node
+  // Click handler to allocate or de-allocate a node (toggle)
   const handleNodeClick = async (nodeId: string) => {
-    if (allocated.includes(nodeId)) return; // Already allocated
-    if (pointsAvailable <= 0) return; // No points
-    if (nodeId !== 'start' && !isConnectable(nodeId)) return; // Not connected
+    if (nodeId === 'start') return; // Cannot de-allocate origin
 
-    const newAllocations = [...allocated, nodeId];
+    let newAllocations: string[];
+    if (allocated.includes(nodeId)) {
+      // Toggle off / De-allocate
+      newAllocations = allocated.filter(id => id !== nodeId);
+    } else {
+      // Toggle on / Allocate
+      if (pointsAvailable <= 0) {
+        alert('No skill points available!');
+        return;
+      }
+      if (!isConnectable(nodeId)) {
+        alert('Node must be connected to an allocated node!');
+        return;
+      }
+      newAllocations = [...allocated, nodeId];
+    }
+
     try {
       const updatedChar = await apiFetch('/character/allocate-passives', {
         method: 'POST',
@@ -174,7 +188,7 @@ export const PassiveSkillTree: React.FC<PassiveSkillTreeProps> = ({ character, o
   });
 
   return (
-    <div className="relative w-full h-[550px] bg-[#05080f] rounded-xl border border-white/5 overflow-hidden select-none">
+    <div className="relative w-full h-[750px] bg-[#05080f] rounded-xl border border-white/5 overflow-hidden select-none">
       {/* HUD Info */}
       <div className="absolute top-4 left-4 z-10 flex flex-col gap-1 pointer-events-none">
         <h4 className="m-0 text-white font-display text-sm tracking-wide">PASSIVE SKILL TREE</h4>
@@ -301,7 +315,11 @@ export const PassiveSkillTree: React.FC<PassiveSkillTreeProps> = ({ character, o
           <div className="border-t border-white/5 pt-2 flex flex-col gap-1">
             <span className="text-slate-500 font-medium">Node Type: <span className="uppercase" style={{ color: getNodeColor(hoverNode) }}>{hoverNode.type}</span></span>
             {allocated.includes(hoverNode.id) ? (
-              <span className="text-[#00d8ff] font-semibold">Allocated</span>
+              hoverNode.id === 'start' ? (
+                <span className="text-[#00d8ff] font-semibold">Allocated (Origin)</span>
+              ) : (
+                <span className="text-[#00d8ff] font-semibold text-neon-cyan animate-pulse">Allocated (Click to de-allocate)</span>
+              )
             ) : isConnectable(hoverNode.id) && pointsAvailable > 0 ? (
               <span className="text-emerald-400 font-semibold">Click to allocate (1 Point)</span>
             ) : isConnectable(hoverNode.id) ? (

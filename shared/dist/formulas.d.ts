@@ -24,6 +24,10 @@ export interface CharacterStats {
     lifesteal: number;
     reflect: number;
     cdr: number;
+    fireRes: number;
+    coldRes: number;
+    poisonRes: number;
+    physRes: number;
 }
 export declare const xpToNextLevel: (level: number) => number;
 export declare const calculateCharacterStats: (charClass: string, level: number, talentsList: string[], passivesList: string[], equippedItems: ItemData[]) => CharacterStats;
