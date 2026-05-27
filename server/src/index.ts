@@ -75,3 +75,24 @@ server.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`Stream Battler Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
 });
+
+// Graceful shutdown
+const gracefulShutdown = (signal: string) => {
+  console.log(`Received ${signal}. Shutting down gracefully...`);
+  server.close(async () => {
+    console.log('HTTP server closed.');
+    const { prisma } = await import('./db');
+    await prisma.$disconnect();
+    console.log('Database disconnected. Exiting process.');
+    process.exit(0);
+  });
+
+  // Force exit after 10 seconds if shutdown hangs
+  setTimeout(() => {
+    console.error('Forced shutdown due to timeout');
+    process.exit(1);
+  }, 10000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
