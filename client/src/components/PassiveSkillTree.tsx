@@ -7,9 +7,10 @@ interface PassiveSkillTreeProps {
   character: any;
   onUpdateCharacter: (char: any) => void;
   showAlert: (message: string, title?: string) => void;
+  showConfirm: (message: string, onConfirm: () => void, title?: string) => void;
 }
 
-export const PassiveSkillTree: React.FC<PassiveSkillTreeProps> = ({ character, onUpdateCharacter, showAlert }) => {
+export const PassiveSkillTree: React.FC<PassiveSkillTreeProps> = ({ character, onUpdateCharacter, showAlert, showConfirm }) => {
   const [zoom, setZoom] = useState<number>(1);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [hoverNode, setHoverNode] = useState<SkillNode | null>(null);
@@ -108,18 +109,22 @@ export const PassiveSkillTree: React.FC<PassiveSkillTreeProps> = ({ character, o
   };
 
   // Reset Tree
-  const handleReset = async () => {
-    if (window.confirm('Reset your passive skill tree? This will refund all points to start.')) {
-      try {
-        const updatedChar = await apiFetch('/character/allocate-passives', {
-          method: 'POST',
-          body: JSON.stringify({ passives: ['start'] }) // Keep only start node
-        });
-        onUpdateCharacter(updatedChar);
-      } catch (err: any) {
-        showAlert(err.message, 'ERROR');
-      }
-    }
+  const handleReset = () => {
+    showConfirm(
+      'Reset your passive skill tree? This will refund all points to start.',
+      async () => {
+        try {
+          const updatedChar = await apiFetch('/character/allocate-passives', {
+            method: 'POST',
+            body: JSON.stringify({ passives: ['start'] }) // Keep only start node
+          });
+          onUpdateCharacter(updatedChar);
+        } catch (err: any) {
+          showAlert(err.message, 'ERROR');
+        }
+      },
+      'RESET SKILL TREE'
+    );
   };
 
   // Color mapper based on node type

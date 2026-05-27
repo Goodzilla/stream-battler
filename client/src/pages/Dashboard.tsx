@@ -53,6 +53,7 @@ interface DashboardProps {
   onLogout: () => void;
   onNavigate: (page: string, params?: any) => void;
   showAlert: (message: string, title?: string) => void;
+  showConfirm: (message: string, onConfirm: () => void, title?: string) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -61,7 +62,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onUpdateCharacter,
   onLogout,
   onNavigate,
-  showAlert
+  showAlert,
+  showConfirm
 }) => {
   const [activeSection, setActiveSection] = useState<'character' | 'solo' | 'raids'>('character');
   const [activeTab, setActiveTab] = useState<'inventory' | 'talents' | 'tree' | 'shop' | 'admin'>('inventory');
@@ -203,25 +205,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
-  const handleDismantleAllItems = async () => {
+  const handleDismantleAllItems = () => {
     if (inventory.length === 0) {
       showAlert('Your backpack inventory is empty!');
       return;
     }
-    if (!window.confirm('Are you sure you want to sell all unequipped items in your backpack?')) {
-      return;
-    }
-    try {
-      const data = await apiFetch('/inventory/dismantle-all', {
-        method: 'POST'
-      });
-      onUpdateCharacter(data.character);
-      setSelectedItem(null);
-      setShopGold(data.character.user.gold);
-      showAlert(`Sold all unequipped items for ${data.goldGained} Gold!`);
-    } catch (err: any) {
-      showAlert(err.message);
-    }
+    showConfirm(
+      'Are you sure you want to sell all unequipped items in your backpack?',
+      async () => {
+        try {
+          const data = await apiFetch('/inventory/dismantle-all', {
+            method: 'POST'
+          });
+          onUpdateCharacter(data.character);
+          setSelectedItem(null);
+          setShopGold(data.character.user.gold);
+          showAlert(`Sold all unequipped items for ${data.goldGained} Gold!`);
+        } catch (err: any) {
+          showAlert(err.message);
+        }
+      },
+      'SELL ALL ITEMS'
+    );
   };
 
   const handleSelectTalent = async (talentId: string) => {
@@ -354,17 +359,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
-  const handleResetCharacter = async () => {
-    if (window.confirm('Wipe this character stats and start fresh?')) {
-      try {
-        const updated = await apiFetch('/admin/reset-character', { method: 'POST' });
-        onUpdateCharacter(updated);
-        setSelectedItem(null);
-        showAlert('Character reset!');
-      } catch (err: any) {
-        showAlert(err.message);
-      }
-    }
+  const handleResetCharacter = () => {
+    showConfirm(
+      'Wipe this character stats and start fresh?',
+      async () => {
+        try {
+          const updated = await apiFetch('/admin/reset-character', { method: 'POST' });
+          onUpdateCharacter(updated);
+          setSelectedItem(null);
+          showAlert('Character reset!');
+        } catch (err: any) {
+          showAlert(err.message);
+        }
+      },
+      'RESET CHARACTER'
+    );
   };
 
   const handleUnlockAllClasses = async () => {
@@ -659,7 +668,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             {/* 2. PASSIVE TREE TAB */}
             {activeTab === 'tree' && (
-              <PassiveSkillTree character={character} onUpdateCharacter={onUpdateCharacter} showAlert={showAlert} />
+              <PassiveSkillTree character={character} onUpdateCharacter={onUpdateCharacter} showAlert={showAlert} showConfirm={showConfirm} />
             )}
 
             {/* 3. MERCHANT SHOP TAB */}

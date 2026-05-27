@@ -180,17 +180,14 @@ test.describe('Stream Raiders Clone - E2E Keystone Redesign Tests', () => {
   });
 
   test('should verify passive point unlock scaling and 50 point limit', async ({ page }) => {
-    // Handle the reset confirmation dialog
-    page.on('dialog', async dialog => {
-      expect(dialog.message()).toContain('Reset your passive skill tree?');
-      await dialog.accept();
-    });
-
     // Navigate to Skill Tree tab
     await page.click('button:has-text("Skill Tree")');
 
     // Click Reset Tree to clean up previous test allocations
     await page.click('button:has-text("Reset Tree")');
+
+    // Click Confirm button on custom ConfirmModal
+    await page.click('button:has-text("Confirm")');
 
     // Currently character level is 100
     // Points Spent: 0 / 50 should be shown in HUD (because only "start" is allocated)

@@ -71,7 +71,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
         )}
 
         {/* Development Login */}
-        {!import.meta.env.PROD && (
+        {(!import.meta.env.PROD || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
           <>
             <form onSubmit={handleDevLogin} className="flex flex-col gap-5">
               <div className="flex flex-col gap-2">

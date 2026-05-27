@@ -12,6 +12,7 @@ import { Zap } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { CharacterVisualizer } from './components/CharacterVisualizer';
 import { AlertModal } from './components/AlertModal';
+import { ConfirmModal } from './components/ConfirmModal';
 
 type PageState = 'AUTH' | 'DASHBOARD' | 'SOLO_ARENA' | 'STREAMER_LOBBY' | 'VIEWER_LOBBY' | 'LEADERBOARD';
 
@@ -30,6 +31,17 @@ export default function App() {
 
   const showAlert = (message: string, title = 'ALERT') => {
     setAlertConfig({ title, message });
+  };
+
+  // Confirm Modal State
+  const [confirmConfig, setConfirmConfig] = useState<{
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  } | null>(null);
+
+  const showConfirm = (message: string, onConfirm: () => void, title = 'CONFIRM') => {
+    setConfirmConfig({ title, message, onConfirm });
   };
 
   // Unlock Modal State
@@ -233,6 +245,7 @@ export default function App() {
             onLogout={handleLogout}
             onNavigate={handleNavigate}
             showAlert={showAlert}
+            showConfirm={showConfirm}
           />
         )}
 
@@ -344,6 +357,18 @@ export default function App() {
           title={alertConfig.title}
           message={alertConfig.message}
           onClose={() => setAlertConfig(null)}
+        />
+      )}
+
+      {confirmConfig && (
+        <ConfirmModal
+          title={confirmConfig.title}
+          message={confirmConfig.message}
+          onConfirm={() => {
+            confirmConfig.onConfirm();
+            setConfirmConfig(null);
+          }}
+          onCancel={() => setConfirmConfig(null)}
         />
       )}
     </div>
