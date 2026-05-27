@@ -20,11 +20,11 @@ export const CLASSES: Record<string, ClassConfig> = {
   WARRIOR: {
     name: 'Warrior',
     baseHp: 180,
-    baseAtk: 16,
+    baseAtk: 22,
     baseDef: 12,
     baseCritChance: 0.05,
     baseCritMult: 1.5,
-    baseAtkSpeed: 0.9,
+    baseAtkSpeed: 0.95,
     baseMoveSpeed: 100,
     baseHealPower: 0,
     color: '#ff3b30', // neon red
@@ -37,7 +37,7 @@ export const CLASSES: Record<string, ClassConfig> = {
   MAGE: {
     name: 'Mage',
     baseHp: 100,
-    baseAtk: 24,
+    baseAtk: 17,
     baseDef: 3,
     baseCritChance: 0.08,
     baseCritMult: 1.5,
@@ -47,7 +47,7 @@ export const CLASSES: Record<string, ClassConfig> = {
     color: '#007aff', // neon blue
     activeSkill: {
       name: 'Fireball',
-      cooldown: 5,
+      cooldown: 5.5,
       description: 'Launches an explosive fire shell dealing 250% AoE magic damage'
     }
   },
@@ -88,7 +88,7 @@ export const CLASSES: Record<string, ClassConfig> = {
   RANGER: {
     name: 'Ranger',
     baseHp: 120,
-    baseAtk: 17,
+    baseAtk: 15,
     baseDef: 6,
     baseCritChance: 0.10,
     baseCritMult: 1.6,
@@ -105,7 +105,7 @@ export const CLASSES: Record<string, ClassConfig> = {
   VALKYRIE: {
     name: 'Valkyrie',
     baseHp: 200,
-    baseAtk: 18,
+    baseAtk: 16,
     baseDef: 14,
     baseCritChance: 0.05,
     baseCritMult: 1.5,
@@ -156,7 +156,7 @@ export const CLASSES: Record<string, ClassConfig> = {
   ALCHEMIST: {
     name: 'Alchemist',
     baseHp: 130,
-    baseAtk: 22,
+    baseAtk: 19,
     baseDef: 6,
     baseCritChance: 0.08,
     baseCritMult: 1.5,

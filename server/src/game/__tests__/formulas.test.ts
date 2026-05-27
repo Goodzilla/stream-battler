@@ -4,11 +4,11 @@ import { getDistance, getDirection, seek } from '../physics';
 
 describe('XP Curve', () => {
   it('should scale exponentially', () => {
-    expect(xpToNextLevel(1)).toBe(Math.floor(60 + Math.pow(1, 1.2)));
-    expect(xpToNextLevel(5)).toBe(Math.floor(60 + Math.pow(5, 1.2)));
-    expect(xpToNextLevel(20)).toBe(Math.floor(60 + Math.pow(20, 1.2)));
-    expect(xpToNextLevel(60)).toBe(Math.floor(195 + Math.pow(60 - 59, 2.5)));
-    expect(xpToNextLevel(80)).toBe(Math.floor(195 + Math.pow(80 - 59, 2.5)));
+    expect(xpToNextLevel(1)).toBe(Math.floor(100 + 15 * Math.pow(1, 1.7)));
+    expect(xpToNextLevel(5)).toBe(Math.floor(100 + 15 * Math.pow(5, 1.7)));
+    expect(xpToNextLevel(20)).toBe(Math.floor(100 + 15 * Math.pow(20, 1.7)));
+    expect(xpToNextLevel(60)).toBe(Math.floor(100 + 15 * Math.pow(60, 1.7)));
+    expect(xpToNextLevel(80)).toBe(Math.floor(100 + 15 * Math.pow(80, 1.7)));
 
     // Level 99-100 takes as long as 1 to 99 combined
     let sum1To99 = 0;
@@ -40,7 +40,7 @@ describe('Character Stats Calculator', () => {
   it('should compute warrior level 1 stats', () => {
     const stats = calculateCharacterStats('WARRIOR', 1, [], ['start'], []);
     expect(stats.maxHp).toBe(190); // 180 base + 10 start node
-    expect(stats.attackPower).toBe(18); // 16 base + 2 start node
+    expect(stats.attackPower).toBe(24); // 22 base + 2 start node
   });
 
   it('should apply gear modifiers', () => {
@@ -56,7 +56,7 @@ describe('Character Stats Calculator', () => {
     };
 
     const stats = calculateCharacterStats('WARRIOR', 1, [], ['start'], [weapon]);
-    expect(stats.attackPower).toBe(45); // 16 base + 2 node + 27 weapon
+    expect(stats.attackPower).toBe(51); // 22 base + 2 node + 27 weapon
     expect(stats.critChance).toBe(0.10); // 0.05 base + 0.05 weapon
   });
 
@@ -86,7 +86,7 @@ describe('Character Stats Calculator', () => {
   it('should compute valkyrie level 1 stats', () => {
     const stats = calculateCharacterStats('VALKYRIE', 1, [], ['start'], []);
     expect(stats.maxHp).toBe(210); // 200 base + 10 start node
-    expect(stats.attackPower).toBe(20); // 18 base + 2 start
+    expect(stats.attackPower).toBe(18); // 16 base + 2 start
   });
 });
 

@@ -310,7 +310,7 @@ export const castActiveSkill = (
     if (talentsList.includes('t5_2')) stunDuration += 1.0;
     if (talentsList.includes('t10_1')) stunDuration += 0.5;
 
-    let dmgFactor = 2.0;
+    let dmgFactor = 2.3;
     if (talentsList.includes('t2_1')) dmgFactor += 0.3; // +30% damage
     if (talentsList.includes('t5_1') && attacker.hp / attacker.maxHp < 0.5) dmgFactor += 0.5; // +50% damage low health
     if (talentsList.includes('t8_1')) dmgFactor += 0.6; // +60% damage
@@ -417,15 +417,15 @@ export const castActiveSkill = (
 
   } else if (classType === 'MAGE') {
     // Fireball AoE
-    let dmgFactor = 2.5;
-    if (talentsList.includes('t2_1')) dmgFactor += 0.25; // +25%
-    if (talentsList.includes('t5_1')) dmgFactor += 0.40; // +40%
-    if (talentsList.includes('t8_1')) dmgFactor += 0.30; // +30%
+    let dmgFactor = 2.1;
+    if (talentsList.includes('t2_1')) dmgFactor += 0.15; // +15%
+    if (talentsList.includes('t5_1')) dmgFactor += 0.20; // +20%
+    if (talentsList.includes('t8_1')) dmgFactor += 0.15; // +15%
     if (talentsList.includes('t10_1')) dmgFactor += 0.80; // +80%
 
-    let rangeRadius = 100;
-    if (talentsList.includes('t1_2')) rangeRadius += 20;
-    if (talentsList.includes('t3_2')) rangeRadius += 45;
+    let rangeRadius = 55;
+    if (talentsList.includes('t1_2')) rangeRadius += 15;
+    if (talentsList.includes('t3_2')) rangeRadius += 30;
     if (talentsList.includes('t8_1')) rangeRadius += 50;
 
     const dmg = Math.round(attacker.attackPower * dmgFactor);
@@ -490,7 +490,7 @@ export const castActiveSkill = (
     }
 
     // Blast nearby targets
-    const splashFactor = talentsList.includes('t6_2') ? 0.9 : 0.6;
+    const splashFactor = talentsList.includes('t6_2') ? 0.65 : 0.3;
     enemies.forEach(e => {
       if (e.id !== target.id && e.hp > 0 && getDistance(target, e) < rangeRadius) {
         const spl = Math.round(dmg * splashFactor);
@@ -651,9 +651,9 @@ export const castActiveSkill = (
     if (talentsList.includes('t10_1')) strikes += 3; // Death Blossom (8 strikes)
 
     let dmgFactor = 0.7;
-    if (talentsList.includes('t2_1')) dmgFactor += 0.14; // +20%
+    if (talentsList.includes('t2_1')) dmgFactor += 0.07; // +10%
     if (talentsList.includes('t5_1')) dmgFactor -= 0.10; // -15% strength
-    if (talentsList.includes('t7_1')) dmgFactor += 0.245; // +35%
+    if (talentsList.includes('t7_1')) dmgFactor += 0.15; // +20%
     if (talentsList.includes('t10_2')) dmgFactor += 0.14; // +20%
 
     let baseDmg = Math.round(attacker.attackPower * dmgFactor);
@@ -738,10 +738,10 @@ export const castActiveSkill = (
   } else if (classType === 'RANGER') {
     // Arrow Rain AoE
     let dmgFactor = 1.8;
-    if (talentsList.includes('t2_1')) dmgFactor += 0.25; // +25%
-    if (talentsList.includes('t5_2')) dmgFactor += 0.40; // +40%
+    if (talentsList.includes('t2_1')) dmgFactor += 0.15; // +15%
+    if (talentsList.includes('t5_2')) dmgFactor += 0.20; // +20%
     if (talentsList.includes('t6_1')) dmgFactor += 0.15; // +15%
-    if (talentsList.includes('t8_2')) dmgFactor += 0.50; // +50%
+    if (talentsList.includes('t8_2')) dmgFactor += 0.25; // +25%
     if (talentsList.includes('t10_1')) dmgFactor += 0.80; // +80%
 
     let rangeRadius = 80;
@@ -819,9 +819,9 @@ export const castActiveSkill = (
     });
   } else if (classType === 'VALKYRIE') {
     // Spear of Light: deals 200% holy line damage and heals caster for 200% heal power
-    let dmgFactor = 2.0;
-    if (talentsList.includes('t2_1')) dmgFactor += 0.2;
-    if (talentsList.includes('t5_2')) dmgFactor += 0.3;
+    let dmgFactor = 1.3;
+    if (talentsList.includes('t2_1')) dmgFactor += 0.1;
+    if (talentsList.includes('t5_2')) dmgFactor += 0.15;
     if (talentsList.includes('t10_1')) dmgFactor += 0.5;
 
     let healFactor = 2.0;
@@ -834,7 +834,7 @@ export const castActiveSkill = (
 
     // Deal line damage
     enemies.forEach(e => {
-      if (e.hp > 0 && getDistance(target, e) < 100) {
+      if (e.hp > 0 && getDistance(target, e) < 55) {
         let finalDmg = dmg;
         if (talentsList.includes('t7_1')) {
           finalDmg = Math.round(finalDmg * 1.15);
@@ -963,8 +963,8 @@ export const castActiveSkill = (
   } else if (classType === 'ALCHEMIST') {
     // Acid Bomb
     let dmgFactor = 1.8;
-    if (talentsList.includes('t2_1')) dmgFactor += 0.45;
-    if (talentsList.includes('t8_2')) dmgFactor += 0.72;
+    if (talentsList.includes('t2_1')) dmgFactor += 0.25;
+    if (talentsList.includes('t8_2')) dmgFactor += 0.40;
     if (talentsList.includes('t10_1')) dmgFactor += 1.26;
 
     const dmg = Math.round(attacker.attackPower * dmgFactor);
