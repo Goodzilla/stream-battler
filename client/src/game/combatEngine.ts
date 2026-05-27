@@ -156,7 +156,7 @@ export const performBasicAttack = (
     // Damage action
     const isCrit = Math.random() < attacker.critChance;
     const rawDmg = attacker.attackPower * (isCrit ? attacker.critMult : 1.0);
-    const finalDmg = Math.max(1, Math.round(rawDmg - target.defense * defScale));
+    const finalDmg = Math.max(1, Math.round(rawDmg - (target.defense || 0) * defScale));
 
     target.hp = Math.max(0, target.hp - finalDmg);
     target.flashTimer = 0.1;

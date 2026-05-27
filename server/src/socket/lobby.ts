@@ -419,6 +419,14 @@ export const setupSocketHandlers = (io: Server) => {
       }
     });
 
+    // STREAMER: CLOSE LOBBY
+    socket.on('close-lobby', ({ streamerName }) => {
+      const roomName = `lobby_${streamerName.toLowerCase()}`;
+      delete activeLobbies[streamerName.toLowerCase()];
+      io.to(roomName).emit('lobby-closed');
+      io.emit('global-lobbies-update', Object.values(activeLobbies));
+    });
+
     // SOCKET DISCONNECT / CLEANUP
     socket.on('disconnect', () => {
       if (isStreamer && currentLobby) {

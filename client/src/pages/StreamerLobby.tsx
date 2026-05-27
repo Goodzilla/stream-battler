@@ -119,6 +119,17 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
     initRaidEngine();
   };
 
+  const handleCloseRaid = () => {
+    socket?.emit('close-lobby', { streamerName });
+    onBackToDashboard();
+  };
+
+  const handleRestartRaid = () => {
+    setRewardsList(null);
+    setRecapStats(null);
+    handleStartRaid();
+  };
+
   // Initialize raid entities and canvas loops
   const initRaidEngine = () => {
     const viewersList = lobby?.viewers || [];
@@ -842,7 +853,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between border-b border-white/5 pb-4">
         <button
-          onClick={onBackToDashboard}
+          onClick={handleCloseRaid}
           className="flex items-center gap-2 text-xs font-display font-semibold uppercase tracking-wider text-slate-400 hover:text-white transition"
         >
           <ArrowLeft size={16} />
@@ -1055,16 +1066,33 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
               </div>
             )}
 
-            <button
-              onClick={() => {
-                setBattleState('LOBBY');
-                setRewardsList(null);
-                setRecapStats(null);
-              }}
-              className="px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs font-display font-bold uppercase tracking-wider transition mt-6 w-full"
-            >
-              Reset Lobby Room
-            </button>
+            {battleState === 'VICTORY' ? (
+              <button
+                onClick={() => {
+                  setBattleState('LOBBY');
+                  setRewardsList(null);
+                  setRecapStats(null);
+                }}
+                className="px-6 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs font-display font-bold uppercase tracking-wider transition mt-6 w-full"
+              >
+                Reset Lobby Room
+              </button>
+            ) : (
+              <div className="flex gap-4 w-full mt-6">
+                <button
+                  onClick={handleRestartRaid}
+                  className="flex-1 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-display font-bold uppercase tracking-wider transition"
+                >
+                  Restart Raid
+                </button>
+                <button
+                  onClick={handleCloseRaid}
+                  className="flex-1 px-6 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs font-display font-bold uppercase tracking-wider transition border border-white/10"
+                >
+                  Close Raid & Exit
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
