@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { CLASSES } from '../game/constants';
+import { drawPixelSprite } from '../game/sprites';
 
 interface CharacterVisualizerProps {
   charClass: string;
@@ -96,52 +97,10 @@ export const CharacterVisualizer: React.FC<CharacterVisualizerProps> = ({ charCl
         ctx.fill();
       });
 
-      // 3. Draw Character Core Emblem (Neon Circle + Class Glyph)
+      // 3. Draw Character Core Emblem (Pixel-Art Sprite)
       const coreColor = CLASSES[charClass]?.color || '#ffffff';
-      ctx.strokeStyle = coreColor;
-      ctx.lineWidth = 3;
-      ctx.shadowColor = coreColor;
-      ctx.shadowBlur = 15;
-      
-      // Core Circle
-      ctx.beginPath();
-      ctx.arc(cx, cy, 24, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Class Symbols inside core
-      ctx.shadowBlur = 5;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      if (charClass === 'WARRIOR') {
-        // Shield cross
-        ctx.moveTo(cx - 10, cy); ctx.lineTo(cx + 10, cy);
-        ctx.moveTo(cx, cy - 10); ctx.lineTo(cx, cy + 10);
-      } else if (charClass === 'MAGE') {
-        // Star
-        for (let i = 0; i < 5; i++) {
-          const a = (i * 4 * Math.PI) / 5 - Math.PI / 2;
-          const x = cx + 10 * Math.cos(a);
-          const y = cy + 10 * Math.sin(a);
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-      } else if (charClass === 'CLERIC') {
-        // Cross
-        ctx.moveTo(cx - 8, cy - 3); ctx.lineTo(cx + 8, cy - 3);
-        ctx.moveTo(cx - 8, cy + 3); ctx.lineTo(cx + 8, cy + 3);
-        ctx.moveTo(cx - 3, cy - 8); ctx.lineTo(cx - 3, cy + 8);
-        ctx.moveTo(cx + 3, cy - 8); ctx.lineTo(cx + 3, cy + 8);
-      } else if (charClass === 'ROGUE') {
-        // Double diagonal slashes
-        ctx.moveTo(cx - 8, cy - 8); ctx.lineTo(cx + 8, cy + 8);
-        ctx.moveTo(cx + 8, cy - 8); ctx.lineTo(cx - 8, cy + 8);
-      } else if (charClass === 'RANGER') {
-        // Target chevron
-        ctx.moveTo(cx - 8, cy - 5); ctx.lineTo(cx, cy - 10); ctx.lineTo(cx + 8, cy - 5);
-        ctx.moveTo(cx - 8, cy + 10); ctx.lineTo(cx, cy + 5); ctx.lineTo(cx + 8, cy + 10);
-      }
-      ctx.stroke();
+      ctx.shadowBlur = 0; // Ensure clean pixel art rendering
+      drawPixelSprite(ctx, cx, cy, charClass, 2.8, false, coreColor);
 
       // 4. Draw Floating Slots
       const drawSlot = (angle: number, label: string, item?: any) => {
