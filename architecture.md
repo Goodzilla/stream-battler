@@ -151,10 +151,10 @@ To enforce decoupling and separation of concerns on the server, we implement a *
 ```
 
 ### Key Server Elements:
-1. **Dependency Injection**: The server avoids hardcoded dependencies or singletons. Instead, objects are manually wired via constructor injection in [container.ts](file:///c:/Users/Ronan/.gemini/antigravity/scratch/stream-battler/server/src/container.ts). This makes testing and swapping implementations (e.g. swap SQLite repository for PostgreSQL in production) trivial.
+1. **Dependency Injection**: The server avoids hardcoded dependencies or singletons. Instead, objects are manually wired via constructor injection in [container.ts](./server/src/container.ts). This makes testing and swapping implementations (e.g. swap SQLite repository for PostgreSQL in production) trivial.
 2. **Boundary Validation**: Request bodies, route parameters, and query parameters are parsed and validated strictly at the routing level using Zod schemas (`server/src/schemas/`) within a unified `validate` middleware.
-3. **Unified Error Handling**: Route logic throws custom error instances (e.g. `BadRequestError`, `UnauthorizedError`) defined in [AppError.ts](file:///c:/Users/Ronan/.gemini/antigravity/scratch/stream-battler/server/src/errors/AppError.ts). The global `errorHandler` catches these errors and formats standard JSON responses.
-4. **Dynamic Database Provider Switching**: SQLite is used for local development and CI testing (running locally as a file database), while PostgreSQL is used for production (Railway). The script [prepare-prisma.js](file:///c:/Users/Ronan/.gemini/antigravity/scratch/stream-battler/server/scripts/prepare-prisma.js) runs automatically before any Prisma commands. It parses the `DATABASE_URL` protocol: if it detects `postgres://` or `postgresql://`, it rewrites the datasource provider in `schema.prisma` to `"postgresql"`, otherwise it defaults to `"sqlite"`. If `DATABASE_URL` is entirely missing (such as in GitHub Actions), it automatically generates a temporary `.env` file pointing to the local SQLite `dev.db` to ensure validation and tests compile out of the box.
+3. **Unified Error Handling**: Route logic throws custom error instances (e.g. `BadRequestError`, `UnauthorizedError`) defined in [AppError.ts](./server/src/errors/AppError.ts). The global `errorHandler` catches these errors and formats standard JSON responses.
+4. **Dynamic Database Provider Switching**: SQLite is used for local development and CI testing (running locally as a file database), while PostgreSQL is used for production (Railway). The script [prepare-prisma.js](./server/scripts/prepare-prisma.js) runs automatically before any Prisma commands. It parses the `DATABASE_URL` protocol: if it detects `postgres://` or `postgresql://`, it rewrites the datasource provider in `schema.prisma` to `"postgresql"`, otherwise it defaults to `"sqlite"`. If `DATABASE_URL` is entirely missing (such as in GitHub Actions), it automatically generates a temporary `.env` file pointing to the local SQLite `dev.db` to ensure validation and tests compile out of the box.
 
 ---
 
@@ -162,9 +162,9 @@ To enforce decoupling and separation of concerns on the server, we implement a *
 
 To prevent prop-drilling down the React tree and avoid bloating `App.tsx` with unrelated state hook listeners, the frontend utilizes the **React Context API**:
 
-- **[AuthContext](file:///c:/Users/Ronan/.gemini/antigravity/scratch/stream-battler/client/src/contexts/AuthContext.tsx)**: Coordinates session checking (`/api/auth/me`), login operations, switching active character classes, and tracking character stats or progression level-ups.
-- **[SocketContext](file:///c:/Users/Ronan/.gemini/antigravity/scratch/stream-battler/client/src/contexts/SocketContext.tsx)**: Encapsulates Socket.io lifecycle events. Exposes the active socket instance and coordinates lobby queue connections.
-- **[UIContext](file:///c:/Users/Ronan/.gemini/antigravity/scratch/stream-battler/client/src/contexts/UIContext.tsx)**: Manages modal components (confirm screens, warning alerts, and class unlock events) by exposing simple imperative-like hook trigger methods.
+- **[AuthContext](./client/src/contexts/AuthContext.tsx)**: Coordinates session checking (`/api/auth/me`), login operations, switching active character classes, and tracking character stats or progression level-ups.
+- **[SocketContext](./client/src/contexts/SocketContext.tsx)**: Encapsulates Socket.io lifecycle events. Exposes the active socket instance and coordinates lobby queue connections.
+- **[UIContext](./client/src/contexts/UIContext.tsx)**: Manages modal components (confirm screens, warning alerts, and class unlock events) by exposing simple imperative-like hook trigger methods.
 
 With context hooks, `App.tsx` behaves as a pure, lightweight router:
 ```tsx

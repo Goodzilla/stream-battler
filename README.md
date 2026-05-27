@@ -17,7 +17,7 @@ This project is configured as a Node.js monorepo utilizing npm Workspaces:
     *   **WebSocket Engine**: Real-time room coordinator using Socket.io to synchronize spectator raids.
 *   **`client`**: A React + TypeScript web app built with Vite and TailwindCSS. It utilizes the **React Context API** (`AuthContext`, `SocketContext`, `UIContext`) to manage global states (auth, socket events, modular alert confirmations) Imperatively via custom hooks. The combat loop runs retro pixel-art physics animations on an HTML5 canvas via a decoupled stateful combat simulation engine.
 
-For a detailed walkthrough, see [architecture.md](file:///c:/Users/Ronan/.gemini/antigravity/scratch/stream-battler/architecture.md).
+For a detailed walkthrough, see [architecture.md](./architecture.md).
 
 ---
 
@@ -50,7 +50,7 @@ npm run prisma:migrate --workspace=server
 ```
 
 > [!TIP]
-> **Database Provider Switching**: The project uses **SQLite** for local development/testing and **PostgreSQL** in production (Railway). The build pipeline runs a custom [prepare-prisma.js](file:///c:/Users/Ronan/.gemini/antigravity/scratch/stream-battler/server/scripts/prepare-prisma.js) script before generating client assets. If `DATABASE_URL` starts with `postgres://` or `postgresql://`, it automatically configures the database provider in `schema.prisma` to `"postgresql"`. Otherwise, it defaults to `"sqlite"` and creates a mock `.env` file if none is present (essential for running E2E tests in CI environments).
+> **Database Provider Switching**: The project uses **SQLite** for local development/testing and **PostgreSQL** in production (Railway). The build pipeline runs a custom [prepare-prisma.js](./server/scripts/prepare-prisma.js) script before generating client assets. If `DATABASE_URL` starts with `postgres://` or `postgresql://`, it automatically configures the database provider in `schema.prisma` to `"postgresql"`. Otherwise, it defaults to `"sqlite"` and creates a mock `.env` file if none is present (essential for running E2E tests in CI environments).
 
 ### 4. Start Development Server
 Run the concurrent dev script from the root workspace:
