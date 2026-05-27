@@ -6,7 +6,7 @@ import cookieParser from 'cookie-parser';
 import path from 'path';
 import dotenv from 'dotenv';
 
-// Load environment variables
+// Load environment variables (force redeploy server - 2026-05-27)
 dotenv.config();
 
 import { authRouter } from './routes/auth';
