@@ -754,6 +754,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onRefreshShop={handleRefreshShop}
                 onBuyShopItem={handleBuyShopItem}
                 onGambleItem={handleGambleItem}
+                equipped={equipped}
               />
             )}
 

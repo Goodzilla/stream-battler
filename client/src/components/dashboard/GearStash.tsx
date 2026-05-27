@@ -1,4 +1,5 @@
 import React from 'react';
+import { ItemComparisonTooltip } from './ItemComparisonTooltip';
 
 interface GearStashProps {
   equipped: any[];
@@ -132,11 +133,12 @@ export const GearStash: React.FC<GearStashProps> = ({
         <div className="grid grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-3">
           {Array.from({ length: 30 }).map((_, idx) => {
             const item = inventory[idx];
+            const equippedItem = item ? equipped.find((i: any) => i.slot === item.slot) : null;
             return (
               <div
                 key={idx}
                 onClick={() => item && setSelectedItem(item)}
-                className={`aspect-square rounded-lg flex flex-col items-center justify-center border transition duration-300 relative ${
+                className={`aspect-square rounded-lg flex flex-col items-center justify-center border transition duration-300 relative group ${
                   item
                     ? `bg-black/40 border-white/10 hover:border-white/20 cursor-pointer item-slot-glow rarity-${item.rarity} p-1`
                     : 'bg-black/10 border-white/5 border-dashed cursor-default'
@@ -146,17 +148,20 @@ export const GearStash: React.FC<GearStashProps> = ({
                 } : undefined}
               >
                 {item ? (
-                  <div className="flex flex-col items-center text-center w-full">
-                    <span className="text-[9px] text-white font-bold leading-tight truncate w-full px-0.5">
-                      {item.name.split(' ').slice(-1)[0]}
-                    </span>
-                    <span className="text-[8px] font-mono text-slate-500 font-bold uppercase mt-0.5">
-                      Lvl {item.itemLevel}
-                    </span>
-                    <span className="text-[8px] font-pixel text-slate-600 uppercase mt-0.5 scale-90">
-                      {item.slot[0]}
-                    </span>
-                  </div>
+                  <>
+                    <div className="flex flex-col items-center text-center w-full">
+                      <span className="text-[9px] text-white font-bold leading-tight truncate w-full px-0.5">
+                        {item.name.split(' ').slice(-1)[0]}
+                      </span>
+                      <span className="text-[8px] font-mono text-slate-500 font-bold uppercase mt-0.5">
+                        Lvl {item.itemLevel}
+                      </span>
+                      <span className="text-[8px] font-pixel text-slate-600 uppercase mt-0.5 scale-90">
+                        {item.slot[0]}
+                      </span>
+                    </div>
+                    <ItemComparisonTooltip item={item} equippedItem={equippedItem} />
+                  </>
                 ) : (
                   <span className="text-[8px] font-mono text-slate-700 select-none">{idx + 1}</span>
                 )}

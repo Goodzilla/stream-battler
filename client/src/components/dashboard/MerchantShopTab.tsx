@@ -1,5 +1,6 @@
 import React from 'react';
 import { ShoppingBag, RefreshCw, Coins } from 'lucide-react';
+import { ItemComparisonTooltip } from './ItemComparisonTooltip';
 
 interface MerchantShopTabProps {
   character: any;
@@ -9,6 +10,7 @@ interface MerchantShopTabProps {
   onRefreshShop: () => void;
   onBuyShopItem: (shopItemId: string, price: number) => void;
   onGambleItem: (slot: string) => void;
+  equipped: any[];
 }
 
 const formatAffix = (type: string, value: number): string => {
@@ -41,7 +43,8 @@ export const MerchantShopTab: React.FC<MerchantShopTabProps> = ({
   gambledItem,
   onRefreshShop,
   onBuyShopItem,
-  onGambleItem
+  onGambleItem,
+  equipped
 }) => {
   return (
     <div className="flex flex-col gap-6">
@@ -87,11 +90,14 @@ export const MerchantShopTab: React.FC<MerchantShopTabProps> = ({
                 case 'LEGENDARY': price += 1000; break;
               }
 
+              const equippedItem = equipped.find((i: any) => i.slot === shopItem.slot);
+
               return (
                 <div
                   key={shopItem.id}
-                  className="p-4 bg-[#090e1a]/85 border border-white/5 rounded-xl flex flex-col justify-between gap-4 hover:border-white/15 transition relative"
+                  className="p-4 bg-[#090e1a]/85 border border-white/5 rounded-xl flex flex-col justify-between gap-4 hover:border-white/15 transition relative group"
                 >
+                  <ItemComparisonTooltip item={shopItem} equippedItem={equippedItem} />
                   <div>
                     <div className="flex justify-between items-start gap-1">
                       <h4 className="m-0 text-white font-display text-xs tracking-wider leading-snug">{shopItem.name}</h4>
