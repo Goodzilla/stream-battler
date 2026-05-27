@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
-import { authenticateJWT } from './auth';
+import { authenticateJWT, getActiveCharacter } from './auth';
 import { generateRandomItem, xpToNextLevel } from '../game/formulas';
 
 export const adminRouter = Router();
@@ -18,7 +18,7 @@ const requireAdmin = (req: Request, res: Response, next: () => void) => {
 
 adminRouter.use(requireAdmin);
 
-// ADMIN: GRANT XP
+// ADMIN: GRANT XP TO ACTIVE CHARACTER
 adminRouter.post('/grant-xp', async (req: Request, res: Response) => {
   const { xpAmount } = req.body;
   const xp = parseInt(xpAmount);
@@ -28,18 +28,15 @@ adminRouter.post('/grant-xp', async (req: Request, res: Response) => {
     return;
   }
 
+  const activeChar = req.user!.character;
+  if (!activeChar) {
+    res.status(404).json({ error: 'Active character not found' });
+    return;
+  }
+
   try {
-    const character = await prisma.character.findUnique({
-      where: { userId: req.user!.id }
-    });
-
-    if (!character) {
-      res.status(404).json({ error: 'Character not found' });
-      return;
-    }
-
-    let newXp = character.xp + xp;
-    let newLevel = character.level;
+    let newXp = activeChar.xp + xp;
+    let newLevel = activeChar.level;
     let xpNeeded = xpToNextLevel(newLevel);
 
     while (newXp >= xpNeeded) {
@@ -48,22 +45,26 @@ adminRouter.post('/grant-xp', async (req: Request, res: Response) => {
       xpNeeded = xpToNextLevel(newLevel);
     }
 
-    const updated = await prisma.character.update({
-      where: { id: character.id },
+    await prisma.character.update({
+      where: { id: activeChar.id },
       data: {
         level: newLevel,
         xp: newXp
-      },
-      include: { items: true, user: true }
+      }
     });
 
-    res.json({ character: updated, leveledUp: newLevel > character.level });
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      include: { characters: true, items: true }
+    });
+
+    res.json({ character: getActiveCharacter(updatedUser), leveledUp: newLevel > activeChar.level });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ADMIN: GRANT GOLD
+// ADMIN: GRANT GOLD TO ACCOUNT
 adminRouter.post('/grant-gold', async (req: Request, res: Response) => {
   const { goldAmount } = req.body;
   const gold = parseInt(goldAmount);
@@ -74,30 +75,21 @@ adminRouter.post('/grant-gold', async (req: Request, res: Response) => {
   }
 
   try {
-    const character = await prisma.character.findUnique({
-      where: { userId: req.user!.id }
-    });
-
-    if (!character) {
-      res.status(404).json({ error: 'Character not found' });
-      return;
-    }
-
-    const updated = await prisma.character.update({
-      where: { id: character.id },
+    const updatedUser = await prisma.user.update({
+      where: { id: req.user!.id },
       data: {
-        gold: Math.max(0, character.gold + gold)
+        gold: Math.max(0, req.user!.gold + gold)
       },
-      include: { items: true, user: true }
+      include: { characters: true, items: true }
     });
 
-    res.json(updated);
+    res.json(getActiveCharacter(updatedUser));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ADMIN: SPAWN SPECIFIC ITEM
+// ADMIN: SPAWN SPECIFIC ITEM IN BACKPACK
 adminRouter.post('/spawn-item', async (req: Request, res: Response) => {
   const { slot, rarity, itemLevel } = req.body;
 
@@ -110,22 +102,18 @@ adminRouter.post('/spawn-item', async (req: Request, res: Response) => {
     return;
   }
 
+  const activeChar = req.user!.character;
+  if (!activeChar) {
+    res.status(404).json({ error: 'Active character not found' });
+    return;
+  }
+
   try {
-    const character = await prisma.character.findUnique({
-      where: { userId: req.user!.id }
-    });
-
-    if (!character) {
-      res.status(404).json({ error: 'Character not found' });
-      return;
-    }
-
-    // Generate random item using ARPG formulas (supports LEGENDARY!)
-    const itemData = generateRandomItem(level, rarity.toUpperCase() as any, slot.toUpperCase() as any, character.class);
+    const itemData = generateRandomItem(level, rarity.toUpperCase() as any, slot.toUpperCase() as any, activeChar.class);
 
     const createdItem = await prisma.item.create({
       data: {
-        characterId: character.id,
+        userId: req.user!.id,
         name: itemData.name,
         slot: itemData.slot,
         rarity: itemData.rarity,
@@ -143,72 +131,80 @@ adminRouter.post('/spawn-item', async (req: Request, res: Response) => {
   }
 });
 
-// ADMIN: RESET CHARACTER
+// ADMIN: RESET ACTIVE CHARACTER PROGRESS
 adminRouter.post('/reset-character', async (req: Request, res: Response) => {
+  const activeChar = req.user!.character;
+  if (!activeChar) {
+    res.status(404).json({ error: 'Active character not found' });
+    return;
+  }
+
   try {
-    const character = await prisma.character.findUnique({
-      where: { userId: req.user!.id }
-    });
-
-    if (!character) {
-      res.status(404).json({ error: 'Character not found' });
-      return;
-    }
-
-    // Wipe items
+    // Wipe items equipped specifically by this character
     await prisma.item.deleteMany({
-      where: { characterId: character.id }
+      where: {
+        userId: req.user!.id,
+        equippedCharacterId: activeChar.id
+      }
     });
 
     const weaponName = 
-      character.class === 'WARRIOR' ? 'Rusty Gladius' :
-      character.class === 'MAGE' ? 'Initiate Wand' :
-      character.class === 'CLERIC' ? 'Novice Scepter' :
-      character.class === 'ROGUE' ? 'Serrated Dirk' : 'Trimming Bow';
+      activeChar.class === 'WARRIOR' ? 'Rusty Gladius' :
+      activeChar.class === 'MAGE' ? 'Initiate Wand' :
+      activeChar.class === 'CLERIC' ? 'Novice Scepter' :
+      activeChar.class === 'ROGUE' ? 'Serrated Dirk' : 'Trimming Bow';
 
     const armorName =
-      character.class === 'WARRIOR' ? 'Tattered Mail' :
-      character.class === 'MAGE' ? 'Apprentice Robe' :
-      character.class === 'CLERIC' ? 'Acolyte Vestment' :
-      character.class === 'ROGUE' ? 'Scout Leather' : 'Scout Leather';
+      activeChar.class === 'WARRIOR' ? 'Tattered Mail' :
+      activeChar.class === 'MAGE' ? 'Apprentice Robe' :
+      activeChar.class === 'CLERIC' ? 'Acolyte Vestment' :
+      activeChar.class === 'ROGUE' ? 'Scout Leather' : 'Scout Leather';
 
-    const updated = await prisma.character.update({
-      where: { id: character.id },
+    await prisma.character.update({
+      where: { id: activeChar.id },
       data: {
         level: 1,
         xp: 0,
-        gold: 100,
         talents: '[]',
-        passives: '["start"]',
-        items: {
-          create: [
-            {
-              name: weaponName,
-              slot: 'WEAPON',
-              rarity: 'COMMON',
-              itemLevel: 1,
-              baseAttack: 5,
-              baseDefense: 0,
-              affixes: '[]',
-              isEquipped: true
-            },
-            {
-              name: armorName,
-              slot: 'ARMOR',
-              rarity: 'COMMON',
-              itemLevel: 1,
-              baseAttack: 0,
-              baseDefense: 3,
-              affixes: '[]',
-              isEquipped: true
-            }
-          ]
-        }
-      },
-      include: { items: true, user: true }
+        passives: '["start"]'
+      }
     });
 
-    res.json(updated);
+    await prisma.item.createMany({
+      data: [
+        {
+          userId: req.user!.id,
+          equippedCharacterId: activeChar.id,
+          name: weaponName,
+          slot: 'WEAPON',
+          rarity: 'COMMON',
+          itemLevel: 1,
+          baseAttack: 5,
+          baseDefense: 0,
+          affixes: '[]',
+          isEquipped: true
+        },
+        {
+          userId: req.user!.id,
+          equippedCharacterId: activeChar.id,
+          name: armorName,
+          slot: 'ARMOR',
+          rarity: 'COMMON',
+          itemLevel: 1,
+          baseAttack: 0,
+          baseDefense: 3,
+          affixes: '[]',
+          isEquipped: true
+        }
+      ]
+    });
+
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      include: { characters: true, items: true }
+    });
+
+    res.json(getActiveCharacter(updatedUser));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

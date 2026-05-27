@@ -18,12 +18,11 @@ leaderboardRouter.get('/', async (req: Request, res: Response) => {
         user: {
           select: {
             username: true,
-            displayName: true
+            displayName: true,
+            gold: true
           }
         },
-        items: {
-          where: { isEquipped: true }
-        }
+        equippedItems: true
       }
     };
 
@@ -37,9 +36,9 @@ leaderboardRouter.get('/', async (req: Request, res: Response) => {
 
     // Map output to be clean
     const rankings = leaders.map((char, index) => {
-      const weapon = char.items.find((i: any) => i.slot === 'WEAPON');
-      const armor = char.items.find((i: any) => i.slot === 'ARMOR');
-      const accessory = char.items.find((i: any) => i.slot === 'ACCESSORY');
+      const weapon = char.equippedItems.find((i: any) => i.slot === 'WEAPON');
+      const armor = char.equippedItems.find((i: any) => i.slot === 'ARMOR');
+      const accessory = char.equippedItems.find((i: any) => i.slot === 'ACCESSORY');
 
       return {
         rank: index + 1,
@@ -49,7 +48,7 @@ leaderboardRouter.get('/', async (req: Request, res: Response) => {
         class: char.class,
         level: char.level,
         xp: char.xp,
-        gold: char.gold,
+        gold: char.user.gold,
         equipped: {
           weapon: weapon ? { name: weapon.name, rarity: weapon.rarity } : null,
           armor: armor ? { name: armor.name, rarity: armor.rarity } : null,

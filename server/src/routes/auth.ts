@@ -6,6 +6,32 @@ export const authRouter = Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-super-secret-key-12345!';
 
+// Helper to format the character with its user record and active items
+export const getActiveCharacter = (user: any) => {
+  if (!user) return null;
+  const activeChar = user.characters.find((c: any) => c.class === user.activeClass);
+  if (!activeChar) return null;
+
+  return {
+    ...activeChar,
+    user: {
+      id: user.id,
+      twitchId: user.twitchId,
+      username: user.username,
+      displayName: user.displayName,
+      isAdmin: user.isAdmin,
+      gold: user.gold,
+      activeClass: user.activeClass,
+      shopStock: user.shopStock,
+      createdAt: user.createdAt
+    },
+    items: user.items.filter((item: any) => {
+      // Return unequipped items OR items equipped specifically by this character
+      return !item.isEquipped || item.equippedCharacterId === activeChar.id;
+    })
+  };
+};
+
 // Middleware to authenticate user via JWT cookie
 export const authenticateJWT = async (req: Request, res: Response, next: () => void) => {
   const token = req.cookies.token;
@@ -19,7 +45,7 @@ export const authenticateJWT = async (req: Request, res: Response, next: () => v
     const decoded = jwt.verify(token, JWT_SECRET) as { id: string; username: string };
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      include: { character: { include: { items: true, user: true } } }
+      include: { characters: true, items: true }
     });
 
     if (!user) {
@@ -27,7 +53,11 @@ export const authenticateJWT = async (req: Request, res: Response, next: () => v
       return;
     }
 
-    req.user = user;
+    req.user = {
+      ...user,
+      character: getActiveCharacter(user)
+    } as any;
+    
     next();
   } catch (err) {
     res.status(401).json({ error: 'Unauthorized: Invalid token' });
@@ -57,7 +87,7 @@ authRouter.post('/dev-login', async (req: Request, res: Response) => {
 
     let user = await prisma.user.findUnique({
       where: { twitchId },
-      include: { character: { include: { items: true, user: true } } }
+      include: { characters: true, items: true }
     });
 
     if (!user) {
@@ -67,23 +97,61 @@ authRouter.post('/dev-login', async (req: Request, res: Response) => {
           username: formattedUsername,
           displayName: username.trim(),
           isAdmin,
-          character: {
+          gold: 100,
+          activeClass: 'WARRIOR',
+          characters: {
             create: {
-              class: 'WARRIOR', // Default to Warrior
+              class: 'WARRIOR',
               level: 1,
               xp: 0,
-              gold: 100,
               talents: '[]',
-              passives: '["start"]' // Initialize with start node
+              passives: '["start"]'
             }
           }
         },
-        include: { character: { include: { items: true, user: true } } }
+        include: { characters: true, items: true }
       });
+
+      // Spawn starter items for the Warrior character
+      const warriorChar = user.characters[0];
+      await prisma.item.createMany({
+        data: [
+          {
+            userId: user.id,
+            equippedCharacterId: warriorChar.id,
+            name: 'Rusty Gladius',
+            slot: 'WEAPON',
+            rarity: 'COMMON',
+            itemLevel: 1,
+            baseAttack: 5,
+            baseDefense: 0,
+            affixes: '[]',
+            isEquipped: true
+          },
+          {
+            userId: user.id,
+            equippedCharacterId: warriorChar.id,
+            name: 'Tattered Mail',
+            slot: 'ARMOR',
+            rarity: 'COMMON',
+            itemLevel: 1,
+            baseAttack: 0,
+            baseDefense: 3,
+            affixes: '[]',
+            isEquipped: true
+          }
+        ]
+      });
+
+      // Refetch user with newly created items
+      user = await prisma.user.findUnique({
+        where: { id: user.id },
+        include: { characters: true, items: true }
+      }) as any;
     }
 
     // Generate JWT
-    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: user!.id, username: user!.username }, JWT_SECRET, { expiresIn: '7d' });
 
     res.cookie('token', token, {
       httpOnly: true,
@@ -91,7 +159,7 @@ authRouter.post('/dev-login', async (req: Request, res: Response) => {
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
-    res.json({ user, character: user.character });
+    res.json({ user, character: getActiveCharacter(user) });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -109,7 +177,7 @@ authRouter.get('/me', async (req: Request, res: Response) => {
     const decoded = jwt.verify(token, JWT_SECRET) as { id: string; username: string };
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
-      include: { character: { include: { items: true, user: true } } }
+      include: { characters: true, items: true }
     });
 
     if (!user) {
@@ -117,7 +185,7 @@ authRouter.get('/me', async (req: Request, res: Response) => {
       return;
     }
 
-    res.json({ authenticated: true, user, character: user.character });
+    res.json({ authenticated: true, user, character: getActiveCharacter(user) });
   } catch (err) {
     res.json({ authenticated: false });
   }
@@ -135,7 +203,6 @@ authRouter.get('/twitch', (req: Request, res: Response) => {
   const redirectUri = process.env.TWITCH_REDIRECT_URI;
 
   if (!clientId || !redirectUri) {
-    // If not configured, in dev we can redirect to dev login, in prod we warn
     if (process.env.NODE_ENV !== 'production') {
       res.status(200).json({ mock: true, message: 'Twitch keys missing. Use dev-login endpoint.' });
     } else {
@@ -162,7 +229,6 @@ authRouter.get('/twitch/callback', async (req: Request, res: Response) => {
   const redirectUri = process.env.TWITCH_REDIRECT_URI;
 
   try {
-    // Exchange code for token
     const tokenResponse = await fetch('https://id.twitch.tv/oauth2/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -180,7 +246,6 @@ authRouter.get('/twitch/callback', async (req: Request, res: Response) => {
 
     const accessToken = tokenData.access_token;
 
-    // Get User Profile from Twitch Helix API
     const userResponse = await fetch('https://api.twitch.tv/helix/users', {
       headers: {
         'Client-ID': clientId!,
@@ -196,16 +261,14 @@ authRouter.get('/twitch/callback', async (req: Request, res: Response) => {
     const username = twitchUser.login;
     const displayName = twitchUser.display_name;
 
-    // Check if user exists, else create
     let user = await prisma.user.findUnique({
       where: { twitchId },
-      include: { character: { include: { items: true, user: true } } }
+      include: { characters: true, items: true }
     });
 
     if (!user) {
-      // First user is admin, or check config
       const count = await prisma.user.count();
-      const isAdmin = count === 0; // Make first registered user admin for easy setup
+      const isAdmin = count === 0;
 
       user = await prisma.user.create({
         data: {
@@ -213,22 +276,58 @@ authRouter.get('/twitch/callback', async (req: Request, res: Response) => {
           username,
           displayName,
           isAdmin,
-          character: {
+          gold: 100,
+          activeClass: 'WARRIOR',
+          characters: {
             create: {
               class: 'WARRIOR',
               level: 1,
               xp: 0,
-              gold: 100,
               talents: '[]',
               passives: '["start"]'
             }
           }
         },
-        include: { character: { include: { items: true, user: true } } }
+        include: { characters: true, items: true }
       });
+
+      const warriorChar = user.characters[0];
+      await prisma.item.createMany({
+        data: [
+          {
+            userId: user.id,
+            equippedCharacterId: warriorChar.id,
+            name: 'Rusty Gladius',
+            slot: 'WEAPON',
+            rarity: 'COMMON',
+            itemLevel: 1,
+            baseAttack: 5,
+            baseDefense: 0,
+            affixes: '[]',
+            isEquipped: true
+          },
+          {
+            userId: user.id,
+            equippedCharacterId: warriorChar.id,
+            name: 'Tattered Mail',
+            slot: 'ARMOR',
+            rarity: 'COMMON',
+            itemLevel: 1,
+            baseAttack: 0,
+            baseDefense: 3,
+            affixes: '[]',
+            isEquipped: true
+          }
+        ]
+      });
+
+      user = await prisma.user.findUnique({
+        where: { id: user.id },
+        include: { characters: true, items: true }
+      }) as any;
     }
 
-    const jwtToken = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
+    const jwtToken = jwt.sign({ id: user!.id, username: user!.username }, JWT_SECRET, { expiresIn: '7d' });
 
     res.cookie('token', jwtToken, {
       httpOnly: true,
@@ -236,7 +335,6 @@ authRouter.get('/twitch/callback', async (req: Request, res: Response) => {
       maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
-    // Redirect user back to character dashboard
     res.redirect('/');
   } catch (err: any) {
     res.status(500).send(`Authentication error: ${err.message}`);

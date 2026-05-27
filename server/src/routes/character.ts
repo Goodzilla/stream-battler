@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
-import { authenticateJWT } from './auth';
+import { authenticateJWT, getActiveCharacter } from './auth';
 import { validatePassiveAllocation } from '../game/constants';
 import { xpToNextLevel, generateRandomItem } from '../game/formulas';
 
@@ -9,20 +9,40 @@ export const characterRouter = Router();
 // Apply auth middleware to all character endpoints
 characterRouter.use(authenticateJWT);
 
-// GET CURRENT CHARACTER PROFILE (already included in /me, but good for standalone fetches)
+// Helper to generate 3 random items for the merchant stock
+export const generateShopStock = (charLevel: number, charClass: string) => {
+  const slots = ['WEAPON', 'ARMOR', 'ACCESSORY'] as const;
+  const items = [];
+  for (let i = 0; i < 3; i++) {
+    const slot = slots[i];
+    const rRoll = Math.random();
+    let rarity: 'COMMON' | 'UNCOMMON' | 'RARE' | 'EPIC' = 'COMMON';
+    if (rRoll < 0.03) rarity = 'EPIC';
+    else if (rRoll < 0.20) rarity = 'RARE';
+    else if (rRoll < 0.60) rarity = 'UNCOMMON';
+
+    items.push({
+      id: `shop_temp_${Math.random().toString(36).substr(2, 9)}`,
+      ...generateRandomItem(charLevel, rarity, slot, charClass)
+    });
+  }
+  return JSON.stringify(items);
+};
+
+// GET CURRENT CHARACTER PROFILE
 characterRouter.get('/', async (req: Request, res: Response) => {
   try {
-    const character = await prisma.character.findUnique({
-      where: { userId: req.user!.id },
-      include: { items: true, user: true }
+    const user = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      include: { characters: true, items: true }
     });
-    res.json(character);
+    res.json(getActiveCharacter(user));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// INITIALIZE OR CHANGE CHARACTER CLASS (Resets progress)
+// INITIALIZE OR SWAP CHARACTER CLASS (No wiping of previous class progress)
 characterRouter.post('/select-class', async (req: Request, res: Response) => {
   const { charClass } = req.body;
   const validClasses = ['WARRIOR', 'MAGE', 'CLERIC', 'ROGUE', 'RANGER'];
@@ -32,69 +52,90 @@ characterRouter.post('/select-class', async (req: Request, res: Response) => {
     return;
   }
 
+  const selectedClassUpper = charClass.toUpperCase();
+
   try {
-    // Delete all current items
-    const character = await prisma.character.findUnique({
-      where: { userId: req.user!.id }
+    // Check if class character already exists in DB
+    let character = await prisma.character.findUnique({
+      where: {
+        userId_class: {
+          userId: req.user!.id,
+          class: selectedClassUpper
+        }
+      }
     });
 
-    if (character) {
-      await prisma.item.deleteMany({
-        where: { characterId: character.id }
+    if (!character) {
+      // Starter items for new class
+      const weaponName = 
+        selectedClassUpper === 'WARRIOR' ? 'Rusty Gladius' :
+        selectedClassUpper === 'MAGE' ? 'Initiate Wand' :
+        selectedClassUpper === 'CLERIC' ? 'Novice Scepter' :
+        selectedClassUpper === 'ROGUE' ? 'Serrated Dirk' : 'Trimming Bow';
+
+      const armorName =
+        selectedClassUpper === 'WARRIOR' ? 'Tattered Mail' :
+        selectedClassUpper === 'MAGE' ? 'Apprentice Robe' :
+        selectedClassUpper === 'CLERIC' ? 'Acolyte Vestment' :
+        selectedClassUpper === 'ROGUE' ? 'Scout Leather' : 'Scout Leather';
+
+      character = await prisma.character.create({
+        data: {
+          userId: req.user!.id,
+          class: selectedClassUpper,
+          level: 1,
+          xp: 0,
+          talents: '[]',
+          passives: '["start"]'
+        }
+      });
+
+      // Create starter items in User backpack and equip them to this character
+      await prisma.item.createMany({
+        data: [
+          {
+            userId: req.user!.id,
+            equippedCharacterId: character.id,
+            name: weaponName,
+            slot: 'WEAPON',
+            rarity: 'COMMON',
+            itemLevel: 1,
+            baseAttack: 5,
+            baseDefense: 0,
+            affixes: '[]',
+            isEquipped: true
+          },
+          {
+            userId: req.user!.id,
+            equippedCharacterId: character.id,
+            name: armorName,
+            slot: 'ARMOR',
+            rarity: 'COMMON',
+            itemLevel: 1,
+            baseAttack: 0,
+            baseDefense: 3,
+            affixes: '[]',
+            isEquipped: true
+          }
+        ]
       });
     }
 
-    // Starting items based on class
-    const weaponName = 
-      charClass === 'WARRIOR' ? 'Rusty Gladius' :
-      charClass === 'MAGE' ? 'Initiate Wand' :
-      charClass === 'CLERIC' ? 'Novice Scepter' :
-      charClass === 'ROGUE' ? 'Serrated Dirk' : 'Trimming Bow';
-
-    const armorName =
-      charClass === 'WARRIOR' ? 'Tattered Mail' :
-      charClass === 'MAGE' ? 'Apprentice Robe' :
-      charClass === 'CLERIC' ? 'Acolyte Vestment' :
-      charClass === 'ROGUE' ? 'Scout Leather' : 'Scout Leather';
-
-    const updatedChar = await prisma.character.update({
-      where: { userId: req.user!.id },
+    // Set activeClass on User
+    await prisma.user.update({
+      where: { id: req.user!.id },
       data: {
-        class: charClass.toUpperCase(),
-        level: 1,
-        xp: 0,
-        gold: 100,
-        talents: '[]',
-        passives: '["start"]',
-        items: {
-          create: [
-            {
-              name: weaponName,
-              slot: 'WEAPON',
-              rarity: 'COMMON',
-              itemLevel: 1,
-              baseAttack: 5,
-              baseDefense: 0,
-              affixes: '[]',
-              isEquipped: true
-            },
-            {
-              name: armorName,
-              slot: 'ARMOR',
-              rarity: 'COMMON',
-              itemLevel: 1,
-              baseAttack: 0,
-              baseDefense: 3,
-              affixes: '[]',
-              isEquipped: true
-            }
-          ]
-        }
-      },
-      include: { items: true, user: true }
+        activeClass: selectedClassUpper
+      }
     });
 
-    res.json(updatedChar);
+    // Refetch full User structure
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      include: { characters: true, items: true }
+    });
+
+    res.json(getActiveCharacter(updatedUser));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -102,45 +143,44 @@ characterRouter.post('/select-class', async (req: Request, res: Response) => {
 
 // ALLOCATE PASSIVE SKILL NODES
 characterRouter.post('/allocate-passives', async (req: Request, res: Response) => {
-  const { passives } = req.body; // Array of node string IDs e.g. ["start", "r1_0", "r2_0"]
+  const { passives } = req.body;
 
   if (!Array.isArray(passives)) {
     res.status(400).json({ error: 'Passives must be an array of node IDs' });
     return;
   }
 
+  const activeChar = req.user!.character;
+  if (!activeChar) {
+    res.status(404).json({ error: 'No active character' });
+    return;
+  }
+
   try {
-    const character = await prisma.character.findUnique({
-      where: { userId: req.user!.id }
-    });
-
-    if (!character) {
-      res.status(404).json({ error: 'Character not found' });
-      return;
-    }
-
-    // Max skill points = level (starts with 1 point at level 1 to allocate "start", plus 1 per level up)
-    const maxAllocatable = character.level; // "start" node counts as 1
+    const maxAllocatable = activeChar.level;
     if (passives.length > maxAllocatable) {
       res.status(400).json({ error: `Insufficient skill points. Allocated: ${passives.length}, Max: ${maxAllocatable}` });
       return;
     }
 
-    // Validate tree connectivity
     if (!validatePassiveAllocation(passives)) {
       res.status(400).json({ error: 'Invalid passive tree layout: allocated nodes must be contiguous and start at origin' });
       return;
     }
 
-    const updated = await prisma.character.update({
-      where: { id: character.id },
+    await prisma.character.update({
+      where: { id: activeChar.id },
       data: {
         passives: JSON.stringify(passives)
-      },
-      include: { items: true, user: true }
+      }
     });
 
-    res.json(updated);
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      include: { characters: true, items: true }
+    });
+
+    res.json(getActiveCharacter(updatedUser));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -148,45 +188,35 @@ characterRouter.post('/allocate-passives', async (req: Request, res: Response) =
 
 // SELECT TALENTS
 characterRouter.post('/select-talents', async (req: Request, res: Response) => {
-  const { talents } = req.body; // Array of talent IDs e.g., ["t1_1", "t2_2"]
+  const { talents } = req.body;
 
   if (!Array.isArray(talents)) {
     res.status(400).json({ error: 'Talents must be an array of strings' });
     return;
   }
 
+  const activeChar = req.user!.character;
+  if (!activeChar) {
+    res.status(404).json({ error: 'No active character' });
+    return;
+  }
+
   try {
-    const character = await prisma.character.findUnique({
-      where: { userId: req.user!.id }
-    });
-
-    if (!character) {
-      res.status(404).json({ error: 'Character not found' });
-      return;
-    }
-
-    // Validate tier level requirements
-    // t1 requires level 5, t2 level 10, t3 level 15, t4 level 20
-    const maxTier = Math.floor(character.level / 5);
-
-    // Validate each talent in the list
+    const maxTier = Math.floor(activeChar.level / 5);
     const validTalents: string[] = [];
     const chosenTiers = new Set<number>();
 
     for (const talentId of talents) {
-      // Expect format 't<tier>_<option>' e.g. 't1_1'
       const match = talentId.match(/^t([1-4])_\d+$/);
       if (!match) continue;
 
       const tier = parseInt(match[1]);
 
-      // Can't choose a tier higher than level allows
       if (tier > maxTier) {
-        res.status(400).json({ error: `Talent tier ${tier} requires Level ${tier * 5}. Current level: ${character.level}` });
+        res.status(400).json({ error: `Talent tier ${tier} requires Level ${tier * 5}. Current level: ${activeChar.level}` });
         return;
       }
 
-      // Can't choose multiple talents in the same tier
       if (chosenTiers.has(tier)) {
         res.status(400).json({ error: `Cannot select multiple talents in tier ${tier}` });
         return;
@@ -196,21 +226,25 @@ characterRouter.post('/select-talents', async (req: Request, res: Response) => {
       validTalents.push(talentId);
     }
 
-    const updated = await prisma.character.update({
-      where: { id: character.id },
+    await prisma.character.update({
+      where: { id: activeChar.id },
       data: {
         talents: JSON.stringify(validTalents)
-      },
-      include: { items: true, user: true }
+      }
     });
 
-    res.json(updated);
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      include: { characters: true, items: true }
+    });
+
+    res.json(getActiveCharacter(updatedUser));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// REPORT BATTLE COMPLETION (SOLO GRINDING)
+// REPORT BATTLE COMPLETION (SOLO GRINDING) - Updates gold on User and auto-refreshes shop
 characterRouter.post('/report-solo-battle', async (req: Request, res: Response) => {
   const { xpGained, goldGained, countOfKills, mapLevel } = req.body;
 
@@ -219,19 +253,13 @@ characterRouter.post('/report-solo-battle', async (req: Request, res: Response) 
     return;
   }
 
+  const activeChar = req.user!.character;
+  if (!activeChar) {
+    res.status(404).json({ error: 'No active character' });
+    return;
+  }
+
   try {
-    const character = await prisma.character.findUnique({
-      where: { userId: req.user!.id },
-      include: { items: true }
-    });
-
-    if (!character) {
-      res.status(404).json({ error: 'Character not found' });
-      return;
-    }
-
-    // Anti-cheat verification thresholds:
-    // Solo map rewards should not exceed logical maximums based on mapLevel
     const limitFactor = countOfKills ? Math.min(countOfKills, 30) : 10;
     const maxCredibleXp = mapLevel * 100 * limitFactor;
     const maxCredibleGold = mapLevel * 50 * limitFactor;
@@ -241,9 +269,9 @@ characterRouter.post('/report-solo-battle', async (req: Request, res: Response) 
       return;
     }
 
-    // 1. Update XP and gold
-    let newXp = character.xp + xpGained;
-    let newLevel = character.level;
+    // 1. Update XP on active character
+    let newXp = activeChar.xp + xpGained;
+    let newLevel = activeChar.level;
     let xpNeeded = xpToNextLevel(newLevel);
 
     while (newXp >= xpNeeded) {
@@ -252,37 +280,43 @@ characterRouter.post('/report-solo-battle', async (req: Request, res: Response) 
       xpNeeded = xpToNextLevel(newLevel);
     }
 
-    const newGold = character.gold + goldGained;
+    // 2. Update Gold and generate new shop Stock on User
+    const newGold = req.user!.gold + goldGained;
+    const newShopStock = generateShopStock(newLevel, activeChar.class);
 
-    // 2. Roll random loot items (maximum of 2 drops per solo battle run)
-    // Solo grinding: Legendary items CANNOT drop. Capped at Epic.
+    // 3. Roll random loot items (linked directly to User stash)
     const lootCreated = [];
-    const rollCount = Math.random() < 0.3 ? (Math.random() < 0.2 ? 2 : 1) : 0; // 30% chance for drop, 20% of that drops 2
+    const rollCount = Math.random() < 0.3 ? (Math.random() < 0.2 ? 2 : 1) : 0;
 
     for (let i = 0; i < rollCount; i++) {
-      // Roll rarity
       const rarRoll = Math.random();
       let rarity: 'COMMON' | 'UNCOMMON' | 'RARE' | 'EPIC' = 'COMMON';
       if (rarRoll < 0.05) rarity = 'EPIC';
       else if (rarRoll < 0.15) rarity = 'RARE';
       else if (rarRoll < 0.40) rarity = 'UNCOMMON';
 
-      // Roll slot
       const slots: Array<'WEAPON' | 'ARMOR' | 'ACCESSORY'> = ['WEAPON', 'ARMOR', 'ACCESSORY'];
       const slot = slots[Math.floor(Math.random() * slots.length)];
 
-      const itemRaw = generateRandomItem(mapLevel, rarity, slot, character.class);
-
+      const itemRaw = generateRandomItem(newLevel, rarity, slot, activeChar.class);
       lootCreated.push(itemRaw);
     }
 
-    // Save to database
-    const updated = await prisma.character.update({
-      where: { id: character.id },
+    // Save active character changes
+    await prisma.character.update({
+      where: { id: activeChar.id },
       data: {
         level: newLevel,
-        xp: newXp,
+        xp: newXp
+      }
+    });
+
+    // Save user changes (gold, shop stock, and create stash items)
+    await prisma.user.update({
+      where: { id: req.user!.id },
+      data: {
         gold: newGold,
+        shopStock: newShopStock,
         items: {
           create: lootCreated.map(item => ({
             name: item.name,
@@ -295,16 +329,23 @@ characterRouter.post('/report-solo-battle', async (req: Request, res: Response) 
             isEquipped: false
           }))
         }
-      },
-      include: { items: true, user: true }
+      }
     });
 
+    // Refetch full User structure
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      include: { characters: true, items: true }
+    }) as any;
+
+    const formattedChar = getActiveCharacter(updatedUser);
+
     res.json({
-      character: updated,
+      character: formattedChar,
       gainedXp: xpGained,
       gainedGold: goldGained,
-      leveledUp: newLevel > character.level,
-      droppedItems: updated.items.slice(character.items.length) // Returns the newly created items
+      leveledUp: newLevel > activeChar.level,
+      droppedItems: updatedUser.items.slice(updatedUser.items.length - lootCreated.length)
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

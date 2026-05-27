@@ -8,43 +8,50 @@ generator client {
 }
 
 model User {
-  id          String     @id @default(uuid())
-  twitchId    String     @unique
+  id          String      @id @default(uuid())
+  twitchId    String      @unique
   username    String
   displayName String
-  isAdmin     Boolean    @default(false)
-  createdAt   DateTime   @default(now())
-  character   Character?
+  isAdmin     Boolean     @default(false)
+  gold        Int         @default(100)
+  activeClass String      @default("WARRIOR")
+  shopStock   String      @default("[]") // JSON string of 3 merchant items
+  createdAt   DateTime    @default(now())
+  characters  Character[]
+  items       Item[]
 }
 
 model Character {
-  id        String   @id @default(uuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  class     String   // 'WARRIOR' | 'MAGE' | 'CLERIC' | 'ROGUE' | 'RANGER'
-  level     Int      @default(1)
-  xp        Int      @default(0)
-  gold      Int      @default(0)
-  talents   String   @default("[]")   // JSON string: e.g. ["Warrior_Skill1", "Warrior_Skill2"]
-  passives  String   @default("[]")   // JSON string: allocated nodes in circular tree e.g. ["life_1", "dmg_1"]
-  items     Item[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(uuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  class         String   // 'WARRIOR' | 'MAGE' | 'CLERIC' | 'ROGUE' | 'RANGER'
+  level         Int      @default(1)
+  xp            Int      @default(0)
+  talents       String   @default("[]")
+  passives      String   @default("[]")
+  equippedItems Item[]   @relation("EquippedItems")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, class])
 }
 
 model Item {
-  id           String    @id @default(uuid())
-  characterId  String
-  character    Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
-  name         String
-  slot         String    // 'WEAPON' | 'ARMOR' | 'ACCESSORY'
-  rarity       String    // 'COMMON' | 'UNCOMMON' | 'RARE' | 'EPIC' | 'LEGENDARY'
-  itemLevel    Int       @default(1)
-  baseAttack   Float     @default(0)
-  baseDefense  Float     @default(0)
-  affixes      String    @default("[]")   // JSON string: [{"type": "crit_chance", "value": 0.05}, ...]
-  isEquipped   Boolean   @default(false)
-  createdAt    DateTime  @default(now())
+  id                  String     @id @default(uuid())
+  userId              String
+  user                User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  equippedCharacterId String?
+  equippedCharacter   Character? @relation("EquippedItems", fields: [equippedCharacterId], references: [id], onDelete: SetNull)
+  name                String
+  slot                String     // 'WEAPON' | 'ARMOR' | 'ACCESSORY'
+  rarity              String     // 'COMMON' | 'UNCOMMON' | 'RARE' | 'EPIC' | 'LEGENDARY'
+  itemLevel           Int        @default(1)
+  baseAttack          Float      @default(0)
+  baseDefense         Float      @default(0)
+  affixes             String     @default("[]") // JSON string of rolled affixes
+  isEquipped          Boolean    @default(false)
+  createdAt           DateTime   @default(now())
 }
 
 model RaidHistory {

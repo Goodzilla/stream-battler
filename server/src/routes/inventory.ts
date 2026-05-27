@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
-import { authenticateJWT } from './auth';
+import { authenticateJWT, getActiveCharacter } from './auth';
 
 export const inventoryRouter = Router();
 
 inventoryRouter.use(authenticateJWT);
 
-// EQUIP AN ITEM
+// EQUIP AN ITEM TO ACTIVE CHARACTER
 inventoryRouter.post('/equip', async (req: Request, res: Response) => {
   const { itemId } = req.body;
 
@@ -15,47 +15,53 @@ inventoryRouter.post('/equip', async (req: Request, res: Response) => {
     return;
   }
 
+  const activeChar = req.user!.character;
+  if (!activeChar) {
+    res.status(404).json({ error: 'Active character not found' });
+    return;
+  }
+
   try {
-    const character = await prisma.character.findUnique({
-      where: { userId: req.user!.id },
-      include: { items: true, user: true }
+    const itemToEquip = await prisma.item.findUnique({
+      where: { id: itemId }
     });
 
-    if (!character) {
-      res.status(404).json({ error: 'Character not found' });
+    if (!itemToEquip || itemToEquip.userId !== req.user!.id) {
+      res.status(404).json({ error: 'Item not found in user stash' });
       return;
     }
 
-    const itemToEquip = character.items.find(item => item.id === itemId);
-    if (!itemToEquip) {
-      res.status(404).json({ error: 'Item not found in character inventory' });
-      return;
-    }
-
-    // Unequip currently equipped item in the same slot
+    // Unequip currently equipped item in the same slot for this specific character
     const slot = itemToEquip.slot;
-    const equippedInSlot = character.items.find(item => item.slot === slot && item.isEquipped);
+    const equippedInSlot = await prisma.item.findFirst({
+      where: {
+        userId: req.user!.id,
+        equippedCharacterId: activeChar.id,
+        slot,
+        isEquipped: true
+      }
+    });
 
     if (equippedInSlot) {
       await prisma.item.update({
         where: { id: equippedInSlot.id },
-        data: { isEquipped: false }
+        data: { isEquipped: false, equippedCharacterId: null }
       });
     }
 
     // Equip the new item
-    const updatedItem = await prisma.item.update({
+    await prisma.item.update({
       where: { id: itemId },
-      data: { isEquipped: true }
+      data: { isEquipped: true, equippedCharacterId: activeChar.id }
     });
 
-    // Fetch full updated character info to return
-    const updatedChar = await prisma.character.findUnique({
-      where: { id: character.id },
-      include: { items: true, user: true }
+    // Refetch full updated user info
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      include: { characters: true, items: true }
     });
 
-    res.json(updatedChar);
+    res.json(getActiveCharacter(updatedUser));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -71,39 +77,32 @@ inventoryRouter.post('/unequip', async (req: Request, res: Response) => {
   }
 
   try {
-    const character = await prisma.character.findUnique({
-      where: { userId: req.user!.id },
-      include: { items: true, user: true }
+    const itemToUnequip = await prisma.item.findUnique({
+      where: { id: itemId }
     });
 
-    if (!character) {
-      res.status(404).json({ error: 'Character not found' });
-      return;
-    }
-
-    const itemToUnequip = character.items.find(item => item.id === itemId);
-    if (!itemToUnequip) {
-      res.status(404).json({ error: 'Item not found' });
+    if (!itemToUnequip || itemToUnequip.userId !== req.user!.id) {
+      res.status(404).json({ error: 'Item not found in stash' });
       return;
     }
 
     await prisma.item.update({
       where: { id: itemId },
-      data: { isEquipped: false }
+      data: { isEquipped: false, equippedCharacterId: null }
     });
 
-    const updatedChar = await prisma.character.findUnique({
-      where: { id: character.id },
-      include: { items: true, user: true }
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: req.user!.id },
+      include: { characters: true, items: true }
     });
 
-    res.json(updatedChar);
+    res.json(getActiveCharacter(updatedUser));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// DISMANTLE AN ITEM FOR GOLD
+// DISMANTLE/SELL AN ITEM FOR GOLD
 inventoryRouter.post('/dismantle', async (req: Request, res: Response) => {
   const { itemId } = req.body;
 
@@ -113,24 +112,17 @@ inventoryRouter.post('/dismantle', async (req: Request, res: Response) => {
   }
 
   try {
-    const character = await prisma.character.findUnique({
-      where: { userId: req.user!.id },
-      include: { items: true, user: true }
+    const item = await prisma.item.findUnique({
+      where: { id: itemId }
     });
 
-    if (!character) {
-      res.status(404).json({ error: 'Character not found' });
-      return;
-    }
-
-    const item = character.items.find(item => item.id === itemId);
-    if (!item) {
-      res.status(404).json({ error: 'Item not found in character inventory' });
+    if (!item || item.userId !== req.user!.id) {
+      res.status(404).json({ error: 'Item not found in user stash' });
       return;
     }
 
     if (item.isEquipped) {
-      res.status(400).json({ error: 'Cannot dismantle an equipped item. Unequip it first.' });
+      res.status(400).json({ error: 'Cannot sell an equipped item. Unequip it first.' });
       return;
     }
 
@@ -148,17 +140,17 @@ inventoryRouter.post('/dismantle', async (req: Request, res: Response) => {
       where: { id: itemId }
     });
 
-    // Add gold to character
-    const updatedChar = await prisma.character.update({
-      where: { id: character.id },
+    // Add gold to user profile
+    const updatedUser = await prisma.user.update({
+      where: { id: req.user!.id },
       data: {
-        gold: character.gold + baseGold
+        gold: req.user!.gold + baseGold
       },
-      include: { items: true, user: true }
+      include: { characters: true, items: true }
     });
 
     res.json({
-      character: updatedChar,
+      character: getActiveCharacter(updatedUser),
       goldGained: baseGold
     });
   } catch (err: any) {

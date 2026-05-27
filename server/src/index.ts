@@ -14,6 +14,7 @@ import { characterRouter } from './routes/character';
 import { inventoryRouter } from './routes/inventory';
 import { leaderboardRouter } from './routes/leaderboard';
 import { adminRouter } from './routes/admin';
+import { shopRouter } from './routes/shop';
 import { setupSocketHandlers, activeLobbies } from './socket/lobby';
 
 const app = express();
@@ -42,6 +43,7 @@ app.use('/api/character', characterRouter);
 app.use('/api/inventory', inventoryRouter);
 app.use('/api/leaderboard', leaderboardRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/shop', shopRouter);
 
 // Endpoint to fetch active lobbies
 app.get('/api/lobbies', (req, res) => {
