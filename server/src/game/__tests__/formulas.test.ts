@@ -15,7 +15,7 @@ describe('Passive Tree Validator', () => {
     expect(validatePassiveAllocation([])).toBe(true);
     expect(validatePassiveAllocation(['start'])).toBe(true);
     expect(validatePassiveAllocation(['start', 'r1_0'])).toBe(true);
-    expect(validatePassiveAllocation(['start', 'r1_0', 'r2_0'])).toBe(true);
+    expect(validatePassiveAllocation(['start', 'r1_0', 'r2_0_a'])).toBe(true);
   });
 
   it('should fail if missing start node', () => {
@@ -23,7 +23,7 @@ describe('Passive Tree Validator', () => {
   });
 
   it('should fail if path is broken/unconnected', () => {
-    expect(validatePassiveAllocation(['start', 'r2_0'])).toBe(false);
+    expect(validatePassiveAllocation(['start', 'r2_0_a'])).toBe(false);
   });
 });
 
