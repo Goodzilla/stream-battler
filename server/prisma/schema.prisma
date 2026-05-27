@@ -1,0 +1,58 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id          String     @id @default(uuid())
+  twitchId    String     @unique
+  username    String
+  displayName String
+  isAdmin     Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  character   Character?
+}
+
+model Character {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  class     String   // 'WARRIOR' | 'MAGE' | 'CLERIC' | 'ROGUE' | 'RANGER'
+  level     Int      @default(1)
+  xp        Int      @default(0)
+  gold      Int      @default(0)
+  talents   String   @default("[]")   // JSON string: e.g. ["Warrior_Skill1", "Warrior_Skill2"]
+  passives  String   @default("[]")   // JSON string: allocated nodes in circular tree e.g. ["life_1", "dmg_1"]
+  items     Item[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Item {
+  id           String    @id @default(uuid())
+  characterId  String
+  character    Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  name         String
+  slot         String    // 'WEAPON' | 'ARMOR' | 'ACCESSORY'
+  rarity       String    // 'COMMON' | 'UNCOMMON' | 'RARE' | 'EPIC' | 'LEGENDARY'
+  itemLevel    Int       @default(1)
+  baseAttack   Float     @default(0)
+  baseDefense  Float     @default(0)
+  affixes      String    @default("[]")   // JSON string: [{"type": "crit_chance", "value": 0.05}, ...]
+  isEquipped   Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+}
+
+model RaidHistory {
+  id           String   @id @default(uuid())
+  streamerName String
+  bossName     String
+  bossLevel    Int
+  participants Int
+  success      Boolean
+  createdAt    DateTime @default(now())
+}
