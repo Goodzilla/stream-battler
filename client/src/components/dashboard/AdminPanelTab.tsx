@@ -14,6 +14,8 @@ interface AdminPanelTabProps {
   setSpawnLevel: (val: string) => void;
   promoteName: string;
   setPromoteName: (val: string) => void;
+  targetUsername: string;
+  setTargetUsername: (val: string) => void;
   onAdminXp: () => void;
   onAdminGold: () => void;
   onSpawnItem: () => void;
@@ -35,6 +37,8 @@ export const AdminPanelTab: React.FC<AdminPanelTabProps> = ({
   setSpawnLevel,
   promoteName,
   setPromoteName,
+  targetUsername,
+  setTargetUsername,
   onAdminXp,
   onAdminGold,
   onSpawnItem,
@@ -59,7 +63,21 @@ export const AdminPanelTab: React.FC<AdminPanelTabProps> = ({
           <h4 className="m-0 font-display text-xs text-white uppercase tracking-wider">
             Modify Resources
           </h4>
-          <div className="flex gap-2 items-end">
+          
+          <div>
+            <label className="block text-[9px] font-mono text-slate-500 uppercase mb-1">
+              Target Username (Leave Blank for Self)
+            </label>
+            <input
+              type="text"
+              value={targetUsername}
+              onChange={e => setTargetUsername(e.target.value)}
+              placeholder="Self..."
+              className="w-full px-2 py-1.5 bg-[#05070a] border border-white/10 rounded text-xs text-white placeholder-slate-700 focus:outline-none focus:border-white/20 transition-colors"
+            />
+          </div>
+
+          <div className="flex gap-2 items-end border-t border-white/5 pt-3">
             <div className="flex-1">
               <label className="block text-[9px] font-mono text-slate-500 uppercase mb-1">
                 XP Amount
@@ -68,7 +86,7 @@ export const AdminPanelTab: React.FC<AdminPanelTabProps> = ({
                 type="number"
                 value={adminXp}
                 onChange={e => setAdminXp(e.target.value)}
-                className="w-full px-2 py-1.5 bg-[#05070a] border border-white/10 rounded text-xs text-white"
+                className="w-full px-2 py-1.5 bg-[#05070a] border border-white/10 rounded text-xs text-white focus:outline-none"
               />
             </div>
             <button
@@ -79,7 +97,7 @@ export const AdminPanelTab: React.FC<AdminPanelTabProps> = ({
             </button>
           </div>
 
-          <div className="flex gap-2 items-end">
+          <div className="flex gap-2 items-end border-t border-white/5 pt-3">
             <div className="flex-1">
               <label className="block text-[9px] font-mono text-slate-500 uppercase mb-1">
                 Gold Amount
@@ -88,7 +106,7 @@ export const AdminPanelTab: React.FC<AdminPanelTabProps> = ({
                 type="number"
                 value={adminGold}
                 onChange={e => setAdminGold(e.target.value)}
-                className="w-full px-2 py-1.5 bg-[#05070a] border border-white/10 rounded text-xs text-white"
+                className="w-full px-2 py-1.5 bg-[#05070a] border border-white/10 rounded text-xs text-white focus:outline-none"
               />
             </div>
             <button

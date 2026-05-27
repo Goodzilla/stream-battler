@@ -20,7 +20,7 @@ adminRouter.use(requireAdmin);
 
 // ADMIN: GRANT XP TO ACTIVE CHARACTER
 adminRouter.post('/grant-xp', async (req: Request, res: Response) => {
-  const { xpAmount } = req.body;
+  const { xpAmount, targetUsername } = req.body;
   const xp = parseInt(xpAmount);
 
   if (isNaN(xp) || xp <= 0) {
@@ -28,13 +28,27 @@ adminRouter.post('/grant-xp', async (req: Request, res: Response) => {
     return;
   }
 
-  const activeChar = req.user!.character;
-  if (!activeChar) {
-    res.status(404).json({ error: 'Active character not found' });
-    return;
-  }
-
   try {
+    let targetUser: any = req.user!;
+    if (targetUsername && targetUsername.trim()) {
+      const found = await prisma.user.findFirst({
+        where: { username: targetUsername.trim().toLowerCase() },
+        include: { characters: true, items: true }
+      });
+      if (!found) {
+        res.status(404).json({ error: `Target user '${targetUsername}' not found.` });
+        return;
+      }
+      targetUser = found as any;
+    }
+
+    const activeClass = targetUser.activeClass || 'WARRIOR';
+    const activeChar = targetUser.characters.find((c: any) => c.class === activeClass);
+    if (!activeChar) {
+      res.status(404).json({ error: `Active character for user '${targetUser.username}' not found.` });
+      return;
+    }
+
     let newXp = activeChar.xp + xp;
     let newLevel = activeChar.level;
     let xpNeeded = xpToNextLevel(newLevel);
@@ -58,11 +72,17 @@ adminRouter.post('/grant-xp', async (req: Request, res: Response) => {
     });
 
     const updatedUser = await prisma.user.findUnique({
-      where: { id: req.user!.id },
+      where: { id: targetUser.id },
       include: { characters: true, items: true }
     });
 
-    res.json({ character: getActiveCharacter(updatedUser), leveledUp: newLevel > activeChar.level });
+    const targetIsSelf = targetUser.id === req.user!.id;
+    res.json({
+      character: getActiveCharacter(updatedUser),
+      leveledUp: newLevel > activeChar.level,
+      targetIsSelf,
+      message: `Granted ${xp} XP to ${targetUser.displayName}. (Level ${newLevel})`
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -70,7 +90,7 @@ adminRouter.post('/grant-xp', async (req: Request, res: Response) => {
 
 // ADMIN: GRANT GOLD TO ACCOUNT
 adminRouter.post('/grant-gold', async (req: Request, res: Response) => {
-  const { goldAmount } = req.body;
+  const { goldAmount, targetUsername } = req.body;
   const gold = parseInt(goldAmount);
 
   if (isNaN(gold)) {
@@ -79,15 +99,34 @@ adminRouter.post('/grant-gold', async (req: Request, res: Response) => {
   }
 
   try {
+    let targetUser: any = req.user!;
+    if (targetUsername && targetUsername.trim()) {
+      const found = await prisma.user.findFirst({
+        where: { username: targetUsername.trim().toLowerCase() },
+        include: { characters: true, items: true }
+      });
+      if (!found) {
+        res.status(404).json({ error: `Target user '${targetUsername}' not found.` });
+        return;
+      }
+      targetUser = found as any;
+    }
+
     const updatedUser = await prisma.user.update({
-      where: { id: req.user!.id },
+      where: { id: targetUser.id },
       data: {
-        gold: Math.max(0, req.user!.gold + gold)
+        gold: Math.max(0, targetUser.gold + gold)
       },
       include: { characters: true, items: true }
     });
 
-    res.json(getActiveCharacter(updatedUser));
+    const targetIsSelf = targetUser.id === req.user!.id;
+    res.json({
+      character: getActiveCharacter(updatedUser),
+      gold: updatedUser.gold,
+      targetIsSelf,
+      message: `Granted ${gold} Gold to ${updatedUser.displayName}.`
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

@@ -102,6 +102,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [spawnRarity, setSpawnRarity] = useState<'COMMON' | 'UNCOMMON' | 'RARE' | 'EPIC' | 'LEGENDARY'>('RARE');
   const [spawnLevel, setSpawnLevel] = useState('10');
   const [promoteName, setPromoteName] = useState('');
+  const [targetUsername, setTargetUsername] = useState('');
 
   // Active Lobbies state
   const [lobbies, setLobbies] = useState<any[]>([]);
@@ -347,10 +348,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
     try {
       const res = await apiFetch('/admin/grant-xp', {
         method: 'POST',
-        body: JSON.stringify({ xpAmount: adminXp })
+        body: JSON.stringify({ xpAmount: adminXp, targetUsername })
       });
-      onUpdateCharacter(res.character);
-      showAlert(`Granted ${adminXp} XP! Leveled: ${res.leveledUp}`);
+      if (res.targetIsSelf) {
+        onUpdateCharacter(res.character);
+      }
+      showAlert(res.message);
     } catch (err: any) {
       showAlert(err.message);
     }
@@ -358,13 +361,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const handleAdminGold = async () => {
     try {
-      const updated = await apiFetch('/admin/grant-gold', {
+      const res = await apiFetch('/admin/grant-gold', {
         method: 'POST',
-        body: JSON.stringify({ goldAmount: adminGold })
+        body: JSON.stringify({ goldAmount: adminGold, targetUsername })
       });
-      onUpdateCharacter(updated);
-      setShopGold(updated.user.gold);
-      showAlert(`Granted ${adminGold} Gold!`);
+      if (res.targetIsSelf) {
+        onUpdateCharacter(res.character);
+        setShopGold(res.character.user.gold);
+      }
+      showAlert(res.message);
     } catch (err: any) {
       showAlert(err.message);
     }
@@ -567,7 +572,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
           {/* LEFT COLUMN: Character Emblem & Stat Panel (4 cols) */}
-          <div className="lg:col-span-4 flex flex-col gap-6">
+          <div className="lg:col-span-4 flex flex-col gap-6 relative z-10">
             
             {/* Emblem wireframe */}
             <div className="glass-panel p-6 border-white/5 bg-[#090e1a]/95 flex flex-col items-center shadow-lg relative">
@@ -767,6 +772,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 setSpawnLevel={setSpawnLevel}
                 promoteName={promoteName}
                 setPromoteName={setPromoteName}
+                targetUsername={targetUsername}
+                setTargetUsername={setTargetUsername}
                 onAdminXp={handleAdminXp}
                 onAdminGold={handleAdminGold}
                 onSpawnItem={handleSpawnItem}

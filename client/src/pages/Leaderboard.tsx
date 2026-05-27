@@ -104,7 +104,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ onBackToDashboard }) =
           {/* 1st Place */}
           {(() => {
             const char = leaders.find(l => l.rank === 1);
-            if (!char) return <div className="w-24 sm:w-32 animate-pulse flex flex-col items-center"><div className="w-20 h-10 bg-white/5 rounded mb-2" /><div className="w-24 sm:w-32 h-26 bg-white/5 rounded-t-2xl border border-white/5" /></div>;
+            if (!char) return <div className="w-24 sm:w-32 animate-pulse flex flex-col items-center"><div className="w-20 h-10 bg-white/5 rounded mb-2" /><div className="w-24 sm:w-32 h-28 bg-white/5 rounded-t-2xl border border-white/5" /></div>;
             const classColor = CLASSES[char.class]?.color || '#ffffff';
             const className = CLASSES[char.class]?.name || char.class;
             return (
@@ -115,7 +115,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ onBackToDashboard }) =
                   <div className="text-[9px] sm:text-[10px] font-bold" style={{ color: classColor }}>{className}</div>
                   <div className="text-[9px] sm:text-[10px] text-yellow-500/80 font-mono font-bold">Lvl {char.level}</div>
                 </div>
-                <div className="w-24 sm:w-32 h-26 bg-gradient-to-t from-yellow-950/80 to-yellow-800/20 border border-yellow-500/30 rounded-t-2xl flex items-center justify-center shadow-2xl relative">
+                <div className="w-24 sm:w-32 h-28 bg-gradient-to-t from-yellow-950/80 to-yellow-800/20 border border-yellow-500/30 rounded-t-2xl flex items-center justify-center shadow-2xl relative">
                   <div className="absolute inset-0 bg-yellow-500/5 animate-pulse rounded-t-2xl" />
                   <span className="text-4xl font-black text-yellow-400 font-display drop-shadow-[0_0_12px_rgba(234,179,8,0.5)]">1</span>
                 </div>
@@ -126,7 +126,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ onBackToDashboard }) =
           {/* 3rd Place */}
           {(() => {
             const char = leaders.find(l => l.rank === 3);
-            if (!char) return <div className="w-20 sm:w-28 animate-pulse flex flex-col items-center"><div className="w-16 h-10 bg-white/5 rounded mb-2" /><div className="w-20 sm:w-28 h-15 bg-white/5 rounded-t-xl border border-white/5" /></div>;
+            if (!char) return <div className="w-20 sm:w-28 animate-pulse flex flex-col items-center"><div className="w-16 h-10 bg-white/5 rounded mb-2" /><div className="w-20 sm:w-28 h-12 bg-white/5 rounded-t-xl border border-white/5" /></div>;
             const classColor = CLASSES[char.class]?.color || '#ffffff';
             const className = CLASSES[char.class]?.name || char.class;
             return (
@@ -137,7 +137,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({ onBackToDashboard }) =
                   <div className="text-[9px] sm:text-[10px] font-semibold" style={{ color: classColor }}>{className}</div>
                   <div className="text-[9px] sm:text-[10px] text-slate-500 font-mono">Lvl {char.level}</div>
                 </div>
-                <div className="w-20 sm:w-28 h-15 bg-gradient-to-t from-amber-950/60 to-amber-900/20 border border-amber-800/20 rounded-t-xl flex items-center justify-center shadow-md">
+                <div className="w-20 sm:w-28 h-12 bg-gradient-to-t from-amber-950/60 to-amber-900/20 border border-amber-800/20 rounded-t-xl flex items-center justify-center shadow-md">
                   <span className="text-xl font-black text-amber-700 font-display">3</span>
                 </div>
               </div>
