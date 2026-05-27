@@ -8,6 +8,8 @@ import {
   ExternalLink, Users, User
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { useAuth } from '../contexts/AuthContext';
+import { useUI } from '../contexts/UIContext';
 
 // Import sub components
 import { DashboardHeader } from '../components/dashboard/DashboardHeader';
@@ -67,27 +69,19 @@ const StatRow: React.FC<{
 );
 
 interface DashboardProps {
-  user: any;
-  character: any;
-  onUpdateCharacter: (char: any) => void;
-  onLogout: () => void;
   onNavigate: (page: string, params?: any) => void;
-  showAlert: (message: string, title?: string) => void;
-  showConfirm: (message: string, onConfirm: () => void, title?: string) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
-  user,
-  character,
-  onUpdateCharacter,
-  onLogout,
-  onNavigate,
-  showAlert,
-  showConfirm
+  onNavigate
 }) => {
+  const { user, character, updateCharacter, logout } = useAuth();
+  const { showAlert, showConfirm } = useUI();
+
   const [activeSection, setActiveSection] = useState<'character' | 'solo' | 'raids'>('character');
   const [activeTab, setActiveTab] = useState<'inventory' | 'talents' | 'tree' | 'shop' | 'admin'>('inventory');
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
+
 
   // Shop state
   const [shopStock, setShopStock] = useState<any[]>([]);
@@ -179,7 +173,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         method: 'POST',
         body: JSON.stringify({ charClass: className })
       });
-      onUpdateCharacter(data);
+      updateCharacter(data);
       setSelectedItem(null);
     } catch (err: any) {
       showAlert(err.message);
@@ -192,7 +186,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         method: 'POST',
         body: JSON.stringify({ itemId })
       });
-      onUpdateCharacter(updated);
+      updateCharacter(updated);
       const newlyEquipped = updated.items.find((i: any) => i.id === itemId);
       setSelectedItem(newlyEquipped);
     } catch (err: any) {
@@ -206,7 +200,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         method: 'POST',
         body: JSON.stringify({ itemId })
       });
-      onUpdateCharacter(updated);
+      updateCharacter(updated);
       const newlyUnequipped = updated.items.find((i: any) => i.id === itemId);
       setSelectedItem(newlyUnequipped);
     } catch (err: any) {
@@ -226,7 +220,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             method: 'POST',
             body: JSON.stringify({ itemId })
           });
-          onUpdateCharacter(data.character);
+          updateCharacter(data.character);
           setSelectedItem(null);
           setShopGold(data.character.user.gold);
         } catch (err: any) {
@@ -250,7 +244,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           const data = await apiFetch('/inventory/dismantle-all', {
             method: 'POST'
           });
-          onUpdateCharacter(data.character);
+          updateCharacter(data.character);
           setSelectedItem(null);
           setShopGold(data.character.user.gold);
         } catch (err: any) {
@@ -276,7 +270,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         method: 'POST',
         body: JSON.stringify({ talents: newTalents })
       });
-      onUpdateCharacter(updated);
+      updateCharacter(updated);
     } catch (err: any) {
       showAlert(err.message);
     }
@@ -291,7 +285,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
     try {
       const data = await apiFetch('/shop/refresh', { method: 'POST' });
-      onUpdateCharacter(data.character);
+      updateCharacter(data.character);
       setShopStock(data.shopStock);
       setShopGold(data.character.user.gold);
     } catch (err: any) {
@@ -309,7 +303,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         method: 'POST',
         body: JSON.stringify({ shopItemId })
       });
-      onUpdateCharacter(data.character);
+      updateCharacter(data.character);
       setShopStock(data.shopStock);
       setShopGold(data.character.user.gold);
       confetti({ particleCount: 60, spread: 40, colors: ['#00d8ff', '#d946ef', '#ffea00'] });
@@ -319,7 +313,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const handleGambleItem = async (slot: string) => {
-    const gamblePrice = character.level * 120;
+    const gamblePrice = character.level * 25 + 200;
     if (shopGold < gamblePrice) {
       showAlert('Insufficient Gold!');
       return;
@@ -329,7 +323,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         method: 'POST',
         body: JSON.stringify({ slot })
       });
-      onUpdateCharacter(data.character);
+      updateCharacter(data.character);
       setShopGold(data.character.user.gold);
       setGambledItem(data.droppedItem);
       
@@ -353,7 +347,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         body: JSON.stringify({ xpAmount: adminXp, targetUsername })
       });
       if (res.targetIsSelf) {
-        onUpdateCharacter(res.character);
+        updateCharacter(res.character);
       }
       showAlert(res.message);
     } catch (err: any) {
@@ -368,7 +362,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         body: JSON.stringify({ goldAmount: adminGold, targetUsername })
       });
       if (res.targetIsSelf) {
-        onUpdateCharacter(res.character);
+        updateCharacter(res.character);
         setShopGold(res.character.user.gold);
       }
       showAlert(res.message);
@@ -388,7 +382,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         })
       });
       const meData = await apiFetch('/auth/me');
-      onUpdateCharacter(meData.character);
+      updateCharacter(meData.character);
       showAlert(`Spawned: ${item.name}!`);
     } catch (err: any) {
       showAlert(err.message);
@@ -401,7 +395,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       async () => {
         try {
           const updated = await apiFetch('/admin/reset-character', { method: 'POST' });
-          onUpdateCharacter(updated);
+          updateCharacter(updated);
           setSelectedItem(null);
           showAlert('Character reset!');
         } catch (err: any) {
@@ -415,7 +409,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const handleUnlockAllClasses = async () => {
     try {
       const updated = await apiFetch('/admin/unlock-all-classes', { method: 'POST' });
-      onUpdateCharacter(updated);
+      updateCharacter(updated);
       showAlert('All advanced classes unlocked! Base classes set to level 100.');
     } catch (err: any) {
       showAlert(err.message);
@@ -566,7 +560,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         xpPercent={xpPercent}
         xpNeeded={xpNeeded}
         onNavigate={onNavigate}
-        onLogout={onLogout}
+        onLogout={logout}
       />
 
       {/* 2. MAIN LAYOUT GRID */}
@@ -743,7 +737,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             {/* 2. PASSIVE TREE TAB */}
             {activeTab === 'tree' && (
-              <PassiveSkillTree character={character} onUpdateCharacter={onUpdateCharacter} showAlert={showAlert} showConfirm={showConfirm} />
+              <PassiveSkillTree character={character} onUpdateCharacter={updateCharacter} showAlert={showAlert} showConfirm={showConfirm} />
             )}
 
             {/* 3. MERCHANT SHOP TAB */}

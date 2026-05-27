@@ -16,6 +16,7 @@ import { leaderboardRouter } from './routes/leaderboard';
 import { adminRouter } from './routes/admin';
 import { shopRouter } from './routes/shop';
 import { setupSocketHandlers, activeLobbies } from './socket/lobby';
+import { errorHandler } from './middlewares/errorHandler';
 
 const app = express();
 const server = http.createServer(app);
@@ -49,6 +50,9 @@ app.use('/api/shop', shopRouter);
 app.get('/api/lobbies', (req, res) => {
   res.json(Object.values(activeLobbies));
 });
+
+// Register global error handler middleware for API routes
+app.use(errorHandler);
 
 // Serve frontend client build statically in production
 if (process.env.NODE_ENV === 'production' || true) {

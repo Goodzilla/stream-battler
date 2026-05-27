@@ -9,8 +9,15 @@ Stream Battler is a full-stack, real-time multiplayer simulation game modeled af
 This project is configured as a Node.js monorepo utilizing npm Workspaces:
 
 *   **`shared`**: Holds shared game rules, character formulas (including stat calculators, skill point caps, and level limits), and game constants (like arena profiles and passive skill tree structures).
-*   **`server`**: An Express server running a REST API and a Socket.io WebSocket engine to coordinate live battle coordinates, room queues, and stream viewer spectator synchronization. It uses Prisma and SQLite for local data persistence.
-*   **`client`**: A React + TypeScript web app built with Vite and TailwindCSS, running retro pixel-art physics animations on an HTML5 canvas.
+*   **`server`**: Built using **Clean Architecture** (Controller-Service-Repository pattern). It features:
+    *   **Repository Layer**: Database access abstracting sqlite (via Prisma Client) behind interfaces so it can be easily swapped for production PostgreSQL.
+    *   **Service Layer**: Pure business and domain logic.
+    *   **Controller Layer**: Handles Express request validation (via Zod schemas) and routes JSON responses.
+    *   **Dependency Injection**: Instantiated controllers, services, and repositories are wired manually via constructor dependency injection.
+    *   **WebSocket Engine**: Real-time room coordinator using Socket.io to synchronize spectator raids.
+*   **`client`**: A React + TypeScript web app built with Vite and TailwindCSS. It utilizes the **React Context API** (`AuthContext`, `SocketContext`, `UIContext`) to manage global states (auth, socket events, modular alert confirmations) Imperatively via custom hooks. The combat loop runs retro pixel-art physics animations on an HTML5 canvas via a decoupled stateful combat simulation engine.
+
+For a detailed walkthrough, see [architecture.md](file:///c:/Users/Ronan/.gemini/antigravity/scratch/stream-battler/architecture.md).
 
 ---
 
@@ -47,7 +54,7 @@ Run the concurrent dev script from the root workspace:
 ```bash
 npm run dev
 ```
-*   **Frontend client**: Running at `http://localhost:5173`
+*   **Frontend client**: Running at `http://localhost:5173` (with Vite hot-reload)
 *   **Backend server**: Running at `http://localhost:3001` (proxied by Vite)
 
 ---

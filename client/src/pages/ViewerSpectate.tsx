@@ -1,18 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Socket } from 'socket.io-client';
 import { ArrowLeft, Users } from 'lucide-react';
 import { lerp, getDistance } from '../game/physics';
 import confetti from 'canvas-confetti';
 import { getArenaConfigForLevel } from 'shared';
 import { drawPixelSprite, drawProceduralBackground } from '../game/sprites';
 import { soundManager } from '../game/soundManager';
+import { useAuth } from '../contexts/AuthContext';
+import { useSocket } from '../contexts/SocketContext';
+import { useUI } from '../contexts/UIContext';
 
 interface ViewerSpectateProps {
-  user: any;
   streamerName: string;
-  socket: Socket | null;
   onBackToDashboard: () => void;
-  showAlert: (message: string, title?: string) => void;
 }
 
 interface SpectatorUnit {
@@ -38,12 +37,12 @@ interface SpectatorUnit {
 }
 
 export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
-  user,
   streamerName,
-  socket,
-  onBackToDashboard,
-  showAlert
+  onBackToDashboard
 }) => {
+  const { user } = useAuth();
+  const { socket } = useSocket();
+  const { showAlert } = useUI();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [lobby, setLobby] = useState<any | null>(null);

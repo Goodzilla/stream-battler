@@ -1,178 +1,57 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Auth } from './pages/Auth';
 import { Dashboard } from './pages/Dashboard';
 import { SoloMap } from './pages/SoloMap';
 import { StreamerLobby } from './pages/StreamerLobby';
 import { ViewerSpectate } from './pages/ViewerSpectate';
 import { Leaderboard } from './pages/Leaderboard';
-import { apiFetch } from './utils/api';
-import { io, Socket } from 'socket.io-client';
+import { useAuth } from './contexts/AuthContext';
+import { useSocket } from './contexts/SocketContext';
+import { useUI } from './contexts/UIContext';
 import { CLASSES } from 'shared';
 import { Zap } from 'lucide-react';
-import confetti from 'canvas-confetti';
 import { CharacterVisualizer } from './components/CharacterVisualizer';
-import { AlertModal } from './components/AlertModal';
-import { ConfirmModal } from './components/ConfirmModal';
 
 type PageState = 'AUTH' | 'DASHBOARD' | 'SOLO_ARENA' | 'STREAMER_LOBBY' | 'VIEWER_LOBBY' | 'LEADERBOARD';
 
+const CLASS_UNLOCK_REQUIREMENTS: Record<string, string> = {
+  VALKYRIE: 'WARRIOR',
+  NECROMANCER: 'MAGE',
+  MONK: 'CLERIC',
+  ALCHEMIST: 'ROGUE',
+  BARD: 'RANGER'
+};
+
 export default function App() {
+  const {
+    user,
+    character,
+    loading,
+    unlockedClassesToShow,
+    currentUnlockIdx,
+    checkAuth,
+    updateCharacter,
+    handleNextUnlock
+  } = useAuth();
+
+  const { socket } = useSocket();
+  const { showAlert } = useUI();
+
   const [page, setPage] = useState<PageState>('AUTH');
-  const [user, setUser] = useState<any | null>(null);
-  const [character, setCharacter] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [socket, setSocket] = useState<Socket | null>(null);
-  
-  // Navigation parameter holders
   const [navigationParams, setNavigationParams] = useState<any>(null);
 
-  // Alert Modal State
-  const [alertConfig, setAlertConfig] = useState<{ title: string; message: string } | null>(null);
-
-  const showAlert = (message: string, title = 'ALERT') => {
-    setAlertConfig({ title, message });
-  };
-
-  // Confirm Modal State
-  const [confirmConfig, setConfirmConfig] = useState<{
-    title: string;
-    message: string;
-    onConfirm: () => void;
-  } | null>(null);
-
-  const showConfirm = (message: string, onConfirm: () => void, title = 'CONFIRM') => {
-    setConfirmConfig({ title, message, onConfirm });
-  };
-
-  // Unlock Modal State
-  const [unlockedClassesToShow, setUnlockedClassesToShow] = useState<string[]>([]);
-  const [currentUnlockIdx, setCurrentUnlockIdx] = useState<number>(0);
-  const prevUnlockedRef = useRef<string[] | null>(null);
-
-  const CLASS_UNLOCK_REQUIREMENTS: Record<string, string> = {
-    VALKYRIE: 'WARRIOR',
-    NECROMANCER: 'MAGE',
-    MONK: 'CLERIC',
-    ALCHEMIST: 'ROGUE',
-    BARD: 'RANGER'
-  };
-
-  const getUnlockedAdvancedClasses = (characters: any[]): string[] => {
-    const unlocked: string[] = [];
-    for (const [adv, base] of Object.entries(CLASS_UNLOCK_REQUIREMENTS)) {
-      const baseChar = characters?.find((c: any) => c.class === base);
-      if (baseChar && baseChar.level >= 100) {
-        unlocked.push(adv);
-      }
-    }
-    return unlocked;
-  };
-
-  const triggerUnlockConfetti = () => {
-    const duration = 2.5 * 1000;
-    const end = Date.now() + duration;
-
-    (function frame() {
-      confetti({
-        particleCount: 4,
-        angle: 60,
-        spread: 55,
-        origin: { x: 0, y: 0.8 }
-      });
-      confetti({
-        particleCount: 4,
-        angle: 120,
-        spread: 55,
-        origin: { x: 1, y: 0.8 }
-      });
-
-      if (Date.now() < end) {
-        requestAnimationFrame(frame);
-      }
-    }());
-  };
-
+  // Sync route on auth state changes
   useEffect(() => {
-    if (character && character.user && character.user.characters) {
-      const currentUnlocked = getUnlockedAdvancedClasses(character.user.characters);
-      
-      if (prevUnlockedRef.current !== null) {
-        const newlyUnlocked = currentUnlocked.filter(c => !prevUnlockedRef.current!.includes(c));
-        if (newlyUnlocked.length > 0) {
-          setUnlockedClassesToShow(newlyUnlocked);
-          setCurrentUnlockIdx(0);
-          setTimeout(() => triggerUnlockConfetti(), 300);
-        }
-      }
-      
-      prevUnlockedRef.current = currentUnlocked;
-    } else {
-      prevUnlockedRef.current = null;
-    }
-  }, [character]);
-
-  const handleNextUnlock = () => {
-    if (currentUnlockIdx < unlockedClassesToShow.length - 1) {
-      setCurrentUnlockIdx(currentUnlockIdx + 1);
-      setTimeout(() => triggerUnlockConfetti(), 300);
-    } else {
-      setUnlockedClassesToShow([]);
-      setCurrentUnlockIdx(0);
-    }
-  };
-
-  // Check auth on load
-  const checkAuth = async () => {
-    try {
-      const data = await apiFetch('/auth/me');
-      if (data.authenticated) {
-        setUser(data.user);
-        setCharacter(data.character);
+    if (!loading) {
+      if (user) {
         setPage('DASHBOARD');
       } else {
         setPage('AUTH');
       }
-    } catch (err) {
-      setPage('AUTH');
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [user, loading]);
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  // Establish socket connection when user logged in
-  useEffect(() => {
-    if (!user) {
-      if (socket) {
-        socket.disconnect();
-        setSocket(null);
-      }
-      return;
-    }
-
-    const socketUrl = window.location.hostname === 'localhost' ? 'http://localhost:3001' : window.location.origin;
-    const socketConn = io(socketUrl, {
-      withCredentials: true
-    });
-
-    setSocket(socketConn);
-
-    return () => {
-      socketConn.disconnect();
-    };
-  }, [user]);
-
-  // Register user room inside socket
-  useEffect(() => {
-    if (socket && character) {
-      socket.emit('register-user', character.userId);
-    }
-  }, [socket, character]);
-
-  // Listen to boot events and character updates
+  // Listen to boot events and character updates from WebSocket
   useEffect(() => {
     if (!socket) return;
     
@@ -184,7 +63,7 @@ export default function App() {
     });
 
     socket.on('character-updated', (updatedChar: any) => {
-      handleUpdateCharacter(updatedChar);
+      updateCharacter(updatedChar);
     });
 
     return () => {
@@ -192,30 +71,6 @@ export default function App() {
       socket.off('character-updated');
     };
   }, [socket, page]);
-
-  const handleUpdateCharacter = (char: any) => {
-    setCharacter(char);
-    if (char && char.user) {
-      setUser(char.user);
-    }
-  };
-
-  const handleLoginSuccess = (loggedInUser: any, char: any) => {
-    setUser(loggedInUser);
-    setCharacter(char);
-    setPage('DASHBOARD');
-  };
-
-  const handleLogout = async () => {
-    try {
-      await apiFetch('/auth/logout', { method: 'POST' });
-      setUser(null);
-      setCharacter(null);
-      setPage('AUTH');
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   const handleNavigate = (targetPage: string, params: any = null) => {
     setNavigationParams(params);
@@ -248,49 +103,34 @@ export default function App() {
       {/* Main viewport */}
       <main className="flex-1 w-full relative">
         {page === 'AUTH' && (
-          <Auth onLoginSuccess={handleLoginSuccess} />
+          <Auth onLoginSuccess={(_, char) => updateCharacter(char)} />
         )}
         
         {page === 'DASHBOARD' && character && (
           <Dashboard
-            user={user}
-            character={character}
-            onUpdateCharacter={handleUpdateCharacter}
-            onLogout={handleLogout}
             onNavigate={handleNavigate}
-            showAlert={showAlert}
-            showConfirm={showConfirm}
           />
         )}
 
         {page === 'SOLO_ARENA' && character && (
           <SoloMap
-            character={character}
             mapLevel={navigationParams?.mapLevel || 1}
-            onUpdateCharacter={handleUpdateCharacter}
             onBackToDashboard={checkAuth}
-            showAlert={showAlert}
           />
         )}
 
         {page === 'STREAMER_LOBBY' && (
           <StreamerLobby
-            user={user}
             bossName={navigationParams?.bossName || 'Neon Goliath'}
             bossLevel={navigationParams?.bossLevel || 5}
-            socket={socket}
             onBackToDashboard={checkAuth}
-            showAlert={showAlert}
           />
         )}
 
         {page === 'VIEWER_LOBBY' && (
           <ViewerSpectate
-            user={user}
             streamerName={navigationParams?.streamerName}
-            socket={socket}
             onBackToDashboard={checkAuth}
-            showAlert={showAlert}
           />
         )}
 
@@ -365,26 +205,6 @@ export default function App() {
           </div>
         );
       })()}
-
-      {alertConfig && (
-        <AlertModal
-          title={alertConfig.title}
-          message={alertConfig.message}
-          onClose={() => setAlertConfig(null)}
-        />
-      )}
-
-      {confirmConfig && (
-        <ConfirmModal
-          title={confirmConfig.title}
-          message={confirmConfig.message}
-          onConfirm={() => {
-            confirmConfig.onConfirm();
-            setConfirmConfig(null);
-          }}
-          onCancel={() => setConfirmConfig(null)}
-        />
-      )}
     </div>
   );
 }

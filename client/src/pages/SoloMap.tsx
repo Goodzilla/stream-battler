@@ -17,13 +17,12 @@ import type {
   FloatingText,
   Particle as VisualParticle
 } from '../game/combatEngine';
+import { useAuth } from '../contexts/AuthContext';
+import { useUI } from '../contexts/UIContext';
 
 interface SoloMapProps {
-  character: any;
   mapLevel: number;
-  onUpdateCharacter: (char: any) => void;
   onBackToDashboard: () => void;
-  showAlert: (message: string, title?: string) => void;
 }
 
 const getProjectileType = (name: string, spriteOrClass?: string): 'ARROW' | 'FIRE' | 'POISON' | 'SPELL' => {
@@ -44,12 +43,11 @@ const getProjectileType = (name: string, spriteOrClass?: string): 'ARROW' | 'FIR
 };
 
 export const SoloMap: React.FC<SoloMapProps> = ({
-  character,
   mapLevel,
-  onUpdateCharacter,
-  onBackToDashboard,
-  showAlert
+  onBackToDashboard
 }) => {
+  const { character, updateCharacter } = useAuth();
+  const { showAlert } = useUI();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const currentMapLevel = mapLevel;
@@ -321,7 +319,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
         })
       });
 
-      onUpdateCharacter(data.character);
+      updateCharacter(data.character);
       setItemsDropped(data.droppedItems || []);
       setXpEarned(data.gainedXp);
       setGoldEarned(data.gainedGold);

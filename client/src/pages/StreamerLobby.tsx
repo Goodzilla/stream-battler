@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Socket } from 'socket.io-client';
 import { TwitchConsole } from '../components/TwitchConsole';
 import { getDistance } from '../game/physics';
 import { ArrowLeft, Play, Users, Skull, ShieldAlert } from 'lucide-react';
@@ -21,14 +20,14 @@ import type {
   Particle as VisualParticle,
   Projectile
 } from '../game/combatEngine';
+import { useAuth } from '../contexts/AuthContext';
+import { useSocket } from '../contexts/SocketContext';
+import { useUI } from '../contexts/UIContext';
 
 interface StreamerLobbyProps {
-  user: any;
   bossName: string;
   bossLevel: number;
-  socket: Socket | null;
   onBackToDashboard: () => void;
-  showAlert: (message: string, title?: string) => void;
 }
 
 const getBossSprite = (level: number) => {
@@ -36,13 +35,13 @@ const getBossSprite = (level: number) => {
 };
 
 export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
-  user,
   bossName,
   bossLevel,
-  socket,
-  onBackToDashboard,
-  showAlert
+  onBackToDashboard
 }) => {
+  const { user } = useAuth();
+  const { socket } = useSocket();
+  const { showAlert } = useUI();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [lobby, setLobby] = useState<any | null>(null);
