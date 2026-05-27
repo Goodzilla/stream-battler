@@ -49,6 +49,9 @@ npm run prisma:generate --workspace=server
 npm run prisma:migrate --workspace=server
 ```
 
+> [!TIP]
+> **Database Provider Switching**: The project uses **SQLite** for local development/testing and **PostgreSQL** in production (Railway). The build pipeline runs a custom [prepare-prisma.js](file:///c:/Users/Ronan/.gemini/antigravity/scratch/stream-battler/server/scripts/prepare-prisma.js) script before generating client assets. If `DATABASE_URL` starts with `postgres://` or `postgresql://`, it automatically configures the database provider in `schema.prisma` to `"postgresql"`. Otherwise, it defaults to `"sqlite"` and creates a mock `.env` file if none is present (essential for running E2E tests in CI environments).
+
 ### 4. Start Development Server
 Run the concurrent dev script from the root workspace:
 ```bash

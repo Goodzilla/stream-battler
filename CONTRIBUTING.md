@@ -36,6 +36,9 @@ npm run prisma:generate --workspace=server
 npm run prisma:deploy --workspace=server
 ```
 
+> [!TIP]
+> **SQLite vs PostgreSQL**: The project dynamically switches database providers based on the `DATABASE_URL` format. In local environments and CI testing, it defaults to **SQLite** (and automatically creates a mock `.env` file if it's missing on CI runs). In production (Railway), the pipeline detects the `postgres://` or `postgresql://` protocol and switches the provider to **PostgreSQL**.
+
 ### 4. Running the Dev Server
 To start the front-end (Vite) and back-end (Express) servers concurrently:
 ```bash
