@@ -82,7 +82,8 @@ export const calculateCharacterStats = (
     defense += item.baseDefense;
 
     // Add affixes
-    for (const affix of item.affixes) {
+    const affixesList = typeof item.affixes === 'string' ? JSON.parse(item.affixes) : item.affixes;
+    for (const affix of affixesList || []) {
       switch (affix.type) {
         case 'maxHp':
           maxHp += affix.value;

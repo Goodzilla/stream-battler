@@ -51,6 +51,23 @@ describe('Character Stats Calculator', () => {
     expect(stats.critChance).toBe(0.10); // 0.05 base + 0.05 weapon
   });
 
+  it('should parse and apply stringified gear affixes', () => {
+    const armor = {
+      name: 'Plate Mail',
+      slot: 'ARMOR' as const,
+      rarity: 'RARE' as const,
+      itemLevel: 20,
+      baseAttack: 0,
+      baseDefense: 33,
+      affixes: JSON.stringify([{ type: 'maxHp', value: 15 }, { type: 'fireRes', value: 0.12 }]) as any,
+      isEquipped: true
+    };
+
+    const stats = calculateCharacterStats('WARRIOR', 1, [], ['start'], [armor]);
+    expect(stats.maxHp).toBe(205); // 180 base + 10 start node + 15 armor
+    expect(stats.fireRes).toBe(0.12);
+  });
+
   it('should apply talent flat/percentage effects', () => {
     // Aegis Shield (t4_2) warrior talent: increases reflect by 15%
     const stats = calculateCharacterStats('WARRIOR', 5, ['t4_2'], ['start'], []);
