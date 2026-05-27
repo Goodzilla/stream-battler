@@ -31,6 +31,11 @@ inventoryRouter.post('/equip', async (req: Request, res: Response) => {
       return;
     }
 
+    if (itemToEquip.itemLevel > activeChar.level) {
+      res.status(400).json({ error: `Requires character level ${itemToEquip.itemLevel} to equip this item.` });
+      return;
+    }
+
     // Unequip currently equipped item in the same slot for this specific character
     const slot = itemToEquip.slot;
     const equippedInSlot = await prisma.item.findFirst({

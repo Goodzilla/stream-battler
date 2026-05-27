@@ -5,10 +5,10 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "prisma generate && tsc",
-    "start": "prisma db push --accept-data-loss && node dist/index.js",
+    "start": "prisma db push && node dist/index.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:deploy": "prisma db push --accept-data-loss",
+    "prisma:deploy": "prisma db push",
     "test": "vitest run"
   },
   "dependencies": {

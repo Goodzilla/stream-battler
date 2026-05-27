@@ -944,9 +944,9 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         </span>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6 items-start">
+      <div className={`grid gap-6 items-start ${import.meta.env.PROD ? 'grid-cols-1 max-w-4xl mx-auto' : 'md:grid-cols-3'}`}>
         {/* Lobby Details / Battlefield */}
-        <div className="md:col-span-2 flex flex-col gap-6">
+        <div className={`${import.meta.env.PROD ? 'grid-cols-1' : 'md:col-span-2'} flex flex-col gap-6`}>
           {battleState === 'LOBBY' && (
             <div className="glass-panel p-6 border-white/5 bg-[#0b0f19]">
               <h3 className="m-0 text-white font-display text-base tracking-wider uppercase mb-2 flex items-center gap-1.5">
@@ -954,7 +954,11 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                 Raid Lobby: #{streamerName.toUpperCase()}
               </h3>
               <p className="text-xs text-slate-400 leading-relaxed mb-6">
-                Waiting for viewers. Tell your chat to type <span className="text-[#af52de] font-bold">!join</span> to enter the battlefield! Or add mock viewers on the right console.
+                {import.meta.env.PROD ? (
+                  <>Waiting for viewers. Tell your chat to type <span className="text-[#af52de] font-bold">!join</span> to enter the battlefield!</>
+                ) : (
+                  <>Waiting for viewers. Tell your chat to type <span className="text-[#af52de] font-bold">!join</span> to enter the battlefield! Or add mock viewers on the right console.</>
+                )}
               </p>
 
               <div className="flex flex-col gap-2 border-y border-white/5 py-4 my-6 text-xs text-slate-400">
@@ -1028,7 +1032,11 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
 
               {(!lobby || lobby.viewers.length === 0) ? (
                 <div className="text-slate-500 italic text-xs py-4 text-center">
-                  Lobby is empty. Use the Twitch chat simulator on the right to mock players.
+                  {import.meta.env.PROD ? (
+                    'Lobby is empty. Waiting for viewers to join...'
+                  ) : (
+                    'Lobby is empty. Use the Twitch chat simulator on the right to mock players.'
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -1056,9 +1064,11 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         </div>
 
         {/* Right Hand twitch console */}
-        <div className="md:col-span-1 flex flex-col gap-6">
-          <TwitchConsole streamerName={streamerName} socket={socket} />
-        </div>
+        {!import.meta.env.PROD && (
+          <div className="md:col-span-1 flex flex-col gap-6">
+            <TwitchConsole streamerName={streamerName} socket={socket} />
+          </div>
+        )}
       </div>
 
       {/* Viewport independent Fullscreen Results Modal */}

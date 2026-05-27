@@ -9,6 +9,7 @@ interface GearStashProps {
   onUnequipItem: (itemId: string) => void;
   onDismantleItem: (itemId: string) => void;
   onDismantleAll: () => void;
+  charLevel: number;
 }
 
 const formatAffix = (type: string, value: number): string => {
@@ -53,7 +54,8 @@ export const GearStash: React.FC<GearStashProps> = ({
   onEquipItem,
   onUnequipItem,
   onDismantleItem,
-  onDismantleAll
+  onDismantleAll,
+  charLevel
 }) => {
   return (
     <div className="flex flex-col gap-6 animate-scaleUp">
@@ -242,12 +244,26 @@ export const GearStash: React.FC<GearStashProps> = ({
               </button>
             ) : (
               <>
-                <button
-                  onClick={() => onEquipItem(selectedItem.id)}
-                  className="flex-1 py-2.5 bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-black border border-emerald-500/40 hover:border-emerald-500 rounded text-xs font-display font-bold uppercase tracking-wider transition duration-300"
-                >
-                  Equip Gear
-                </button>
+                {selectedItem.itemLevel > charLevel ? (
+                  <div className="relative group flex-1">
+                    <button
+                      disabled
+                      className="w-full py-2.5 bg-emerald-950/20 text-emerald-600/30 border border-emerald-900/10 rounded text-xs font-display font-bold uppercase tracking-wider cursor-not-allowed opacity-50"
+                    >
+                      Equip Gear
+                    </button>
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2.5 bg-[#0b0f19] border border-red-500/30 rounded-lg shadow-2xl hidden group-hover:block pointer-events-none text-[11px] text-red-400 font-sans text-center normal-case z-20">
+                      Requires character level {selectedItem.itemLevel} to equip.
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => onEquipItem(selectedItem.id)}
+                    className="flex-1 py-2.5 bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-black border border-emerald-500/40 hover:border-emerald-500 rounded text-xs font-display font-bold uppercase tracking-wider transition duration-300"
+                  >
+                    Equip Gear
+                  </button>
+                )}
                 <button
                   onClick={() => onDismantleItem(selectedItem.id)}
                   className="px-6 py-2.5 bg-red-950/40 hover:bg-red-600 text-red-400 hover:text-white border border-red-800/40 hover:border-red-600 rounded text-xs font-display font-bold uppercase tracking-wider transition duration-300"

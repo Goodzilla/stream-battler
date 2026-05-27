@@ -722,6 +722,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onUnequipItem={handleUnequipItem}
                 onDismantleItem={handleDismantleItem}
                 onDismantleAll={handleDismantleAllItems}
+                charLevel={character.level}
               />
             )}
 

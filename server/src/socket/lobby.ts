@@ -53,16 +53,71 @@ export const setupSocketHandlers = (io: Server) => {
     });
 
     // STREAMER: CREATE LOBBY
-    socket.on('create-lobby', ({ streamerName, bossName, bossLevel }) => {
+    socket.on('create-lobby', async ({ streamerName, bossName, bossLevel }) => {
       const roomName = `lobby_${streamerName.toLowerCase()}`;
       currentLobby = roomName;
       isStreamer = true;
 
       socket.join(roomName);
 
+      const viewers: LobbyViewer[] = [];
+
+      try {
+        const user = await prisma.user.findFirst({
+          where: { username: streamerName },
+          include: { characters: true, items: true }
+        });
+
+        if (user) {
+          const activeClass = resolveActiveClass(user);
+          const char = user.characters.find(c => c.class === activeClass);
+          if (char) {
+            const weapon = user.items.find(i => i.slot === 'WEAPON' && i.isEquipped && i.equippedCharacterId === char.id);
+            const armor = user.items.find(i => i.slot === 'ARMOR' && i.isEquipped && i.equippedCharacterId === char.id);
+
+            const charStats = calculateCharacterStats(
+              char.class,
+              char.level,
+              JSON.parse(char.talents || '[]'),
+              JSON.parse(char.passives || '[]'),
+              user.items.filter(i => i.isEquipped && i.equippedCharacterId === char.id) as any
+            );
+
+            const viewerData: LobbyViewer = {
+              userId: user.id,
+              username: user.username,
+              displayName: user.displayName,
+              charClass: char.class,
+              level: char.level,
+              weaponRarity: weapon ? weapon.rarity : 'COMMON',
+              armorRarity: armor ? armor.rarity : 'COMMON',
+              maxHp: charStats.maxHp,
+              attackPower: charStats.attackPower,
+              defense: charStats.defense,
+              critChance: charStats.critChance,
+              critMult: charStats.critMult,
+              atkSpeed: charStats.atkSpeed,
+              lifesteal: charStats.lifesteal,
+              reflect: charStats.reflect,
+              cdr: charStats.cdr,
+              speed: charStats.moveSpeed,
+              selectedTalents: JSON.parse(char.talents || '[]'),
+              fireRes: charStats.fireRes,
+              coldRes: charStats.coldRes,
+              poisonRes: charStats.poisonRes,
+              physRes: charStats.physRes
+            };
+
+            viewers.push(viewerData);
+          }
+        }
+      } catch (err) {
+        console.error('Error adding streamer to lobby:', err);
+      }
+
       activeLobbies[streamerName.toLowerCase()] = {
         streamerName,
-        viewers: [],
+        viewers,
         status: 'LOBBY',
         bossName: bossName || 'Beholder of Neon',
         bossLevel: bossLevel || 5
