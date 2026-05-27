@@ -3,6 +3,10 @@ import { PrismaUserRepository } from './repositories/prisma/PrismaUserRepository
 import { PrismaCharacterRepository } from './repositories/prisma/PrismaCharacterRepository';
 import { PrismaItemRepository } from './repositories/prisma/PrismaItemRepository';
 import { PrismaRaidHistoryRepository } from './repositories/prisma/PrismaRaidHistoryRepository';
+import { MemoryCache } from './cache/MemoryCache';
+import { CachedUserRepository } from './repositories/prisma/CachedUserRepository';
+import { CachedCharacterRepository } from './repositories/prisma/CachedCharacterRepository';
+import { CachedItemRepository } from './repositories/prisma/CachedItemRepository';
 
 // Services
 import { AuthService } from './services/AuthService';
@@ -18,10 +22,17 @@ import { InventoryController } from './controllers/InventoryController';
 import { ShopController } from './controllers/ShopController';
 import { AdminController } from './controllers/AdminController';
 
+// 0. Instantiate Cache
+export const memoryCache = new MemoryCache();
+
 // 1. Instantiate Repositories
-export const userRepository = new PrismaUserRepository();
-export const characterRepository = new PrismaCharacterRepository();
-export const itemRepository = new PrismaItemRepository();
+const prismaUserRepository = new PrismaUserRepository();
+const prismaCharacterRepository = new PrismaCharacterRepository();
+const prismaItemRepository = new PrismaItemRepository();
+
+export const userRepository = new CachedUserRepository(prismaUserRepository, memoryCache);
+export const characterRepository = new CachedCharacterRepository(prismaCharacterRepository, memoryCache);
+export const itemRepository = new CachedItemRepository(prismaItemRepository, memoryCache);
 export const raidHistoryRepository = new PrismaRaidHistoryRepository();
 
 // 2. Instantiate Services (Inject Repositories)
