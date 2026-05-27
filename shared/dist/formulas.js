@@ -8,11 +8,7 @@ export const xpToNextLevel = (level) => {
         }
         return total1To99;
     }
-    if (level < 60) {
-        return Math.floor(60 + Math.pow(level, 1.2));
-    }
-    // From level 60 to 98:
-    return Math.floor(195 + Math.pow(level - 59, 2.5));
+    return Math.floor(100 + 15 * Math.pow(level, 1.7));
 };
 // Calculate final character stats from raw database inputs
 export const calculateCharacterStats = (charClass, level, talentsList, passivesList, equippedItems) => {
@@ -155,22 +151,22 @@ export const calculateCharacterStats = (charClass, level, talentsList, passivesL
     }
     // 5. Apply Keystones
     if (passivesList.includes('r10_0')) { // Glass Cannon
-        attackPower *= 1.5;
-        maxHp *= 0.7;
+        attackPower *= 1.25;
+        maxHp *= 0.85;
     }
     if (passivesList.includes('r10_5')) { // Resolute Technique
-        attackPower *= 1.4;
+        attackPower *= 1.25;
     }
     if (passivesList.includes('r10_10')) { // Elemental Overload
-        attackPower *= 1.35;
+        attackPower *= 1.25;
     }
     if (passivesList.includes('r10_16')) { // Iron Fortress
         reflect += 0.30;
-        moveSpeedPct -= 0.15;
+        moveSpeedPct -= 0.05;
     }
     if (passivesList.includes('r10_21')) { // Unwavering Stance
         defMult += 0.50;
-        moveSpeedPct -= 0.15;
+        moveSpeedPct -= 0.05;
     }
     if (passivesList.includes('r10_26')) { // Juggernaut Bulwark
         reflect += 0.35;
@@ -213,7 +209,7 @@ export const calculateCharacterStats = (charClass, level, talentsList, passivesL
     // Ring 14 Celestial Keystones
     // Might (s = 0)
     if (passivesList.includes('r14_0_key1')) { // Titan's Grip
-        atkMult += 0.50;
+        atkMult += 0.25;
     }
     if (passivesList.includes('r14_0_key2')) { // Bloodthirst
         critChance += 0.25;
@@ -508,4 +504,24 @@ export const generateRandomItem = (itemLevel, rarity, slot, charClass) => {
 };
 export const getLegendaryDescription = (affixType) => {
     return '';
+};
+export const getEnemyAttackRange = (name, spriteType) => {
+    const lowerName = name.toLowerCase();
+    const lowerSprite = spriteType ? spriteType.toLowerCase() : '';
+    if (lowerName.includes('archer') || lowerName.includes('bow') || lowerSprite.includes('archer') || lowerSprite.includes('bow')) {
+        return 200;
+    }
+    if (lowerName.includes('acolyte') || lowerName.includes('lich') || lowerName.includes('priest') || lowerName.includes('wight') ||
+        lowerSprite.includes('acolyte') || lowerSprite.includes('lich') || lowerSprite.includes('priest') || lowerSprite.includes('wight')) {
+        return 180;
+    }
+    if (lowerName.includes('viper') || lowerName.includes('adder') || lowerName.includes('cobra') || lowerName.includes('snake') || lowerName.includes('mamba') ||
+        lowerSprite.includes('viper') || lowerSprite.includes('adder') || lowerSprite.includes('cobra') || lowerSprite.includes('snake') || lowerSprite.includes('mamba')) {
+        return 120;
+    }
+    if (lowerName.includes('dragon') || lowerName.includes('drake') || lowerName.includes('sovereign') || lowerName.includes('wyvern') || lowerName.includes('hatchling') ||
+        lowerSprite.includes('dragon') || lowerSprite.includes('drake') || lowerSprite.includes('sovereign') || lowerSprite.includes('wyvern') || lowerSprite.includes('hatchling')) {
+        return 100;
+    }
+    return 35;
 };

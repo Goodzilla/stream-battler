@@ -226,6 +226,24 @@ export const SPRITES: Record<string, string[]> = {
     ".....kk..kk.....",
     "................"
   ],
+  GOBLIN_ARCHER: [
+    "......wwww......",
+    ".....wggggw.....",
+    "....wggggggw....",
+    "...wggggggggw...",
+    "..wgyygggyyggw..",
+    "..wgykkkkykkgw..",
+    "...ggkkkkkkgg.yy",
+    "....gggggggg.y.y",
+    ".....gggggg..y.y",
+    "....gggggggg..y.",
+    "...ggrrggggrrg..",
+    "...grrggggggrg..",
+    "....gggggggg....",
+    ".....gg..gg.....",
+    ".....kk..kk.....",
+    "................"
+  ],
   YOUNG_ADDER: [
     "................",
     "......pppp......",

@@ -33,3 +33,4 @@ export declare const xpToNextLevel: (level: number) => number;
 export declare const calculateCharacterStats: (charClass: string, level: number, talentsList: string[], passivesList: string[], equippedItems: ItemData[]) => CharacterStats;
 export declare const generateRandomItem: (itemLevel: number, rarity: "COMMON" | "UNCOMMON" | "RARE" | "EPIC" | "LEGENDARY", slot: "WEAPON" | "ARMOR" | "ACCESSORY", charClass?: string) => ItemData;
 export declare const getLegendaryDescription: (affixType: string) => string;
+export declare const getEnemyAttackRange: (name: string, spriteType?: string) => number;

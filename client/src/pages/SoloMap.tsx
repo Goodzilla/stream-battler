@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../utils/api';
-import { calculateCharacterStats, CLASSES, ARENA_CONFIGS } from 'shared';
+import { calculateCharacterStats, CLASSES, ARENA_CONFIGS, getEnemyAttackRange } from 'shared';
 import { soundManager } from '../game/soundManager';
 import { getDistance } from '../game/physics';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
@@ -26,6 +26,23 @@ interface SoloMapProps {
   showAlert: (message: string, title?: string) => void;
 }
 
+const getProjectileType = (name: string, spriteOrClass?: string): 'ARROW' | 'FIRE' | 'POISON' | 'SPELL' => {
+  const n = name.toLowerCase();
+  const s = spriteOrClass ? spriteOrClass.toLowerCase() : '';
+  if (n.includes('archer') || n.includes('bow') || s.includes('ranger') || s.includes('archer')) {
+    return 'ARROW';
+  }
+  if (n.includes('dragon') || n.includes('drake') || n.includes('sovereign') || n.includes('wyvern') || n.includes('hatchling') ||
+      s.includes('dragon') || s.includes('drake') || s.includes('wyvern') || s.includes('hatchling')) {
+    return 'FIRE';
+  }
+  if (n.includes('viper') || n.includes('adder') || n.includes('cobra') || n.includes('snake') || n.includes('mamba') ||
+      s.includes('viper') || s.includes('adder') || s.includes('cobra') || s.includes('snake') || s.includes('mamba')) {
+    return 'POISON';
+  }
+  return 'SPELL';
+};
+
 export const SoloMap: React.FC<SoloMapProps> = ({
   character,
   mapLevel,
@@ -50,6 +67,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
     units: CombatUnit[];
     particles: VisualParticle[];
     floatingTexts: FloatingText[];
+    projectiles: any[];
     wave: number;
     kills: number;
     xpGained: number;
@@ -64,6 +82,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
     units: [],
     particles: [],
     floatingTexts: [],
+    projectiles: [],
     wave: 1,
     kills: 0,
     xpGained: 0,
@@ -177,6 +196,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
       units: [playerUnit],
       particles: [],
       floatingTexts: [],
+      projectiles: [],
       wave: 1,
       kills: 0,
       xpGained: 0,
@@ -215,7 +235,13 @@ export const SoloMap: React.FC<SoloMapProps> = ({
       const name = i % 2 === 0
         ? `${arena.enemyNames[0]} v${waveNum}`
         : `${arena.enemyNames[1] || arena.enemyNames[0]} v${waveNum}`;
-      const spriteType = arena.enemySprite;
+      
+      let spriteType = arena.enemySprite;
+      if (name.toLowerCase().includes('archer')) {
+        spriteType = 'GOBLIN_ARCHER';
+      }
+
+      const range = getEnemyAttackRange(name, spriteType);
 
       newEnemies.push({
         id: `enemy_${waveNum}_${i}`,
@@ -230,7 +256,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
         critChance: 0.05,
         critMult: 1.5,
         atkSpeed: 0.75 + currentMapLevel * 0.02,
-        attackRange: 35,
+        attackRange: range,
         color: '#ff3b30', // glowing enemy neon red
         atkTimer: Math.random() * 1.5, // stagger attack times
         skillTimer: 0,
@@ -444,12 +470,29 @@ export const SoloMap: React.FC<SoloMapProps> = ({
                   );
                   
                   if (dummyProjectiles.length > 0) {
-                    ctx.strokeStyle = unit.color;
-                    ctx.lineWidth = unit.isPlayer ? 2 : 1;
-                    ctx.beginPath();
-                    ctx.moveTo(unit.x, unit.y);
-                    ctx.lineTo(target.x, target.y);
-                    ctx.stroke();
+                    const isRanged = unit.attackRange > 50;
+                    if (isRanged) {
+                      const speed = 420 * dt;
+                      const type = getProjectileType(unit.name, unit.spriteType || unit.classType);
+                      s.projectiles.push({
+                        x: unit.x,
+                        y: unit.y,
+                        tx: target.x,
+                        ty: target.y,
+                        speed: speed,
+                        color: unit.color,
+                        type: type,
+                        life: 1.0,
+                        targetId: target.id
+                      });
+                    } else {
+                      ctx.strokeStyle = unit.color;
+                      ctx.lineWidth = unit.isPlayer ? 2.5 : 1.5;
+                      ctx.beginPath();
+                      ctx.moveTo(unit.x, unit.y);
+                      ctx.lineTo(target.x, target.y);
+                      ctx.stroke();
+                    }
                   }
 
                   s.shakeTimer = dummyRecap.shakeTimer;
@@ -570,6 +613,113 @@ export const SoloMap: React.FC<SoloMapProps> = ({
         const hpPct = Math.max(0, unit.hp / unit.maxHp);
         ctx.fillStyle = unit.isPlayer ? '#34c759' : '#ff3b30';
         ctx.fillRect(bx, by, barW * hpPct, barH);
+      });
+
+      // Update and Render Projectiles
+      s.projectiles = s.projectiles.filter(p => {
+        const targetUnit = s.units.find(u => u.id === p.targetId && u.hp > 0);
+        if (targetUnit) {
+          p.tx = targetUnit.x;
+          p.ty = targetUnit.y;
+        }
+
+        const dx = p.tx - p.x;
+        const dy = p.ty - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < p.speed) {
+          addExplosion(p.tx, p.ty, p.color, 8);
+          return false;
+        }
+
+        const angle = Math.atan2(dy, dx);
+        p.x += Math.cos(angle) * p.speed;
+        p.y += Math.sin(angle) * p.speed;
+        p.life -= dt;
+
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(angle);
+
+        if (p.type === 'ARROW') {
+          // Shaft
+          ctx.strokeStyle = '#e2e8f0';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(-12, 0);
+          ctx.lineTo(4, 0);
+          ctx.stroke();
+
+          // Tip
+          ctx.fillStyle = '#ffcc00';
+          ctx.beginPath();
+          ctx.moveTo(4, -2);
+          ctx.lineTo(8, 0);
+          ctx.lineTo(4, 2);
+          ctx.fill();
+
+          // Fletching
+          ctx.strokeStyle = p.color;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(-12, 0);
+          ctx.lineTo(-15, -3);
+          ctx.moveTo(-9, 0);
+          ctx.lineTo(-12, -3);
+          ctx.moveTo(-12, 0);
+          ctx.lineTo(-15, 3);
+          ctx.moveTo(-9, 0);
+          ctx.lineTo(-12, 3);
+          ctx.stroke();
+        } else if (p.type === 'FIRE') {
+          const gradient = ctx.createRadialGradient(0, 0, 1, 0, 0, 6);
+          gradient.addColorStop(0, '#ffffff');
+          gradient.addColorStop(0.3, '#ffcc00');
+          gradient.addColorStop(0.8, '#ff3b30');
+          gradient.addColorStop(1, 'rgba(255, 59, 48, 0)');
+          
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.arc(0, 0, 6, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = 'rgba(255, 59, 48, 0.4)';
+          ctx.beginPath();
+          ctx.moveTo(-4, -4);
+          ctx.lineTo(-16, 0);
+          ctx.lineTo(-4, 4);
+          ctx.closePath();
+          ctx.fill();
+        } else if (p.type === 'POISON') {
+          ctx.fillStyle = '#34c759';
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 5, 2.5, 0, 0, Math.PI * 2);
+          ctx.fill();
+          
+          ctx.fillStyle = 'rgba(52, 199, 89, 0.3)';
+          ctx.beginPath();
+          ctx.ellipse(-4, 0, 6, 3.5, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          const gradient = ctx.createRadialGradient(0, 0, 1, 0, 0, 5);
+          gradient.addColorStop(0, '#ffffff');
+          gradient.addColorStop(0.4, p.color);
+          gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.arc(0, 0, 5, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.strokeStyle = p.color;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(0, 0, 7, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        ctx.restore();
+        return p.life > 0;
       });
 
       // 3. UPDATE PARTICLES & TEXTS WITH ENGINE

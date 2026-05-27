@@ -536,3 +536,26 @@ export const generateRandomItem = (
 export const getLegendaryDescription = (affixType: string): string => {
   return '';
 };
+
+export const getEnemyAttackRange = (name: string, spriteType?: string): number => {
+  const lowerName = name.toLowerCase();
+  const lowerSprite = spriteType ? spriteType.toLowerCase() : '';
+
+  if (lowerName.includes('archer') || lowerName.includes('bow') || lowerSprite.includes('archer') || lowerSprite.includes('bow')) {
+    return 200;
+  }
+  if (lowerName.includes('acolyte') || lowerName.includes('lich') || lowerName.includes('priest') || lowerName.includes('wight') ||
+      lowerSprite.includes('acolyte') || lowerSprite.includes('lich') || lowerSprite.includes('priest') || lowerSprite.includes('wight')) {
+    return 180;
+  }
+  if (lowerName.includes('viper') || lowerName.includes('adder') || lowerName.includes('cobra') || lowerName.includes('snake') || lowerName.includes('mamba') ||
+      lowerSprite.includes('viper') || lowerSprite.includes('adder') || lowerSprite.includes('cobra') || lowerSprite.includes('snake') || lowerSprite.includes('mamba')) {
+    return 120;
+  }
+  if (lowerName.includes('dragon') || lowerName.includes('drake') || lowerName.includes('sovereign') || lowerName.includes('wyvern') || lowerName.includes('hatchling') ||
+      lowerSprite.includes('dragon') || lowerSprite.includes('drake') || lowerSprite.includes('sovereign') || lowerSprite.includes('wyvern') || lowerSprite.includes('hatchling')) {
+    return 100;
+  }
+  return 35;
+};
+

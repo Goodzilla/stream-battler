@@ -1,5 +1,5 @@
-import { CLASSES, TALENTS, PASSIVE_SKILL_TREE } from '../shared/src/constants.js';
-import { calculateCharacterStats, ItemData } from '../shared/src/formulas.js';
+import { CLASSES, TALENTS, PASSIVE_SKILL_TREE, getArenaConfigForLevel } from '../shared/src/constants.js';
+import { calculateCharacterStats, ItemData, getEnemyAttackRange } from '../shared/src/formulas.js';
 import { updateUnitPhysics, performBasicAttack, castActiveSkill, CombatUnit, Projectile, FloatingText, Particle } from '../client/src/game/combatEngine.js';
 import { soundManager } from '../client/src/game/soundManager.js';
 
@@ -228,12 +228,25 @@ function spawnEnemiesForWave(waveNum: number, mapLevel: number): CombatUnit[] {
   const baseEnemyHp = Math.round(30 + mapLevel * 15 + Math.pow(mapLevel, 2) * 0.8 + waveNum * 5);
   const baseEnemyAtk = Math.round(4 + mapLevel * 1.2 + Math.pow(mapLevel, 1.8) * 0.05 + waveNum * 0.8);
 
+  const arena = getArenaConfigForLevel(mapLevel);
+
   const list: CombatUnit[] = [];
   for (let i = 0; i < enemyCount; i++) {
+    const name = i % 2 === 0
+      ? `${arena.enemyNames[0]} v${waveNum}`
+      : `${arena.enemyNames[1] || arena.enemyNames[0]} v${waveNum}`;
+    
+    let spriteType = arena.enemySprite;
+    if (name.toLowerCase().includes('archer')) {
+      spriteType = 'GOBLIN_ARCHER';
+    }
+
+    const range = getEnemyAttackRange(name, spriteType);
+
     list.push({
       id: `enemy_${waveNum}_${i}`,
       isPlayer: false,
-      name: `Goblin v${waveNum}`,
+      name,
       x: 950 + Math.random() * 150,
       y: 100 + (i * 400) / enemyCount + (Math.random() * 30 - 15),
       maxHp: baseEnemyHp,
@@ -243,7 +256,7 @@ function spawnEnemiesForWave(waveNum: number, mapLevel: number): CombatUnit[] {
       critChance: 0.05,
       critMult: 1.5,
       atkSpeed: 0.75 + mapLevel * 0.02,
-      attackRange: 35,
+      attackRange: range,
       color: '#ff3b30',
       atkTimer: Math.random() * 1.5,
       skillTimer: 0,
@@ -251,8 +264,9 @@ function spawnEnemiesForWave(waveNum: number, mapLevel: number): CombatUnit[] {
       stunTimer: 0,
       damageDealt: 0,
       healingDone: 0,
-      damageTaken: 0
-    });
+      damageTaken: 0,
+      spriteType
+    } as any);
   }
   return list;
 }
