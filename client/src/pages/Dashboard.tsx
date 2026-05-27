@@ -892,7 +892,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             <div className="flex flex-col gap-1 mt-3 text-[10px] font-mono text-slate-400">
                               {shopItem.baseAttack > 0 && <span className="text-emerald-400">+{shopItem.baseAttack} Attack</span>}
                               {shopItem.baseDefense > 0 && <span className="text-blue-400">+{shopItem.baseDefense} Defense</span>}
-                              {shopItem.affixes && JSON.parse(shopItem.affixes).map((aff: any, i: number) => (
+                              {shopItem.affixes && (typeof shopItem.affixes === 'string' ? JSON.parse(shopItem.affixes) : shopItem.affixes).map((aff: any, i: number) => (
                                 <span key={i} className="text-cyan-400/80">+{Math.round(aff.value * 100)}% {aff.type.replace('_', ' ')}</span>
                               ))}
                             </div>
