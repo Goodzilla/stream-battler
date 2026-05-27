@@ -35,11 +35,15 @@ export const xpToNextLevel = (level: number): number => {
   if (level >= 99) {
     let total1To99 = 0;
     for (let l = 1; l < 99; l++) {
-      total1To99 += Math.floor(80 + Math.pow(l, 1.8));
+      total1To99 += xpToNextLevel(l);
     }
     return total1To99;
   }
-  return Math.floor(80 + Math.pow(level, 1.8));
+  if (level < 60) {
+    return Math.floor(60 + Math.pow(level, 1.2));
+  }
+  // From level 60 to 98:
+  return Math.floor(195 + Math.pow(level - 59, 2.5));
 };
 
 // Calculate final character stats from raw database inputs

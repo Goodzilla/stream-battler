@@ -1,7 +1,18 @@
 import { CLASSES, TALENTS, PASSIVE_SKILL_TREE } from './constants.js';
-// Experience curve: 100 at level 1, increases exponentially
+// Experience curve: Much easier to level up to 50-60, then slows down. Level 99-100 takes as long as 1 to 99 combined.
 export const xpToNextLevel = (level) => {
-    return Math.floor(100 * Math.pow(level, 1.5));
+    if (level >= 99) {
+        let total1To99 = 0;
+        for (let l = 1; l < 99; l++) {
+            total1To99 += xpToNextLevel(l);
+        }
+        return total1To99;
+    }
+    if (level < 60) {
+        return Math.floor(60 + Math.pow(level, 1.2));
+    }
+    // From level 60 to 98:
+    return Math.floor(195 + Math.pow(level - 59, 2.5));
 };
 // Calculate final character stats from raw database inputs
 export const calculateCharacterStats = (charClass, level, talentsList, passivesList, equippedItems) => {

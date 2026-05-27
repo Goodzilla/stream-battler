@@ -131,7 +131,7 @@ export const ItemComparisonTooltip: React.FC<ItemComparisonTooltipProps> = ({ it
       : targetItem.affixes || [];
 
     return (
-      <div className="w-[230px] flex flex-col gap-3 font-sans text-xs">
+      <div className="w-[230px] shrink-0 flex flex-col gap-3 font-sans text-xs">
         <div>
           {title && (
             <span className="text-[8px] font-pixel text-cyan-400 block tracking-wider uppercase mb-1">
@@ -174,18 +174,18 @@ export const ItemComparisonTooltip: React.FC<ItemComparisonTooltipProps> = ({ it
 
   return (
     <div 
-      className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-[999] hidden group-hover:flex gap-4 p-4 bg-[#090d16]/95 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-md pointer-events-none select-none text-left"
+      className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-[999] hidden group-hover:flex gap-4 p-4 bg-[#090d16]/95 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-md pointer-events-none select-none text-left w-max"
       style={{
         boxShadow: `0 10px 30px rgba(0, 0, 0, 0.8), 0 0 1px 1px rgba(255, 255, 255, 0.1) inset`
       }}
     >
       {/* Left Column: Hovered Item info */}
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 w-[230px] shrink-0">
         {renderItemCard(item)}
 
         {/* Net Changes Section */}
         {equippedItem && diffs.length > 0 && (
-          <div className="border-t border-white/10 pt-2 flex flex-col gap-1.5 w-[230px] font-mono text-[9px]">
+          <div className="border-t border-white/10 pt-2 flex flex-col gap-1.5 w-[230px] shrink-0 font-mono text-[9px]">
             <span className="text-[8px] font-pixel text-yellow-500 uppercase tracking-wide">Equip Changes</span>
             <div className="flex flex-col gap-0.5">
               {diffs.map((d, i) => {

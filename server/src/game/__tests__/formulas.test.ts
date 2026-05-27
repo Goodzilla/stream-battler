@@ -4,9 +4,18 @@ import { getDistance, getDirection, seek } from '../physics';
 
 describe('XP Curve', () => {
   it('should scale exponentially', () => {
-    expect(xpToNextLevel(1)).toBe(100);
-    expect(xpToNextLevel(5)).toBe(Math.floor(100 * Math.pow(5, 1.5)));
-    expect(xpToNextLevel(20)).toBe(Math.floor(100 * Math.pow(20, 1.5)));
+    expect(xpToNextLevel(1)).toBe(Math.floor(60 + Math.pow(1, 1.2)));
+    expect(xpToNextLevel(5)).toBe(Math.floor(60 + Math.pow(5, 1.2)));
+    expect(xpToNextLevel(20)).toBe(Math.floor(60 + Math.pow(20, 1.2)));
+    expect(xpToNextLevel(60)).toBe(Math.floor(195 + Math.pow(60 - 59, 2.5)));
+    expect(xpToNextLevel(80)).toBe(Math.floor(195 + Math.pow(80 - 59, 2.5)));
+
+    // Level 99-100 takes as long as 1 to 99 combined
+    let sum1To99 = 0;
+    for (let l = 1; l < 99; l++) {
+      sum1To99 += xpToNextLevel(l);
+    }
+    expect(xpToNextLevel(99)).toBe(sum1To99);
   });
 });
 
