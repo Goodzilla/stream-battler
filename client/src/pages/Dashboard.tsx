@@ -91,7 +91,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // Shop state
   const [shopStock, setShopStock] = useState<any[]>([]);
-  const [shopGold, setShopGold] = useState<number>(user?.gold || 0);
+  const [shopGold, setShopGold] = useState<number>(character?.user?.gold || user?.gold || 0);
   const [shopLoading, setShopLoading] = useState(false);
   const [gambledItem, setGambledItem] = useState<any | null>(null);
 
@@ -112,12 +112,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
 
 
-  // Synchronize gold when user object updates
+  // Synchronize gold when user or character updates
   useEffect(() => {
-    if (user) {
+    if (character?.user) {
+      setShopGold(character.user.gold);
+    } else if (user) {
       setShopGold(user.gold);
     }
-  }, [user]);
+  }, [user, character]);
 
   const items = character?.items || [];
   const equipped = items.filter((item: any) => item.isEquipped);

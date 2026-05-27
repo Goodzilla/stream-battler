@@ -186,6 +186,13 @@ export default function App() {
     };
   }, [socket, page]);
 
+  const handleUpdateCharacter = (char: any) => {
+    setCharacter(char);
+    if (char && char.user) {
+      setUser(char.user);
+    }
+  };
+
   const handleLoginSuccess = (loggedInUser: any, char: any) => {
     setUser(loggedInUser);
     setCharacter(char);
@@ -241,7 +248,7 @@ export default function App() {
           <Dashboard
             user={user}
             character={character}
-            onUpdateCharacter={setCharacter}
+            onUpdateCharacter={handleUpdateCharacter}
             onLogout={handleLogout}
             onNavigate={handleNavigate}
             showAlert={showAlert}
@@ -253,8 +260,8 @@ export default function App() {
           <SoloMap
             character={character}
             mapLevel={navigationParams?.mapLevel || 1}
-            onUpdateCharacter={setCharacter}
-            onBackToDashboard={() => setPage('DASHBOARD')}
+            onUpdateCharacter={handleUpdateCharacter}
+            onBackToDashboard={checkAuth}
             showAlert={showAlert}
           />
         )}
@@ -265,7 +272,7 @@ export default function App() {
             bossName={navigationParams?.bossName || 'Neon Goliath'}
             bossLevel={navigationParams?.bossLevel || 5}
             socket={socket}
-            onBackToDashboard={() => setPage('DASHBOARD')}
+            onBackToDashboard={checkAuth}
             showAlert={showAlert}
           />
         )}
@@ -275,14 +282,14 @@ export default function App() {
             user={user}
             streamerName={navigationParams?.streamerName}
             socket={socket}
-            onBackToDashboard={() => setPage('DASHBOARD')}
+            onBackToDashboard={checkAuth}
             showAlert={showAlert}
           />
         )}
 
         {page === 'LEADERBOARD' && (
           <Leaderboard
-            onBackToDashboard={() => setPage('DASHBOARD')}
+            onBackToDashboard={checkAuth}
           />
         )}
       </main>
