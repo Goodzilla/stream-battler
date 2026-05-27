@@ -71,7 +71,7 @@ if (process.env.NODE_ENV === 'production' || true) {
 setupSocketHandlers(io);
 
 // Start server
-server.listen(Number(PORT), '0.0.0.0', () => {
+server.listen(Number(PORT), () => {
   console.log(`Stream Battler Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
 });
