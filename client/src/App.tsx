@@ -172,17 +172,24 @@ export default function App() {
     }
   }, [socket, character]);
 
-  // Listen to boot events
+  // Listen to boot events and character updates
   useEffect(() => {
     if (!socket) return;
+    
     socket.on('boot-from-solo-arena', () => {
       if (page === 'SOLO_ARENA') {
         setPage('DASHBOARD');
         showAlert('You joined a streamer raid and were booted from your solo arena run.', 'RAID JOINED');
       }
     });
+
+    socket.on('character-updated', (updatedChar: any) => {
+      handleUpdateCharacter(updatedChar);
+    });
+
     return () => {
       socket.off('boot-from-solo-arena');
+      socket.off('character-updated');
     };
   }, [socket, page]);
 
@@ -228,7 +235,7 @@ export default function App() {
       {/* Header Bar */}
       <header className="px-6 py-4 bg-[#0a0d17]/80 backdrop-blur-md border-b border-white/5 flex items-center justify-between select-none">
         <div 
-          onClick={() => user && setPage('DASHBOARD')}
+          onClick={() => user && checkAuth()}
           className="font-display font-black text-white text-lg tracking-wider cursor-pointer hover:opacity-80"
         >
           STREAM <span className="text-neon-cyan">BATTLER</span>

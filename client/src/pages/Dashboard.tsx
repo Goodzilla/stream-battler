@@ -574,7 +574,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start relative z-10">
           
           {/* LEFT COLUMN: Character Emblem & Stat Panel (4 cols) */}
-          <div className="lg:col-span-4 flex flex-col gap-6 relative">
+          <div className="lg:col-span-4 flex flex-col gap-6 relative z-10 hover:z-20 transition-all duration-150">
             
             {/* Emblem wireframe */}
             <div className="glass-panel p-6 border-white/5 bg-[#090e1a]/95 flex flex-col items-center shadow-lg relative">
@@ -687,7 +687,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           {/* RIGHT COLUMN: Interactive Tabs & Panel (8 cols) */}
-          <div className="lg:col-span-8 flex flex-col gap-6">
+          <div className="lg:col-span-8 flex flex-col gap-6 relative z-10 hover:z-20 transition-all duration-150">
             
             {/* Sub Tab Navigation */}
             <div className="flex border-b border-white/5 gap-2 select-none overflow-x-auto pb-1">

@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
 import { prisma } from '../db';
 import { generateRandomItem, xpToNextLevel, calculateCharacterStats } from 'shared';
-import { resolveActiveClass } from '../routes/auth';
+import { resolveActiveClass, getActiveCharacter } from '../routes/auth';
 
 export interface LobbyViewer {
   userId: string;
@@ -500,6 +500,60 @@ export const setupSocketHandlers = (io: Server) => {
                       gold: user.gold + goldGained
                     }
                   });
+
+                  // Refetch full User structure
+                  const updatedUser = await prisma.user.findUnique({
+                    where: { id: user.id },
+                    include: { characters: true, items: true }
+                  });
+
+                  if (updatedUser) {
+                    // Update in-memory lobby viewers for subsequent raids in the same lobby session
+                    const weapon = updatedUser.items.find((i: any) => i.slot === 'WEAPON' && i.isEquipped && i.equippedCharacterId === character.id);
+                    const armor = updatedUser.items.find((i: any) => i.slot === 'ARMOR' && i.isEquipped && i.equippedCharacterId === character.id);
+
+                    const charStats = calculateCharacterStats(
+                      character.class,
+                      newLevel,
+                      JSON.parse(character.talents || '[]'),
+                      JSON.parse(character.passives || '[]'),
+                      updatedUser.items.filter((i: any) => i.isEquipped && i.equippedCharacterId === character.id) as any
+                    );
+
+                    const updatedViewerData: LobbyViewer = {
+                      userId: updatedUser.id,
+                      username: updatedUser.username,
+                      displayName: updatedUser.displayName,
+                      charClass: character.class,
+                      level: newLevel,
+                      weaponRarity: weapon ? weapon.rarity : 'COMMON',
+                      armorRarity: armor ? armor.rarity : 'COMMON',
+                      maxHp: charStats.maxHp,
+                      attackPower: charStats.attackPower,
+                      defense: charStats.defense,
+                      critChance: charStats.critChance,
+                      critMult: charStats.critMult,
+                      atkSpeed: charStats.atkSpeed,
+                      lifesteal: charStats.lifesteal,
+                      reflect: charStats.reflect,
+                      cdr: charStats.cdr,
+                      speed: charStats.moveSpeed,
+                      selectedTalents: JSON.parse(character.talents || '[]'),
+                      fireRes: charStats.fireRes,
+                      coldRes: charStats.coldRes,
+                      poisonRes: charStats.poisonRes,
+                      physRes: charStats.physRes
+                    };
+
+                    const vIdx = lobby.viewers.findIndex(v => v.userId === viewer.userId);
+                    if (vIdx !== -1) {
+                      lobby.viewers[vIdx] = updatedViewerData;
+                    }
+
+                    // Emit to the user's private socket room to update their client state in real-time
+                    const activeChar = getActiveCharacter(updatedUser);
+                    io.to(`user_${user.id}`).emit('character-updated', activeChar);
+                  }
 
                   rewards[viewer.userId] = {
                     xp: xpGained,
