@@ -12,6 +12,7 @@ interface ViewerSpectateProps {
   streamerName: string;
   socket: Socket | null;
   onBackToDashboard: () => void;
+  showAlert: (message: string, title?: string) => void;
 }
 
 interface SpectatorUnit {
@@ -40,7 +41,8 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
   user,
   streamerName,
   socket,
-  onBackToDashboard
+  onBackToDashboard,
+  showAlert
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -185,12 +187,12 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
     };
 
     const handleLobbyClosed = () => {
-      alert("The streamer has closed the lobby or disconnected.");
+      showAlert("The streamer has closed the lobby or disconnected.", "LOBBY CLOSED");
       onBackToDashboard();
     };
 
     const handleLobbyError = (err: any) => {
-      alert(err.error || 'A lobby error occurred');
+      showAlert(err.error || 'A lobby error occurred', "LOBBY ERROR");
     };
 
     socket.on('lobby-update', handleLobbyUpdate);

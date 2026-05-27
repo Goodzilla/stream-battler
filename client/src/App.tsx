@@ -11,6 +11,7 @@ import { CLASSES } from 'shared';
 import { Zap } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { CharacterVisualizer } from './components/CharacterVisualizer';
+import { AlertModal } from './components/AlertModal';
 
 type PageState = 'AUTH' | 'DASHBOARD' | 'SOLO_ARENA' | 'STREAMER_LOBBY' | 'VIEWER_LOBBY' | 'LEADERBOARD';
 
@@ -23,6 +24,13 @@ export default function App() {
   
   // Navigation parameter holders
   const [navigationParams, setNavigationParams] = useState<any>(null);
+
+  // Alert Modal State
+  const [alertConfig, setAlertConfig] = useState<{ title: string; message: string } | null>(null);
+
+  const showAlert = (message: string, title = 'ALERT') => {
+    setAlertConfig({ title, message });
+  };
 
   // Unlock Modal State
   const [unlockedClassesToShow, setUnlockedClassesToShow] = useState<string[]>([]);
@@ -145,6 +153,27 @@ export default function App() {
     };
   }, [user]);
 
+  // Register user room inside socket
+  useEffect(() => {
+    if (socket && character) {
+      socket.emit('register-user', character.userId);
+    }
+  }, [socket, character]);
+
+  // Listen to boot events
+  useEffect(() => {
+    if (!socket) return;
+    socket.on('boot-from-solo-arena', () => {
+      if (page === 'SOLO_ARENA') {
+        setPage('DASHBOARD');
+        showAlert('You joined a streamer raid and were booted from your solo arena run.', 'RAID JOINED');
+      }
+    });
+    return () => {
+      socket.off('boot-from-solo-arena');
+    };
+  }, [socket, page]);
+
   const handleLoginSuccess = (loggedInUser: any, char: any) => {
     setUser(loggedInUser);
     setCharacter(char);
@@ -203,6 +232,7 @@ export default function App() {
             onUpdateCharacter={setCharacter}
             onLogout={handleLogout}
             onNavigate={handleNavigate}
+            showAlert={showAlert}
           />
         )}
 
@@ -212,6 +242,7 @@ export default function App() {
             mapLevel={navigationParams?.mapLevel || 1}
             onUpdateCharacter={setCharacter}
             onBackToDashboard={() => setPage('DASHBOARD')}
+            showAlert={showAlert}
           />
         )}
 
@@ -222,6 +253,7 @@ export default function App() {
             bossLevel={navigationParams?.bossLevel || 5}
             socket={socket}
             onBackToDashboard={() => setPage('DASHBOARD')}
+            showAlert={showAlert}
           />
         )}
 
@@ -231,6 +263,7 @@ export default function App() {
             streamerName={navigationParams?.streamerName}
             socket={socket}
             onBackToDashboard={() => setPage('DASHBOARD')}
+            showAlert={showAlert}
           />
         )}
 
@@ -305,6 +338,14 @@ export default function App() {
           </div>
         );
       })()}
+
+      {alertConfig && (
+        <AlertModal
+          title={alertConfig.title}
+          message={alertConfig.message}
+          onClose={() => setAlertConfig(null)}
+        />
+      )}
     </div>
   );
 }

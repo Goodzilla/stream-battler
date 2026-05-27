@@ -6,9 +6,10 @@ import { apiFetch } from '../utils/api';
 interface PassiveSkillTreeProps {
   character: any;
   onUpdateCharacter: (char: any) => void;
+  showAlert: (message: string, title?: string) => void;
 }
 
-export const PassiveSkillTree: React.FC<PassiveSkillTreeProps> = ({ character, onUpdateCharacter }) => {
+export const PassiveSkillTree: React.FC<PassiveSkillTreeProps> = ({ character, onUpdateCharacter, showAlert }) => {
   const [zoom, setZoom] = useState<number>(1);
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [hoverNode, setHoverNode] = useState<SkillNode | null>(null);
@@ -85,11 +86,11 @@ export const PassiveSkillTree: React.FC<PassiveSkillTreeProps> = ({ character, o
     } else {
       // Toggle on / Allocate
       if (pointsAvailable <= 0) {
-        alert('No skill points available!');
+        showAlert('No skill points available!', 'ALLOCATION ERROR');
         return;
       }
       if (!isConnectable(nodeId)) {
-        alert('Node must be connected to an allocated node!');
+        showAlert('Node must be connected to an allocated node!', 'ALLOCATION ERROR');
         return;
       }
       newAllocations = [...allocated, nodeId];
@@ -102,7 +103,7 @@ export const PassiveSkillTree: React.FC<PassiveSkillTreeProps> = ({ character, o
       });
       onUpdateCharacter(updatedChar);
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message, 'ERROR');
     }
   };
 
@@ -116,7 +117,7 @@ export const PassiveSkillTree: React.FC<PassiveSkillTreeProps> = ({ character, o
         });
         onUpdateCharacter(updatedChar);
       } catch (err: any) {
-        alert(err.message);
+        showAlert(err.message, 'ERROR');
       }
     }
   };

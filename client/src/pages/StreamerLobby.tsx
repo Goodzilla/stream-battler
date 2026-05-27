@@ -28,6 +28,7 @@ interface StreamerLobbyProps {
   bossLevel: number;
   socket: Socket | null;
   onBackToDashboard: () => void;
+  showAlert: (message: string, title?: string) => void;
 }
 
 const getBossSprite = (level: number) => {
@@ -39,7 +40,8 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
   bossName,
   bossLevel,
   socket,
-  onBackToDashboard
+  onBackToDashboard,
+  showAlert
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -106,7 +108,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
     };
 
     const handleLobbyError = (err: any) => {
-      alert(err.error || 'A lobby error occurred');
+      showAlert(err.error || 'A lobby error occurred', 'LOBBY ERROR');
     };
 
     socket.on('lobby-update', handleLobbyUpdate);
@@ -124,7 +126,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
   // Streamer starts the raid
   const handleStartRaid = () => {
     if (!socket || !lobby || lobby.viewers.length === 0) {
-      alert('You need at least 1 viewer in the lobby to start the raid!');
+      showAlert('You need at least 1 viewer in the lobby to start the raid!', 'START RAID ERROR');
       return;
     }
 

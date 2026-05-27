@@ -23,13 +23,15 @@ interface SoloMapProps {
   mapLevel: number;
   onUpdateCharacter: (char: any) => void;
   onBackToDashboard: () => void;
+  showAlert: (message: string, title?: string) => void;
 }
 
 export const SoloMap: React.FC<SoloMapProps> = ({
   character,
   mapLevel,
   onUpdateCharacter,
-  onBackToDashboard
+  onBackToDashboard,
+  showAlert
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -299,7 +301,7 @@ export const SoloMap: React.FC<SoloMapProps> = ({
       setGoldEarned(data.gainedGold);
       setInventoryFull(!!data.inventoryFull);
     } catch (err: any) {
-      alert(`Cheat Protection Alert: ${err.message}`);
+      showAlert(`Cheat Protection Alert: ${err.message}`, 'SECURITY ALERT');
     } finally {
       setReporting(false);
     }

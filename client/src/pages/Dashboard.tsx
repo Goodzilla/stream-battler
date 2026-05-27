@@ -52,6 +52,7 @@ interface DashboardProps {
   onUpdateCharacter: (char: any) => void;
   onLogout: () => void;
   onNavigate: (page: string, params?: any) => void;
+  showAlert: (message: string, title?: string) => void;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -59,7 +60,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   character,
   onUpdateCharacter,
   onLogout,
-  onNavigate
+  onNavigate,
+  showAlert
 }) => {
   const [activeSection, setActiveSection] = useState<'character' | 'solo' | 'raids'>('character');
   const [activeTab, setActiveTab] = useState<'inventory' | 'talents' | 'tree' | 'shop' | 'admin'>('inventory');
@@ -155,7 +157,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       onUpdateCharacter(data);
       setSelectedItem(null);
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     }
   };
 
@@ -169,7 +171,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       const newlyEquipped = updated.items.find((i: any) => i.id === itemId);
       setSelectedItem(newlyEquipped);
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     }
   };
 
@@ -183,7 +185,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       const newlyUnequipped = updated.items.find((i: any) => i.id === itemId);
       setSelectedItem(newlyUnequipped);
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     }
   };
 
@@ -197,13 +199,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
       setSelectedItem(null);
       setShopGold(data.character.user.gold);
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     }
   };
 
   const handleDismantleAllItems = async () => {
     if (inventory.length === 0) {
-      alert('Your backpack inventory is empty!');
+      showAlert('Your backpack inventory is empty!');
       return;
     }
     if (!window.confirm('Are you sure you want to sell all unequipped items in your backpack?')) {
@@ -216,9 +218,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
       onUpdateCharacter(data.character);
       setSelectedItem(null);
       setShopGold(data.character.user.gold);
-      alert(`Sold all unequipped items for ${data.goldGained} Gold!`);
+      showAlert(`Sold all unequipped items for ${data.goldGained} Gold!`);
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     }
   };
 
@@ -239,7 +241,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       });
       onUpdateCharacter(updated);
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     }
   };
 
@@ -247,7 +249,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const handleRefreshShop = async () => {
     const refreshPrice = character.level * 10;
     if (shopGold < refreshPrice) {
-      alert(`You need ${refreshPrice} gold to refresh the shop!`);
+      showAlert(`You need ${refreshPrice} gold to refresh the shop!`);
       return;
     }
     try {
@@ -256,13 +258,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
       setShopStock(data.shopStock);
       setShopGold(data.character.user.gold);
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     }
   };
 
   const handleBuyShopItem = async (shopItemId: string, price: number) => {
     if (shopGold < price) {
-      alert('Insufficient Gold!');
+      showAlert('Insufficient Gold!');
       return;
     }
     try {
@@ -275,14 +277,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
       setShopGold(data.character.user.gold);
       confetti({ particleCount: 60, spread: 40, colors: ['#00d8ff', '#d946ef', '#ffea00'] });
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     }
   };
 
   const handleGambleItem = async (slot: string) => {
     const gamblePrice = character.level * 40;
     if (shopGold < gamblePrice) {
-      alert('Insufficient Gold!');
+      showAlert('Insufficient Gold!');
       return;
     }
     try {
@@ -302,7 +304,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       setTimeout(() => setGambledItem(null), 5000);
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     }
   };
 
@@ -314,9 +316,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
         body: JSON.stringify({ xpAmount: adminXp })
       });
       onUpdateCharacter(res.character);
-      alert(`Granted ${adminXp} XP! Leveled: ${res.leveledUp}`);
+      showAlert(`Granted ${adminXp} XP! Leveled: ${res.leveledUp}`);
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     }
   };
 
@@ -328,9 +330,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
       });
       onUpdateCharacter(updated);
       setShopGold(updated.user.gold);
-      alert(`Granted ${adminGold} Gold!`);
+      showAlert(`Granted ${adminGold} Gold!`);
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     }
   };
 
@@ -346,9 +348,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
       });
       const meData = await apiFetch('/auth/me');
       onUpdateCharacter(meData.character);
-      alert(`Spawned: ${item.name}!`);
+      showAlert(`Spawned: ${item.name}!`);
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     }
   };
 
@@ -358,9 +360,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
         const updated = await apiFetch('/admin/reset-character', { method: 'POST' });
         onUpdateCharacter(updated);
         setSelectedItem(null);
-        alert('Character reset!');
+        showAlert('Character reset!');
       } catch (err: any) {
-        alert(err.message);
+        showAlert(err.message);
       }
     }
   };
@@ -369,9 +371,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
     try {
       const updated = await apiFetch('/admin/unlock-all-classes', { method: 'POST' });
       onUpdateCharacter(updated);
-      alert('All advanced classes unlocked! Base classes set to level 100.');
+      showAlert('All advanced classes unlocked! Base classes set to level 100.');
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     }
   };
 
@@ -382,10 +384,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
         method: 'POST',
         body: JSON.stringify({ username: promoteName })
       });
-      alert(res.message);
+      showAlert(res.message);
       setPromoteName('');
     } catch (err: any) {
-      alert(err.message);
+      showAlert(err.message);
     }
   };
 
@@ -657,7 +659,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             {/* 2. PASSIVE TREE TAB */}
             {activeTab === 'tree' && (
-              <PassiveSkillTree character={character} onUpdateCharacter={onUpdateCharacter} />
+              <PassiveSkillTree character={character} onUpdateCharacter={onUpdateCharacter} showAlert={showAlert} />
             )}
 
             {/* 3. MERCHANT SHOP TAB */}

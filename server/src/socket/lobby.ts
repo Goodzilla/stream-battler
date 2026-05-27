@@ -47,6 +47,11 @@ export const setupSocketHandlers = (io: Server) => {
     let isStreamer = false;
     let connectedUserId: string | null = null;
 
+    // USER REGISTRATION FOR PERSONAL ROOM (For notifications like booting from solo runs)
+    socket.on('register-user', (userId) => {
+      socket.join(`user_${userId}`);
+    });
+
     // STREAMER: CREATE LOBBY
     socket.on('create-lobby', ({ streamerName, bossName, bossLevel }) => {
       const roomName = `lobby_${streamerName.toLowerCase()}`;
@@ -75,6 +80,7 @@ export const setupSocketHandlers = (io: Server) => {
       currentLobby = roomName;
 
       socket.join(roomName);
+      io.to(`user_${userId}`).emit('boot-from-solo-arena');
 
       const lobby = activeLobbies[streamerKey];
       if (lobby) {
@@ -290,6 +296,7 @@ export const setupSocketHandlers = (io: Server) => {
               lobby.viewers = lobby.viewers.filter(v => v.userId !== user!.id);
               lobby.viewers.push(viewerData);
 
+              io.to(`user_${user!.id}`).emit('boot-from-solo-arena');
               io.to(roomName).emit('lobby-update', lobby);
               io.emit('global-lobbies-update', Object.values(activeLobbies));
             }
