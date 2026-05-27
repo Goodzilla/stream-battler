@@ -13,7 +13,6 @@ describe('MemoryCache', () => {
     gold: 500,
     activeClass: 'WARRIOR',
     createdAt: new Date(),
-    updatedAt: new Date(),
     characters: [],
     items: [],
     shopStock: '[]'
