@@ -2,7 +2,8 @@ const fs = require('fs');
 const path = require('path');
 
 // Load environment variables from .env in the server directory
-require('dotenv').config({ path: path.join(__dirname, '../.env') });
+const envPath = path.join(__dirname, '../.env');
+require('dotenv').config({ path: envPath });
 
 const schemaPath = path.join(__dirname, '../prisma/schema.prisma');
 let schema = fs.readFileSync(schemaPath, 'utf8');
@@ -15,6 +16,10 @@ if (!databaseUrl) {
   databaseUrl = 'file:./dev.db';
   process.env.DATABASE_URL = databaseUrl;
   console.log(`DATABASE_URL not set. Defaulting to: ${databaseUrl}`);
+  
+  // Write to a temporary .env file so that Prisma CLI can read it
+  fs.writeFileSync(envPath, `DATABASE_URL="file:./dev.db"\nJWT_SECRET="dev-super-secret-key-12345!"\n`, 'utf8');
+  console.log(`Created temporary .env file at: ${envPath}`);
 }
 
 // Determine provider based on databaseUrl protocol
