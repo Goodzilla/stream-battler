@@ -30,9 +30,16 @@ export interface CharacterStats {
   physRes: number;
 }
 
-// Experience curve: 100 at level 1, increases exponentially
+// Experience curve: Much easier to level up to 50-60, then slows down. Level 99-100 takes as long as 1 to 99 combined.
 export const xpToNextLevel = (level: number): number => {
-  return Math.floor(100 * Math.pow(level, 1.5));
+  if (level >= 99) {
+    let total1To99 = 0;
+    for (let l = 1; l < 99; l++) {
+      total1To99 += Math.floor(80 + Math.pow(l, 1.8));
+    }
+    return total1To99;
+  }
+  return Math.floor(80 + Math.pow(level, 1.8));
 };
 
 // Calculate final character stats from raw database inputs

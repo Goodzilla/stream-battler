@@ -572,7 +572,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           
           {/* LEFT COLUMN: Character Emblem & Stat Panel (4 cols) */}
-          <div className="lg:col-span-4 flex flex-col gap-6 relative z-10">
+          <div className="lg:col-span-4 flex flex-col gap-6 relative">
             
             {/* Emblem wireframe */}
             <div className="glass-panel p-6 border-white/5 bg-[#090e1a]/95 flex flex-col items-center shadow-lg relative">
