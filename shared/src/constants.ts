@@ -927,7 +927,7 @@ const buildPassiveTree = () => {
       outerKey1Desc = 'Allocates Resolute Technique: +40% Attack Power, 0% Crit Chance';
       outerKey2Id = 'r10_10';
       outerKey2Name = 'Keystone: Elemental Overload';
-      outerKey2Desc = 'Allocates Elemental Overload: +35% Attack Power, 0% Cooldown Reduction';
+      outerKey2Desc = 'Allocates Elemental Overload: +35% Attack Power, -30% Defense';
     } else if (type === 'def') {
       outerKey1Id = 'r10_21';
       outerKey1Name = 'Keystone: Unwavering Stance';
@@ -955,7 +955,7 @@ const buildPassiveTree = () => {
       outerKey1Desc = 'Allocates Assassin Pact: +60% Crit Multiplier, -30% Defense';
       outerKey2Id = 'r10_74';
       outerKey2Name = 'Keystone: Perfect Agility';
-      outerKey2Desc = 'Allocates Perfect Agility: +25% Crit Chance, Crit Multiplier locked to 1.2';
+      outerKey2Desc = 'Allocates Perfect Agility: +20% Crit Chance, -40% Crit Multiplier';
     }
 
     const xKey1 = Math.round(500 + 1070 * Math.cos(baseAngle - 0.24));
@@ -1107,12 +1107,12 @@ const buildPassiveTree = () => {
 
     if (type === 'atk') {
       celKey1Name = "Keystone: Titan's Grip";
-      celKey1Desc = "Allocates Titan's Grip: +50% Attack Power, 0% Crit Chance";
+      celKey1Desc = "Allocates Titan's Grip: +50% Attack Power, -25% Attack Speed";
       celKey2Name = 'Keystone: Bloodthirst';
       celKey2Desc = 'Allocates Bloodthirst: +25% Crit Chance, -30% Attack Power';
     } else if (type === 'def') {
       celKey1Name = 'Keystone: Indomitable Bastion';
-      celKey1Desc = 'Allocates Indomitable Bastion: +40% Defense, 0% Reflect';
+      celKey1Desc = 'Allocates Indomitable Bastion: +40% Defense, -15% Attack Power';
       celKey2Name = 'Keystone: Retribution Shield';
       celKey2Desc = 'Allocates Retribution Shield: +30% Reflect, -30% Defense';
     } else if (type === 'life') {
@@ -1124,12 +1124,12 @@ const buildPassiveTree = () => {
       celKey1Name = 'Keystone: Flicker Step';
       celKey1Desc = 'Allocates Flicker Step: +35% Cooldown Reduction, -20% Attack Speed';
       celKey2Name = 'Keystone: Zephyr Wind';
-      celKey2Desc = 'Allocates Zephyr Wind: +30% Attack Speed, 0% Cooldown Reduction';
+      celKey2Desc = 'Allocates Zephyr Wind: +30% Attack Speed, -20% Maximum HP';
     } else {
       celKey1Name = "Keystone: Assassin's Mark";
-      celKey1Desc = "Allocates Assassin's Mark: +60% Crit Multiplier, Crit Chance is locked to 10%";
+      celKey1Desc = "Allocates Assassin's Mark: +60% Crit Multiplier, -20% Crit Chance";
       celKey2Name = 'Keystone: Eagle Eye Focus';
-      celKey2Desc = 'Allocates Eagle Eye Focus: +25% Crit Chance, Crit Multiplier locked to 1.2x';
+      celKey2Desc = 'Allocates Eagle Eye Focus: +25% Crit Chance, -40% Crit Multiplier';
     }
 
     const xCelKey1 = Math.round(500 + 1620 * Math.cos(baseAngle - 0.24));
@@ -1282,7 +1282,7 @@ const buildPassiveTree = () => {
 
     if (type === 'atk') {
       voidKey1Name = 'Keystone: Divine Fervor';
-      voidKey1Desc = 'Allocates Divine Fervor: +40% Attack Speed, 0% Cooldown Reduction';
+      voidKey1Desc = 'Allocates Divine Fervor: +40% Attack Speed, -30% Defense';
       voidKey2Name = 'Keystone: Desperate Strike';
       voidKey2Desc = 'Allocates Desperate Strike: +75% Crit Multiplier, -30% Attack Speed';
     } else if (type === 'def') {
@@ -1292,19 +1292,19 @@ const buildPassiveTree = () => {
       voidKey2Desc = 'Allocates Magma Ward: +20% Fire, Cold, and Poison Resistance, 0% Physical Resistance';
     } else if (type === 'life') {
       voidKey1Name = 'Keystone: Adrenaline Rush';
-      voidKey1Desc = 'Allocates Adrenaline Rush: +30% Attack Speed, 0% Cooldown Reduction';
+      voidKey1Desc = 'Allocates Adrenaline Rush: +30% Attack Speed, -20% Maximum HP';
       voidKey2Name = 'Keystone: Undying Will';
       voidKey2Desc = 'Allocates Undying Will: +30% Cooldown Reduction, -25% Attack Speed';
     } else if (type === 'speed') {
       voidKey1Name = 'Keystone: Hypercharge';
       voidKey1Desc = 'Allocates Hypercharge: +50% Cooldown Reduction, -40% Attack Power';
       voidKey2Name = 'Keystone: Overdrive';
-      voidKey2Desc = 'Allocates Overdrive: +40% Attack Speed, 0% Cooldown Reduction';
+      voidKey2Desc = 'Allocates Overdrive: +40% Attack Speed, -15% Physical Resistance';
     } else {
       voidKey1Name = 'Keystone: Lethal Precision';
-      voidKey1Desc = 'Allocates Lethal Precision: Critical Strike Chance is always 100%, Crit Multiplier is locked to 1.1x';
+      voidKey1Desc = 'Allocates Lethal Precision: +40% Crit Chance, -30% Crit Multiplier';
       voidKey2Name = "Keystone: Slayer's Focus";
-      voidKey2Desc = "Allocates Slayer's Focus: +80% Crit Multiplier, Crit Chance is locked to 10%";
+      voidKey2Desc = "Allocates Slayer's Focus: +80% Crit Multiplier, -25% Crit Chance";
     }
 
     const xVoidKey1 = Math.round(500 + 2170 * Math.cos(baseAngle - 0.24));

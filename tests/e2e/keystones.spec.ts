@@ -150,7 +150,7 @@ test.describe('Stream Raiders Clone - E2E Keystone Redesign Tests', () => {
     await expect(lifestealText).toContainText('0%');
   });
 
-  test('should verify allocating both Void Keystones Lethal Precision and Slayer Focus triggers double penalty (10% crit chance and 1.1x crit mult)', async ({ page }) => {
+  test('should verify allocating both Void Keystones Lethal Precision and Slayer Focus combines their multipliers and penalties (71% / 2x)', async ({ page }) => {
     // Navigate to Skill Tree tab
     await page.click('button:has-text("Skill Tree")');
 
@@ -174,9 +174,9 @@ test.describe('Stream Raiders Clone - E2E Keystone Redesign Tests', () => {
     // Reload and check stats
     await page.reload();
     
-    // Overrides force Crit Chance to 10% and Crit Multiplier to 1.1x
+    // Reworked stackable modifiers combine to yield 71% / 2x
     const critText = page.locator('div:has-text("Crit Chance / Mult:")').first();
-    await expect(critText).toContainText('10% / 1.1x');
+    await expect(critText).toContainText('71% / 2x');
   });
 
   test('should verify passive point unlock scaling and 50 point limit', async ({ page }) => {
