@@ -174,7 +174,7 @@ export const ItemComparisonTooltip: React.FC<ItemComparisonTooltipProps> = ({ it
 
   return (
     <div 
-      className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-[999] hidden md:group-hover:flex gap-4 p-4 bg-[#090d16]/95 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-md pointer-events-none select-none text-left"
+      className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-[999] hidden group-hover:flex gap-4 p-4 bg-[#090d16]/95 border border-white/10 rounded-2xl shadow-2xl backdrop-blur-md pointer-events-none select-none text-left"
       style={{
         boxShadow: `0 10px 30px rgba(0, 0, 0, 0.8), 0 0 1px 1px rgba(255, 255, 255, 0.1) inset`
       }}

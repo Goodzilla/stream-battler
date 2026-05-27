@@ -175,8 +175,8 @@ shopRouter.post('/gamble', async (req: Request, res: Response) => {
     return;
   }
 
-  // Cost scales with character level: Level * 60 gold
-  const price = activeChar.level * 60;
+  // Cost scales with character level: Level * 120 gold
+  const price = activeChar.level * 120;
 
   if (req.user!.gold < price) {
     res.status(400).json({ error: `Insufficient Gold. Gambling requires ${price} Gold.` });

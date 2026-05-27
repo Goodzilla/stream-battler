@@ -138,7 +138,7 @@ export const GearStash: React.FC<GearStashProps> = ({
               <div
                 key={idx}
                 onClick={() => item && setSelectedItem(item)}
-                className={`aspect-square rounded-lg flex flex-col items-center justify-center border transition duration-300 relative group ${
+                className={`aspect-square rounded-lg flex flex-col items-center justify-center border transition duration-300 relative group hover:z-50 ${
                   item
                     ? `bg-black/40 border-white/10 hover:border-white/20 cursor-pointer item-slot-glow rarity-${item.rarity} p-1`
                     : 'bg-black/10 border-white/5 border-dashed cursor-default'

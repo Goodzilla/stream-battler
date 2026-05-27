@@ -317,7 +317,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   };
 
   const handleGambleItem = async (slot: string) => {
-    const gamblePrice = character.level * 60;
+    const gamblePrice = character.level * 120;
     if (shopGold < gamblePrice) {
       showAlert('Insufficient Gold!');
       return;
