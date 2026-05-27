@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateCharacterStats } from '../formulas';
+import { calculateCharacterStats } from 'shared';
 
 describe('Client Character Stats', () => {
   it('should calculate base Warrior stats on the client', () => {

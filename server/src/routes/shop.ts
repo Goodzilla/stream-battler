@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authenticateJWT, getActiveCharacter } from './auth';
-import { generateRandomItem } from '../game/formulas';
+import { generateRandomItem } from 'shared';
 import { generateShopStock } from './character';
 
 export const shopRouter = Router();

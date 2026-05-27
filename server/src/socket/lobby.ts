@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { prisma } from '../db';
-import { generateRandomItem, xpToNextLevel, calculateCharacterStats } from '../game/formulas';
+import { generateRandomItem, xpToNextLevel, calculateCharacterStats } from 'shared';
 
 export interface LobbyViewer {
   userId: string;

@@ -1,8 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authenticateJWT, getActiveCharacter } from './auth';
-import { validatePassiveAllocation } from '../game/constants';
-import { xpToNextLevel, generateRandomItem } from '../game/formulas';
+import { validatePassiveAllocation, xpToNextLevel, generateRandomItem } from 'shared';
 
 export const characterRouter = Router();
 

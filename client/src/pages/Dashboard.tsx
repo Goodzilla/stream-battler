@@ -2,32 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { CharacterVisualizer } from '../components/CharacterVisualizer';
 import { PassiveSkillTree } from '../components/PassiveSkillTree';
 import { apiFetch } from '../utils/api';
-import { CLASSES, TALENTS } from '../game/constants';
-import { calculateCharacterStats, xpToNextLevel } from '../game/formulas';
+import { CLASSES, calculateCharacterStats, xpToNextLevel } from 'shared';
 import { 
-  Shield, Sparkles, Heart, Sword, Crosshair, Settings,
-  ShoppingBag, RefreshCw, Coins, LogOut, Zap, ExternalLink, Users, User
+  Shield, Sparkles, Heart, Sword, Crosshair,
+  ExternalLink, Users, User
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
-const formatAffix = (type: string, value: number): string => {
-  let label = type.replace('Pct', '').replace('_', ' ').toUpperCase();
-  if (type === 'maxHp') label = 'MAX HP';
-  if (type === 'attackPower') label = 'ATTACK POWER';
-  if (type === 'defense') label = 'DEFENSE';
-  if (type === 'critChance') label = 'CRIT CHANCE';
-  if (type === 'atkSpeedPct') label = 'ATTACK SPEED';
-  if (type === 'moveSpeedPct') label = 'MOVE SPEED';
-  if (type === 'lifesteal') label = 'LIFESTEAL';
-  if (type === 'reflect') label = 'REFLECT';
-  if (type === 'cdr') label = 'CDR';
-  
-  const percentTypes = ['critChance', 'atkSpeedPct', 'moveSpeedPct', 'lifesteal', 'reflect', 'cdr'];
-  if (percentTypes.includes(type)) {
-    return `+${Math.round(value * 100)}% ${label}`;
-  }
-  return `+${value} ${label}`;
-};
+// Import sub components
+import { DashboardHeader } from '../components/dashboard/DashboardHeader';
+import { ClassSwitcher } from '../components/dashboard/ClassSwitcher';
+import { GearStash } from '../components/dashboard/GearStash';
+import { ClassTalentsTab } from '../components/dashboard/ClassTalentsTab';
+import { MerchantShopTab } from '../components/dashboard/MerchantShopTab';
+import { AdminPanelTab } from '../components/dashboard/AdminPanelTab';
 
 const raidTiers = [
   { id: 'tier1', name: 'Tier 1: Goblin Camp', bossName: 'Goblin King', level: 1 },
@@ -425,7 +413,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const xpNeeded = xpToNextLevel(character.level);
   const xpPercent = Math.min(100, Math.round((character.xp / xpNeeded) * 100));
-  const talentList = TALENTS[character.class] || {};
 
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 flex flex-col gap-6">
@@ -491,72 +478,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* 1. TOP HEADER BANNER */}
-      <div className="glass-panel p-6 border-white/5 bg-[#090e1a]/95 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-2 h-full bg-cyan-500/20" style={{ backgroundColor: CLASSES[character.class]?.color }} />
-        
-        <div className="flex flex-col gap-1.5 pl-2">
-          <div className="flex items-center gap-3">
-            <h2 className="text-3xl font-black text-white m-0 tracking-wider">
-              {character.user.displayName.toUpperCase()}
-            </h2>
-            <span
-              className="text-[9px] font-pixel uppercase px-2 py-0.5 rounded border shadow-sm"
-              style={{
-                borderColor: `${CLASSES[character.class]?.color}55`,
-                color: CLASSES[character.class]?.color,
-                backgroundColor: `${CLASSES[character.class]?.color}11`
-              }}
-            >
-              {CLASSES[character.class]?.name}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-4 text-xs font-mono mt-1 text-slate-400">
-            <div className="flex items-center gap-1.5 text-yellow-500 font-bold text-sm">
-              <Coins className="w-4 h-4 shrink-0" />
-              <span>{shopGold} <span className="text-[10px] font-normal uppercase text-yellow-600/70">Gold</span></span>
-            </div>
-            <div className="w-1.5 h-1.5 rounded-full bg-white/10" />
-            <div>
-              Backpack Stash: <span className="text-white font-bold">{inventory.length}</span> / 30 Slots
-            </div>
-          </div>
-        </div>
-
-        {/* Level XP Bar */}
-        <div className="flex-1 max-w-md w-full">
-          <div className="flex justify-between text-[10px] font-pixel text-slate-400 mb-1.5">
-            <span>LEVEL {character.level}</span>
-            <span>{character.xp} / {xpNeeded} XP</span>
-          </div>
-          <div className="w-full h-3 bg-black/40 rounded-full overflow-hidden border border-white/5 p-[2px]">
-            <div
-              className="h-full rounded-full transition-all duration-500 ease-out"
-              style={{
-                width: `${xpPercent}%`,
-                backgroundColor: CLASSES[character.class].color,
-                boxShadow: `0 0 10px ${CLASSES[character.class].color}88`
-              }}
-            />
-          </div>
-        </div>
-
-        <div className="flex gap-2 shrink-0">
-          <button
-            onClick={() => onNavigate('leaderboard')}
-            className="px-4 py-2.5 border border-yellow-500/20 text-yellow-500 text-xs font-display font-semibold uppercase tracking-wider rounded-lg hover:bg-yellow-500 hover:text-black transition duration-300"
-          >
-            Leaderboard
-          </button>
-          <button
-            onClick={onLogout}
-            className="px-4 py-2.5 border border-red-500/20 text-red-400 text-xs font-display font-semibold uppercase tracking-wider rounded-lg hover:bg-red-500 hover:text-black transition duration-300 flex items-center gap-1.5"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            Log Out
-          </button>
-        </div>
-      </div>
+      <DashboardHeader
+        character={character}
+        shopGold={shopGold}
+        inventoryLength={inventory.length}
+        xpPercent={xpPercent}
+        xpNeeded={xpNeeded}
+        onNavigate={onNavigate}
+        onLogout={onLogout}
+      />
 
       {/* 2. MAIN LAYOUT GRID */}
       {activeSection === 'character' ? (
@@ -617,42 +547,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
 
             {/* CLASS SWITCHER PANEL */}
-            <div className="glass-panel p-6 border-white/5 bg-[#090e1a]/95 flex flex-col gap-4 shadow-lg">
-              <h3 className="m-0 text-white font-display text-xs uppercase tracking-wider text-neon-magenta flex items-center gap-1.5">
-                <Zap className="w-4 h-4 shrink-0" />
-                Switch Active Class
-              </h3>
-              <p className="text-[10px] text-slate-400 leading-relaxed m-0 mb-2">
-                Instantly toggle between profiles. Progress, level stats, and equipped items are saved separately.
-              </p>
-
-              <div className="flex flex-col gap-2">
-                {Object.entries(CLASSES).map(([key, config]) => {
-                  const isActive = character.class === key;
-                  const classChar = character.user.characters?.find((c: any) => c.class === key);
-                  const charLvlStr = classChar ? `Lvl ${classChar.level}` : '[NEW]';
-
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => !isActive && handleSelectClass(key)}
-                      disabled={isActive}
-                      className={`w-full py-2.5 px-3 rounded-lg text-xs font-display flex items-center justify-between border transition duration-300 ${
-                        isActive
-                          ? 'bg-white/5 border-white/10 text-white cursor-default'
-                          : 'bg-black/20 hover:bg-black/50 border-white/5 hover:border-white/20 text-slate-400 hover:text-white'
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: config.color }} />
-                        <span className={isActive ? 'font-bold' : ''}>{config.name}</span>
-                      </span>
-                      <span className="text-[10px] font-mono text-slate-500 uppercase">{charLvlStr}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <ClassSwitcher character={character} onSelectClass={handleSelectClass} />
 
           </div>
 
@@ -690,265 +585,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             {/* 1. GEAR & STASH TAB */}
             {activeTab === 'inventory' && (
-              <div className="flex flex-col gap-6 animate-scaleUp">
-                
-                {/* Row 1: Equipped Gear Horizontal Layout */}
-                <div className="glass-panel p-5 border-white/5 bg-black/25 flex flex-col gap-3.5">
-                  <h3 className="m-0 text-white font-display text-xs uppercase tracking-wider mb-2 text-neon-cyan">
-                    Equipped Gear
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {['WEAPON', 'ARMOR', 'ACCESSORY'].map(slot => {
-                      const item = equipped.find((i: any) => i.slot === slot);
-                      return (
-                        <div
-                          key={slot}
-                          onClick={() => item && setSelectedItem(item)}
-                          className={`p-4 rounded-xl flex flex-col justify-between border cursor-pointer transition duration-300 min-h-[95px] relative ${
-                            item
-                              ? `bg-black/50 border-white/15 hover:border-white/30 item-slot-glow rarity-${item.rarity}`
-                              : 'bg-black/20 border-white/5 border-dashed hover:bg-black/30'
-                          }`}
-                          style={item ? {
-                            borderColor: `var(--rarity-${item.rarity.toLowerCase()})`,
-                            boxShadow: `0 0 10px rgba(var(--rarity-${item.rarity.toLowerCase()}-rgb), 0.15)`
-                          } : undefined}
-                        >
-                          <div className="flex justify-between items-start">
-                            <span className="text-[9px] text-slate-500 font-pixel uppercase">
-                              {slot}
-                            </span>
-                            {item && (
-                              <span className="text-[8px] font-mono uppercase font-bold" style={{ color: `var(--rarity-${item.rarity.toLowerCase()})` }}>
-                                {item.rarity}
-                              </span>
-                            )}
-                          </div>
-                          {item ? (
-                            <div className="mt-1 flex flex-col">
-                              <span className="text-xs font-display font-bold text-white leading-snug">
-                                {item.name}
-                              </span>
-                              <div className="text-[9px] font-mono text-slate-400 mt-1 flex flex-col gap-0.5">
-                                {item.baseAttack > 0 && <span className="text-emerald-400">+{item.baseAttack} Atk</span>}
-                                {item.baseDefense > 0 && <span className="text-blue-400">+{item.baseDefense} Def</span>}
-                                {(typeof item.affixes === 'string' ? JSON.parse(item.affixes) : item.affixes).map((aff: any, i: number) => (
-                                  <span key={i} className="text-cyan-400">{formatAffix(aff.type, aff.value)}</span>
-                                ))}
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-[10px] font-mono text-slate-600 mt-2">EMPTY SLOT</span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Row 2: Backpack Inventory Stash Full-width Layout */}
-                <div className="glass-panel p-5 border-white/5 bg-black/25">
-                  <h3 className="m-0 text-white font-display text-xs uppercase tracking-wider mb-4 text-neon-cyan">
-                    Backpack Inventory Stash
-                  </h3>
-                  <div className="grid grid-cols-5 md:grid-cols-8 lg:grid-cols-10 gap-3">
-                    {Array.from({ length: 30 }).map((_, idx) => {
-                      const item = inventory[idx];
-                      return (
-                        <div
-                          key={idx}
-                          onClick={() => item && setSelectedItem(item)}
-                          className={`aspect-square rounded-lg flex flex-col items-center justify-center border transition duration-300 relative ${
-                            item
-                              ? `bg-black/40 border-white/10 hover:border-white/20 cursor-pointer item-slot-glow rarity-${item.rarity} p-1`
-                              : 'bg-black/10 border-white/5 border-dashed cursor-default'
-                          }`}
-                          style={item ? {
-                            borderColor: `var(--rarity-${item.rarity.toLowerCase()})`
-                          } : undefined}
-                        >
-                          {item ? (
-                            <div className="flex flex-col items-center text-center w-full">
-                              <span className="text-[9px] text-white font-bold leading-tight truncate w-full px-0.5">
-                                {item.name.split(' ').slice(-1)[0]}
-                              </span>
-                              <span className="text-[8px] font-mono text-slate-500 font-bold uppercase mt-0.5">
-                                Lvl {item.itemLevel}
-                              </span>
-                              <span className="text-[8px] font-pixel text-slate-600 uppercase mt-0.5 scale-90">
-                                {item.slot[0]}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-[8px] font-mono text-slate-700 select-none">{idx + 1}</span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Row 3: Inspect Selected Gear Tooltip/Detail Panel */}
-                {selectedItem && (
-                  <div className="glass-panel p-6 border-white/10 bg-[#0c1221] shadow-2xl flex flex-col gap-4 relative animate-scaleUp">
-                    <button 
-                      onClick={() => setSelectedItem(null)}
-                      className="absolute top-4 right-4 text-slate-400 hover:text-white font-bold text-xs"
-                    >
-                      CLOSE [X]
-                    </button>
-                    
-                    <div>
-                      <span className="text-[8px] font-pixel text-slate-500 uppercase tracking-widest">[ Inspecting Gear Item ]</span>
-                      <h3 className="text-lg font-display font-black text-white m-0 mt-1 leading-none flex items-center gap-2">
-                        {selectedItem.name}
-                        <span className="text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 border rounded-full font-bold" 
-                              style={{
-                                borderColor: `var(--rarity-${selectedItem.rarity.toLowerCase()})`,
-                                color: `var(--rarity-${selectedItem.rarity.toLowerCase()})`,
-                                backgroundColor: `rgba(0,0,0,0.2)`
-                              }}>
-                          {selectedItem.rarity}
-                        </span>
-                      </h3>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4 text-xs font-mono border-t border-white/5 pt-4">
-                      <div>
-                        <span className="text-slate-500 block">Item Slot:</span>
-                        <span className="text-white font-bold">{selectedItem.slot}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-500 block">Required Level:</span>
-                        <span className="text-white font-bold">lvl {selectedItem.itemLevel}</span>
-                      </div>
-                      {selectedItem.baseAttack > 0 && (
-                        <div>
-                          <span className="text-slate-500 block">Base Attack:</span>
-                          <span className="text-emerald-400 font-bold">+{selectedItem.baseAttack} Power</span>
-                        </div>
-                      )}
-                      {selectedItem.baseDefense > 0 && (
-                        <div>
-                          <span className="text-slate-500 block">Base Defense:</span>
-                          <span className="text-blue-400 font-bold">+{selectedItem.baseDefense} Armor</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Affixes list formatted */}
-                    <div className="border-t border-white/5 pt-4 flex flex-col gap-2">
-                      <span className="text-[9px] font-pixel text-slate-500 uppercase tracking-wider">Rolled Enchantments</span>
-                      <div className="flex flex-col gap-1.5">
-                        {(typeof selectedItem.affixes === 'string' ? JSON.parse(selectedItem.affixes || '[]') : selectedItem.affixes || []).map((aff: any, index: number) => (
-                          <div key={index} className="text-xs font-mono text-cyan-400 flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0" />
-                            <span>
-                              {formatAffix(aff.type, aff.value)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Equip & Sell Actions */}
-                    <div className="border-t border-white/5 pt-5 flex gap-4 mt-2">
-                      {selectedItem.isEquipped ? (
-                        <button
-                          onClick={() => handleUnequipItem(selectedItem.id)}
-                          className="flex-1 py-2.5 bg-yellow-600/10 hover:bg-yellow-600 text-yellow-500 hover:text-black border border-yellow-500/40 hover:border-yellow-500 rounded text-xs font-display font-bold uppercase tracking-wider transition duration-300"
-                        >
-                          Unequip
-                        </button>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => handleEquipItem(selectedItem.id)}
-                            className="flex-1 py-2.5 bg-emerald-600/10 hover:bg-emerald-600 text-emerald-400 hover:text-black border border-emerald-500/40 hover:border-emerald-500 rounded text-xs font-display font-bold uppercase tracking-wider transition duration-300"
-                          >
-                            Equip Gear
-                          </button>
-                          <button
-                            onClick={() => handleDismantleItem(selectedItem.id)}
-                            className="px-6 py-2.5 bg-red-950/40 hover:bg-red-600 text-red-400 hover:text-white border border-red-800/40 hover:border-red-600 rounded text-xs font-display font-bold uppercase tracking-wider transition duration-300"
-                          >
-                            Sell Item
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-              </div>
+              <GearStash
+                equipped={equipped}
+                inventory={inventory}
+                selectedItem={selectedItem}
+                setSelectedItem={setSelectedItem}
+                onEquipItem={handleEquipItem}
+                onUnequipItem={handleUnequipItem}
+                onDismantleItem={handleDismantleItem}
+              />
             )}
 
             {/* Class Talents Tab */}
             {activeTab === 'talents' && (
-              <div className="glass-panel p-6 border-white/5 bg-black/25 animate-scaleUp">
-                <h3 className="m-0 text-white font-display text-xs uppercase tracking-wider mb-4 text-neon-cyan">
-                  Class Talents
-                </h3>
-                
-                <div className="flex flex-col gap-4 max-h-[600px] overflow-y-auto pr-2">
-                  {Array.from({ length: 20 }, (_, idx) => idx + 1).map(tier => {
-                    const reqLevel = tier * 5;
-                    const isUnlocked = character.level >= reqLevel;
-                    const tierTalents = Object.values(talentList).filter(
-                      (t: any) => t.tier === tier
-                    );
-                    const selected = JSON.parse(character.talents || '[]');
-
-                    return (
-                      <div
-                        key={tier}
-                        className={`p-4 border rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition duration-300 ${
-                          isUnlocked
-                            ? 'bg-black/35 border-white/5'
-                            : 'bg-black/10 border-white/5 opacity-40'
-                        }`}
-                      >
-                        <div>
-                          <span className="text-[10px] font-pixel text-slate-500 uppercase tracking-widest leading-none">
-                            Tier {tier} Unlock
-                          </span>
-                          <span className="text-xs text-slate-400 font-mono ml-2">
-                            (Requires Level {reqLevel})
-                          </span>
-                          <div className="text-[11px] text-slate-400 mt-1 uppercase tracking-wider">
-                            Choose one capability:
-                          </div>
-                        </div>
-
-                        <div className="flex gap-4 w-full md:w-auto">
-                          {tierTalents.map((t: any) => {
-                            const isChose = selected.includes(t.id);
-                            return (
-                              <button
-                                key={t.id}
-                                disabled={!isUnlocked}
-                                onClick={() => handleSelectTalent(t.id)}
-                                className={`flex-1 md:flex-initial px-4 py-2.5 rounded-lg text-xs font-display transition duration-300 ${
-                                  isChose
-                                    ? 'bg-neon-cyan/20 border-neon-cyan text-neon-cyan border font-bold shadow-[0_0_10px_rgba(0,216,255,0.15)]'
-                                    : isUnlocked
-                                    ? 'bg-black/40 border-white/5 hover:border-white/20 text-slate-400 hover:text-white border'
-                                    : 'bg-transparent border-white/5 text-slate-600 border cursor-not-allowed'
-                                }`}
-                              >
-                                <div className="text-left font-bold">{t.name}</div>
-                                <div className="text-[9px] font-mono text-left font-normal mt-0.5 leading-normal opacity-85">
-                                  {t.description}
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+              <ClassTalentsTab
+                character={character}
+                onSelectTalent={handleSelectTalent}
+              />
             )}
 
             {/* 2. PASSIVE TREE TAB */}
@@ -958,298 +611,38 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             {/* 3. MERCHANT SHOP TAB */}
             {activeTab === 'shop' && (
-              <div className="flex flex-col gap-6">
-                
-                {/* Buy and refresh stock panel */}
-                <div className="glass-panel p-6 border-white/5 bg-black/25 flex flex-col gap-4">
-                  <div className="flex justify-between items-center border-b border-white/5 pb-4">
-                    <div>
-                      <h3 className="m-0 text-white font-display text-xs uppercase tracking-wider text-neon-cyan">
-                        Merchant Gear Purchase
-                      </h3>
-                      <p className="text-[10px] text-slate-400 leading-relaxed m-0 mt-1 uppercase tracking-wider">
-                        Stock scales to your active level. stock refreshes automatically after battles.
-                      </p>
-                    </div>
-                    
-                    <button
-                      onClick={handleRefreshShop}
-                      className="px-4 py-2 border border-yellow-500/30 text-yellow-500 text-xs font-display font-bold uppercase tracking-wider rounded hover:bg-yellow-500 hover:text-black transition duration-300 flex items-center gap-2"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                      Refresh Stock (10g)
-                    </button>
-                  </div>
-
-                  {shopLoading ? (
-                    <div className="text-slate-500 italic text-xs py-8 text-center uppercase tracking-widest font-mono">
-                      FETCHING STOCK FROM MERCHANT BOARD...
-                    </div>
-                  ) : shopStock.length === 0 ? (
-                    <div className="text-slate-500 italic text-xs py-8 text-center">
-                      The merchant is out of stock! Try refreshing.
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {shopStock.map((shopItem: any) => {
-                        // Calculate purchase price
-                        let price = shopItem.itemLevel * 20;
-                        switch (shopItem.rarity) {
-                          case 'UNCOMMON': price += 50; break;
-                          case 'RARE': price += 150; break;
-                          case 'EPIC': price += 450; break;
-                          case 'LEGENDARY': price += 1000; break;
-                        }
-
-                        return (
-                          <div
-                            key={shopItem.id}
-                            className="p-4 bg-[#090e1a]/85 border border-white/5 rounded-xl flex flex-col justify-between gap-4 hover:border-white/15 transition relative"
-                          >
-                            <div>
-                              <div className="flex justify-between items-start gap-1">
-                                <h4 className="m-0 text-white font-display text-xs tracking-wider leading-snug">{shopItem.name}</h4>
-                                <span className="text-[8px] font-mono uppercase font-bold shrink-0" style={{ color: `var(--rarity-${shopItem.rarity.toLowerCase()})` }}>
-                                  {shopItem.rarity}
-                                </span>
-                              </div>
-                              <div className="text-[10px] text-slate-500 mt-0.5">
-                                Lvl {shopItem.itemLevel} {shopItem.slot}
-                              </div>
-
-                              {/* stats preview */}
-                              <div className="flex flex-col gap-0.5 mt-3 text-[10px] font-mono text-slate-400">
-                                {shopItem.baseAttack > 0 && <span className="text-emerald-400">+{shopItem.baseAttack} Attack</span>}
-                                {shopItem.baseDefense > 0 && <span className="text-blue-400">+{shopItem.baseDefense} Defense</span>}
-                                {shopItem.affixes && (typeof shopItem.affixes === 'string' ? JSON.parse(shopItem.affixes) : shopItem.affixes).map((aff: any, i: number) => (
-                                  <span key={i} className="text-cyan-400/80">{formatAffix(aff.type, aff.value)}</span>
-                                ))}
-                              </div>
-                            </div>
-
-                            <button
-                              onClick={() => handleBuyShopItem(shopItem.id, price)}
-                              className="w-full py-2 bg-yellow-500/10 hover:bg-yellow-500 text-yellow-500 hover:text-black border border-yellow-500/30 rounded text-xs font-display font-bold uppercase tracking-wider transition duration-300 flex items-center justify-center gap-1.5"
-                            >
-                              <Coins className="w-3.5 h-3.5" />
-                              Buy ({price}g)
-                            </button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Mystery gambling card */}
-                <div className="glass-panel p-6 border-white/5 bg-black/25 flex flex-col gap-4 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-neon-purple/5 blur-[50px] -z-10" />
-                  
-                  <h3 className="m-0 text-white font-display text-xs uppercase tracking-wider text-neon-purple flex items-center gap-2">
-                    <ShoppingBag className="w-4 h-4 shrink-0 text-neon-purple" />
-                    Gheed's Mystery Artifacts (Gambling)
-                  </h3>
-                  <p className="text-[10px] text-slate-400 leading-relaxed m-0 mb-2">
-                    Roll the dice for a random item. Mystery artifacts have an index cost scaling with your active character's level: <span className="text-yellow-500 font-bold">{character.level * 40} Gold</span>. Low odds of Epic/Legendary gear.
-                  </p>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-white/5 pt-4">
-                    {['WEAPON', 'ARMOR', 'ACCESSORY'].map(slot => (
-                      <button
-                        key={slot}
-                        onClick={() => handleGambleItem(slot)}
-                        className="p-4 bg-black/40 hover:bg-neon-purple/5 border border-white/5 hover:border-neon-purple/20 rounded-xl flex flex-col items-center justify-between gap-3 text-center transition duration-300"
-                      >
-                        <span className="text-[10px] font-pixel text-slate-500 tracking-widest">{slot}</span>
-                        <span className="text-[18px] font-display font-bold text-white uppercase tracking-wider mt-1">? MYSTERY ?</span>
-                        <div className="text-yellow-500 font-mono text-xs font-bold flex items-center gap-1">
-                          <Coins className="w-3.5 h-3.5 shrink-0" />
-                          {character.level * 40} Gold
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-
-                  {gambledItem && (
-                    <div className="mt-4 p-4 bg-yellow-950/20 border border-yellow-500/20 rounded-xl flex items-center justify-between gap-4 animate-pulse">
-                      <div>
-                        <span className="text-[9px] font-pixel text-yellow-500 uppercase tracking-widest">[ GAMBLING RESULT ]</span>
-                        <h4 className="m-0 text-white font-display text-sm mt-1">{gambledItem.name}</h4>
-                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">
-                          Slot: {gambledItem.slot} | Rarity:{' '}
-                          <span className="font-bold font-mono" style={{ color: `var(--rarity-${gambledItem.rarity.toLowerCase()})` }}>
-                            {gambledItem.rarity}
-                          </span>
-                        </div>
-                      </div>
-                      <span className="text-2xl">🎉</span>
-                    </div>
-                  )}
-                </div>
-
-              </div>
+              <MerchantShopTab
+                character={character}
+                shopStock={shopStock}
+                shopLoading={shopLoading}
+                gambledItem={gambledItem}
+                onRefreshShop={handleRefreshShop}
+                onBuyShopItem={handleBuyShopItem}
+                onGambleItem={handleGambleItem}
+              />
             )}
 
             {/* 6. ADMIN DEV TAB */}
             {activeTab === 'admin' && character.user.isAdmin && (
-              <div className="glass-panel p-6 border-white/5 bg-black/20 flex flex-col gap-6">
-                <h3 className="m-0 text-white font-display text-xs uppercase tracking-wider mb-2 flex items-center gap-1 text-neon-magenta">
-                  <Settings size={14} />
-                  ADMIN DEV OPTIONS (PRODUCTION BYPASS)
-                </h3>
-                <p className="text-xs text-slate-400 leading-relaxed mb-4">
-                  These controls modify the SQLite database immediately. Available in production only for account owners flagged as `isAdmin = true`.
-                </p>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  
-                  {/* Resources */}
-                  <div className="p-4 bg-black/25 border border-white/5 rounded-xl flex flex-col gap-4">
-                    <h4 className="m-0 font-display text-xs text-white uppercase tracking-wider">
-                      Modify Resources
-                    </h4>
-                    <div className="flex gap-2 items-end">
-                      <div className="flex-1">
-                        <label className="block text-[9px] font-mono text-slate-500 uppercase mb-1">
-                          XP Amount
-                        </label>
-                        <input
-                          type="number"
-                          value={adminXp}
-                          onChange={e => setAdminXp(e.target.value)}
-                          className="w-full px-2 py-1.5 bg-[#05070a] border border-white/10 rounded text-xs text-white"
-                        />
-                      </div>
-                      <button
-                        onClick={handleAdminXp}
-                        className="px-3 py-1.5 bg-magenta-900/30 text-neon-magenta border border-magenta-700/30 rounded text-xs hover:bg-magenta-700 hover:text-black font-display font-bold transition duration-300"
-                      >
-                        Grant XP
-                      </button>
-                    </div>
-
-                    <div className="flex gap-2 items-end">
-                      <div className="flex-1">
-                        <label className="block text-[9px] font-mono text-slate-500 uppercase mb-1">
-                          Gold Amount
-                        </label>
-                        <input
-                          type="number"
-                          value={adminGold}
-                          onChange={e => setAdminGold(e.target.value)}
-                          className="w-full px-2 py-1.5 bg-[#05070a] border border-white/10 rounded text-xs text-white"
-                        />
-                      </div>
-                      <button
-                        onClick={handleAdminGold}
-                        className="px-3 py-1.5 bg-magenta-900/30 text-neon-magenta border border-magenta-700/30 rounded text-xs hover:bg-magenta-700 hover:text-black font-display font-bold transition duration-300"
-                      >
-                        Grant Gold
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Spawner */}
-                  <div className="p-4 bg-black/25 border border-white/5 rounded-xl flex flex-col gap-4">
-                    <h4 className="m-0 font-display text-xs text-white uppercase tracking-wider">
-                      Spawn Custom Item
-                    </h4>
-
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <label className="block text-[9px] font-mono text-slate-500 uppercase mb-1">
-                          Slot
-                        </label>
-                        <select
-                          value={spawnSlot}
-                          onChange={e => setSpawnSlot(e.target.value as any)}
-                          className="w-full px-2 py-1.5 bg-[#05070a] border border-white/10 rounded text-[10px] text-white focus:outline-none"
-                        >
-                          <option value="WEAPON">WEAPON</option>
-                          <option value="ARMOR">ARMOR</option>
-                          <option value="ACCESSORY">ACCESSORY</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[9px] font-mono text-slate-500 uppercase mb-1">
-                          Rarity
-                        </label>
-                        <select
-                          value={spawnRarity}
-                          onChange={e => setSpawnRarity(e.target.value as any)}
-                          className="w-full px-2 py-1.5 bg-[#05070a] border border-white/10 rounded text-[10px] text-white focus:outline-none"
-                        >
-                          <option value="COMMON">COMMON</option>
-                          <option value="UNCOMMON">UNCOMMON</option>
-                          <option value="RARE">RARE</option>
-                          <option value="EPIC">EPIC</option>
-                          <option value="LEGENDARY">LEGENDARY</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[9px] font-mono text-slate-500 uppercase mb-1">
-                          Item Lvl
-                        </label>
-                        <input
-                          type="number"
-                          value={spawnLevel}
-                          onChange={e => setSpawnLevel(e.target.value)}
-                          className="w-full px-2 py-1.5 bg-[#05070a] border border-white/10 rounded text-[10px] text-white"
-                        />
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={handleSpawnItem}
-                      className="w-full py-2 bg-magenta-900/30 text-neon-magenta border border-magenta-700/30 rounded text-xs hover:bg-magenta-700 hover:text-black font-display font-bold uppercase transition duration-300"
-                    >
-                      Spawn Item
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
-                  {/* Promote users */}
-                  <div className="p-4 bg-black/25 border border-white/5 rounded-xl flex flex-col gap-4">
-                    <h4 className="m-0 font-display text-xs text-white uppercase tracking-wider">
-                      Promote Player to Admin
-                    </h4>
-                    <div className="flex gap-2 items-end">
-                      <input
-                        type="text"
-                        placeholder="Type username..."
-                        value={promoteName}
-                        onChange={e => setPromoteName(e.target.value)}
-                        className="flex-1 px-3 py-1.5 bg-[#05070a] border border-white/10 rounded text-xs text-white focus:outline-none"
-                      />
-                      <button
-                        onClick={handlePromoteUser}
-                        className="px-4 py-1.5 bg-purple-600/20 text-purple-400 border border-purple-500/20 rounded text-xs hover:bg-purple-500 hover:text-white transition duration-300 font-display font-bold"
-                      >
-                        Promote
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Reset Character */}
-                  <div className="p-4 bg-black/25 border border-white/5 rounded-xl flex flex-col justify-between gap-4">
-                    <div>
-                      <h4 className="m-0 font-display text-xs text-white uppercase tracking-wider">
-                        Reset Active Character
-                      </h4>
-                      <p className="text-[9px] text-slate-500 mt-1 leading-relaxed uppercase">
-                        Warning: wipes level to 1, removes allocated skill tree, and equips commons.
-                      </p>
-                    </div>
-                    <button
-                      onClick={handleResetCharacter}
-                      className="w-full py-2 bg-red-950/40 text-red-400 hover:text-white border border-red-900/40 hover:bg-red-600 rounded text-xs font-display font-bold uppercase tracking-wider transition duration-300"
-                    >
-                      Reset Active Profile
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <AdminPanelTab
+                adminXp={adminXp}
+                setAdminXp={setAdminXp}
+                adminGold={adminGold}
+                setAdminGold={setAdminGold}
+                spawnSlot={spawnSlot}
+                setSpawnSlot={setSpawnSlot}
+                spawnRarity={spawnRarity}
+                setSpawnRarity={setSpawnRarity}
+                spawnLevel={spawnLevel}
+                setSpawnLevel={setSpawnLevel}
+                promoteName={promoteName}
+                setPromoteName={setPromoteName}
+                onAdminXp={handleAdminXp}
+                onAdminGold={handleAdminGold}
+                onSpawnItem={handleSpawnItem}
+                onResetCharacter={handleResetCharacter}
+                onPromoteUser={handlePromoteUser}
+              />
             )}
 
           </div>

@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
 import { authenticateJWT, getActiveCharacter } from './auth';
-import { generateRandomItem, xpToNextLevel } from '../game/formulas';
+import { generateRandomItem, xpToNextLevel } from 'shared';
 
 export const adminRouter = Router();
 

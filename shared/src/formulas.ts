@@ -1,4 +1,4 @@
-import { CLASSES, TALENTS, PASSIVE_SKILL_TREE } from './constants';
+import { CLASSES, TALENTS, PASSIVE_SKILL_TREE } from './constants.js';
 
 export interface ItemData {
   id?: string;
@@ -230,16 +230,6 @@ const ITEM_NAMES = {
   ACCESSORY: ['Runic Ring', 'Jade Amulet', 'Charmed Necklace', 'Iron Band', 'Gemstone Band']
 };
 
-const LEGENDARY_EFFECTS = [
-  { id: 'leg_double_strike', name: 'Double Strike', text: '30% chance on hit to strike a second time.' },
-  { id: 'leg_poison_crit', name: 'Toxic Touch', text: 'Critical hits inject venom dealing 100% attack damage over 3s.' },
-  { id: 'leg_undying_shield', name: 'Aegis Ward', text: 'Gain a shield equal to 30% Max Life for 5s when hit below 30% health (30s CD).' },
-  { id: 'leg_nova_on_hit', name: 'Flame Burst', text: '15% chance when hit to release a fire wave dealing 120% magic damage.' },
-  { id: 'leg_lifesteal_surge', name: 'Vampiric Pact', text: '+15% Lifesteal when below 50% health.' },
-  { id: 'leg_projectile_split', name: 'Multishot', text: 'Projectiles have a 50% chance to split, hitting an extra target.' },
-  { id: 'leg_heal_aoe', name: 'Divine Breath', text: 'Heals are 25% stronger and cure slow/chill.' }
-];
-
 export const generateRandomItem = (
   itemLevel: number,
   rarity: 'COMMON' | 'UNCOMMON' | 'RARE' | 'EPIC' | 'LEGENDARY',
@@ -340,8 +330,5 @@ export const generateRandomItem = (
 };
 
 export const getLegendaryDescription = (affixType: string): string => {
-  if (!affixType.startsWith('legendary_')) return '';
-  const id = affixType.replace('legendary_', '');
-  const effect = LEGENDARY_EFFECTS.find(e => e.id === id);
-  return effect ? `${effect.name}: ${effect.text}` : '';
+  return '';
 };

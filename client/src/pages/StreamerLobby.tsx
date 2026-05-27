@@ -1,11 +1,24 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Socket } from 'socket.io-client';
 import { TwitchConsole } from '../components/TwitchConsole';
-import { getDistance, getDirection, seek } from '../game/physics';
+import { getDistance } from '../game/physics';
 import { ArrowLeft, Play, Users, Skull, ShieldAlert } from 'lucide-react';
-import { CLASSES } from '../game/constants';
+import { CLASSES } from 'shared';
 import confetti from 'canvas-confetti';
 import { drawPixelSprite } from '../game/sprites';
+import {
+  updateUnitPhysics,
+  performBasicAttack,
+  castActiveSkill,
+  updateVisuals,
+  createExplosion
+} from '../game/combatEngine';
+import type {
+  CombatUnit as RaidUnit,
+  FloatingText as DamageText,
+  Particle as VisualParticle,
+  Projectile
+} from '../game/combatEngine';
 
 interface StreamerLobbyProps {
   user: any;
@@ -13,53 +26,6 @@ interface StreamerLobbyProps {
   bossLevel: number;
   socket: Socket | null;
   onBackToDashboard: () => void;
-}
-
-interface RaidUnit {
-  id: string;
-  isPlayer: boolean;
-  name: string;
-  x: number;
-  y: number;
-  maxHp: number;
-  hp: number;
-  speed: number;
-  attackPower: number;
-  critChance: number;
-  critMult: number;
-  atkSpeed: number;
-  attackRange: number;
-  color: string;
-  classType?: string;
-  // CD
-  atkTimer: number;
-  skillTimer: number;
-  activeSkillCd: number;
-  // State
-  stunTimer: number;
-  isHealer?: boolean;
-  // Combat stats from gear/passives
-  defense?: number;
-  lifesteal?: number;
-  reflect?: number;
-  // Combat stats tracking
-  damageDealt?: number;
-  healingDone?: number;
-  damageTaken?: number;
-  // Juice
-  flashTimer?: number;
-  flashColor?: string;
-}
-
-interface VisualParticle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  color: string;
-  size: number;
-  alpha: number;
-  life: number;
 }
 
 const getBossSprite = (level: number) => {
@@ -89,8 +55,8 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
 
   const stateRef = useRef<{
     units: RaidUnit[];
-    projectiles: any[];
-    damageTexts: any[];
+    projectiles: Projectile[];
+    damageTexts: DamageText[];
     particles: VisualParticle[];
     bossMaxHp: number;
     battleState: 'LOBBY' | 'FIGHTING' | 'VICTORY' | 'DEFEAT';
@@ -108,24 +74,6 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
   });
 
   const streamerName = user.username;
-
-  // Trigger particles
-  const addExplosion = (x: number, y: number, color: string, count = 12) => {
-    for (let i = 0; i < count; i++) {
-      const angle = Math.random() * Math.PI * 2;
-      const sp = 2 + Math.random() * 4;
-      stateRef.current.particles.push({
-        x,
-        y,
-        vx: Math.cos(angle) * sp,
-        vy: Math.sin(angle) * sp,
-        color,
-        size: 1.5 + Math.random() * 2.5,
-        alpha: 1.0,
-        life: 40 + Math.random() * 30
-      });
-    }
-  };
 
   useEffect(() => {
     if (!socket) return;
@@ -496,142 +444,64 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
             if (p.atkTimer > 0) p.atkTimer -= dt;
             if (p.skillTimer > 0) p.skillTimer -= dt;
 
-            // Separation
-            let steerX = 0;
-            let steerY = 0;
-            allPlayers.forEach(other => {
-              if (other.hp <= 0) return;
-              if (other.id !== p.id) {
-                if (getDistance(p, other) < 22) {
-                  const dir = getDirection(other, p);
-                  steerX += dir.x * 20 * dt;
-                  steerY += dir.y * 20 * dt;
-                }
-              }
-            });
+            const alliesList = s.units.filter(other => other.isPlayer === p.isPlayer);
+            const enemiesList = s.units.filter(other => other.isPlayer !== p.isPlayer);
 
             if (dist <= p.attackRange) {
-              // Basic attack
               if (p.atkTimer <= 0) {
-                p.atkTimer = 1.0 / p.atkSpeed;
+                const dummyRecap = {
+                  shakeTimer: s.shakeTimer,
+                  shakeIntensity: s.shakeIntensity,
+                  playerDamageDealt: p.damageDealt || 0,
+                  playerDamageTaken: p.damageTaken || 0,
+                  playerHealingDone: p.healingDone || 0
+                };
+                
+                performBasicAttack(
+                  p as any,
+                  target as any,
+                  dt,
+                  dummyRecap,
+                  s.projectiles,
+                  s.damageTexts,
+                  s.particles,
+                  0.1
+                );
 
-                if (p.isHealer && target.isPlayer) {
-                  // Healing
-                  const isCrit = Math.random() < p.critChance;
-                  const finalHeal = Math.round(p.attackPower * (isCrit ? p.critMult : 1.0) * 0.8);
-                  target.hp = Math.min(target.maxHp, target.hp + finalHeal);
-                  p.healingDone = (p.healingDone || 0) + finalHeal;
-                  target.flashTimer = 0.1;
-                  target.flashColor = '#ffcc00';
-
-                  s.projectiles.push({ fx: p.x, fy: p.y, tx: target.x, ty: target.y, color: '#ffcc00', life: 8 });
-                  s.damageTexts.push({ x: target.x, y: target.y - 12, text: `+${finalHeal}`, color: '#ffcc00', life: 40 });
-                  addExplosion(target.x, target.y, '#ffcc00', 8);
-                } else {
-                  // Damage boss
-                  const isCrit = Math.random() < p.critChance;
-                  const finalDmg = Math.round(p.attackPower * (isCrit ? p.critMult : 1.0));
-                  target.hp = Math.max(0, target.hp - finalDmg);
-                  p.damageDealt = (p.damageDealt || 0) + finalDmg;
-                  target.flashTimer = 0.1;
-                  target.flashColor = '#ff3b30';
-
-                  if (isCrit) {
-                    s.shakeTimer = 0.15;
-                    s.shakeIntensity = 6;
-                  }
-
-                  s.projectiles.push({ fx: p.x, fy: p.y, tx: target.x, ty: target.y, color: p.color, life: 6 });
-                  s.damageTexts.push({ x: target.x + (Math.random() * 40 - 20), y: target.y - 20 - (Math.random() * 20), text: `${finalDmg}`, color: isCrit ? '#ff9500' : '#ffffff', life: 45, isCrit });
-                  addExplosion(target.x, target.y, p.color, 12);
-
-                  // Apply lifesteal
-                  if (p.lifesteal && p.lifesteal > 0) {
-                    const heal = Math.round(finalDmg * p.lifesteal);
-                    p.hp = Math.min(p.maxHp, p.hp + heal);
-                    p.healingDone = (p.healingDone || 0) + heal;
-                  }
-                }
+                s.shakeTimer = dummyRecap.shakeTimer;
+                s.shakeIntensity = dummyRecap.shakeIntensity;
+                p.damageDealt = dummyRecap.playerDamageDealt;
+                p.damageTaken = dummyRecap.playerDamageTaken;
+                p.healingDone = dummyRecap.playerHealingDone;
               }
 
-              // Active Skill
               if (p.skillTimer <= 0) {
-                p.skillTimer = p.activeSkillCd;
+                const dummyRecap = {
+                  shakeTimer: s.shakeTimer,
+                  shakeIntensity: s.shakeIntensity,
+                  playerDamageDealt: p.damageDealt || 0,
+                  playerHealingDone: p.healingDone || 0
+                };
 
-                if (p.classType === 'WARRIOR') {
-                  boss.stunTimer = 1.5;
-                  const dmg = Math.round(p.attackPower * 2.0);
-                  boss.hp = Math.max(0, boss.hp - dmg);
-                  p.damageDealt = (p.damageDealt || 0) + dmg;
-                  boss.flashTimer = 0.1;
-                  boss.flashColor = '#ffffff';
-                  s.shakeTimer = 0.25;
-                  s.shakeIntensity = 8;
-                  s.damageTexts.push({ x: boss.x, y: boss.y - 40, text: `${dmg} (Stun Shield!)`, color: '#ff3b30', life: 50, isCrit: true });
-                  addExplosion(boss.x, boss.y, '#ffffff', 20);
-                } else if (p.classType === 'MAGE') {
-                  const dmg = Math.round(p.attackPower * 3.0);
-                  boss.hp = Math.max(0, boss.hp - dmg);
-                  p.damageDealt = (p.damageDealt || 0) + dmg;
-                  boss.flashTimer = 0.1;
-                  boss.flashColor = '#ff9500';
-                  s.shakeTimer = 0.35;
-                  s.shakeIntensity = 10;
-                  s.damageTexts.push({ x: boss.x + (Math.random() * 30 - 15), y: boss.y - 30, text: `${dmg} (Fireball AoE)`, color: '#00d8ff', life: 50, isCrit: true });
-                  addExplosion(boss.x, boss.y, '#ff9500', 30);
-                } else if (p.classType === 'CLERIC') {
-                  allPlayers.forEach(pl => {
-                    if (pl.hp <= 0) return;
-                    const heal = Math.round(p.attackPower * 1.5);
-                    pl.hp = Math.min(pl.maxHp, pl.hp + heal);
-                    p.healingDone = (p.healingDone || 0) + heal;
-                    pl.flashTimer = 0.15;
-                    pl.flashColor = '#ffcc00';
-                    s.damageTexts.push({ x: pl.x, y: pl.y - 12, text: `+${heal}`, color: '#ffcc00', life: 40 });
-                  });
-                  const dmg = Math.round(p.attackPower * 1.0);
-                  boss.hp = Math.max(0, boss.hp - dmg);
-                  p.damageDealt = (p.damageDealt || 0) + dmg;
-                  boss.flashTimer = 0.1;
-                  boss.flashColor = '#ffcc00';
-                  s.shakeTimer = 0.15;
-                  s.shakeIntensity = 4;
-                  s.damageTexts.push({ x: boss.x, y: boss.y - 30, text: `${dmg} (Nova)`, color: '#ffcc00', life: 40 });
-                  addExplosion(p.x, p.y, '#ffcc00', 25);
-                  addExplosion(boss.x, boss.y, '#ffcc00', 12);
-                } else if (p.classType === 'ROGUE') {
-                  const dmg = Math.round(p.attackPower * 0.75);
-                  for (let strike = 0; strike < 5; strike++) {
-                    setTimeout(() => {
-                      if (boss && boss.hp > 0) {
-                        boss.hp = Math.max(0, boss.hp - dmg);
-                        p.damageDealt = (p.damageDealt || 0) + dmg;
-                        boss.flashTimer = 0.08;
-                        boss.flashColor = '#af52de';
-                        s.shakeTimer = 0.12;
-                        s.shakeIntensity = 4;
-                        s.damageTexts.push({ x: boss.x + (Math.random() * 40 - 20), y: boss.y - 20, text: `${dmg}`, color: '#af52de', life: 35 });
-                        addExplosion(boss.x, boss.y, '#af52de', 10);
-                      }
-                    }, strike * 100);
-                  }
-                } else if (p.classType === 'RANGER') {
-                  const dmg = Math.round(p.attackPower * 2.0);
-                  boss.hp = Math.max(0, boss.hp - dmg);
-                  p.damageDealt = (p.damageDealt || 0) + dmg;
-                  boss.flashTimer = 0.1;
-                  boss.flashColor = '#34c759';
-                  s.shakeTimer = 0.25;
-                  s.shakeIntensity = 7;
-                  s.damageTexts.push({ x: boss.x, y: boss.y - 30, text: `${dmg} (Arrow Rain)`, color: '#34c759', life: 45 });
-                  addExplosion(boss.x, boss.y, '#34c759', 20);
-                }
+                castActiveSkill(
+                  p as any,
+                  target as any,
+                  alliesList as any[],
+                  enemiesList as any[],
+                  dummyRecap,
+                  s.projectiles,
+                  s.damageTexts,
+                  s.particles,
+                  0.1
+                );
+
+                s.shakeTimer = dummyRecap.shakeTimer;
+                s.shakeIntensity = dummyRecap.shakeIntensity;
+                p.damageDealt = dummyRecap.playerDamageDealt;
+                p.healingDone = dummyRecap.playerHealingDone;
               }
             } else {
-              // Seek target (and clamp boundaries to 1200x600 resolution)
-              const nextPos = seek(p, target, p.speed, dt);
-              p.x = Math.max(25, Math.min(1175, nextPos.x + steerX));
-              p.y = Math.max(25, Math.min(575, nextPos.y + steerY));
+              updateUnitPhysics(p as any, target, alliesList as any[], dt, canvas.width, canvas.height);
             }
           }
         });
@@ -664,22 +534,30 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                 allPlayers.forEach(p => {
                   if (p.hp <= 0) return;
                   if (getDistance(boss, p) <= boss.attackRange + 20) {
-                    const dmg = Math.max(1, Math.round(boss.attackPower - (p.defense || 0) * 0.1));
-                    p.hp = Math.max(0, p.hp - dmg);
-                    p.damageTaken = (p.damageTaken || 0) + dmg;
-                    p.flashTimer = 0.1;
-                    p.flashColor = '#ffffff';
-                    s.damageTexts.push({ x: p.x, y: p.y - 12, text: `${dmg}`, color: '#ff3b30', life: 40 });
-                    addExplosion(p.x, p.y, '#ff3b30', 12);
+                    const dummyRecap = {
+                      shakeTimer: s.shakeTimer,
+                      shakeIntensity: s.shakeIntensity,
+                      playerDamageDealt: p.damageDealt || 0,
+                      playerDamageTaken: p.damageTaken || 0,
+                      playerHealingDone: p.healingDone || 0
+                    };
 
-                    if (p.reflect && p.reflect > 0) {
-                      const refl = Math.round(dmg * p.reflect);
-                      boss.hp = Math.max(0, boss.hp - refl);
-                      p.damageDealt = (p.damageDealt || 0) + refl;
-                      boss.flashTimer = 0.1;
-                      boss.flashColor = '#ff3b30';
-                      s.damageTexts.push({ x: boss.x + (Math.random() * 40 - 20), y: boss.y - 20, text: `${refl} (Reflect)`, color: '#af52de', life: 40 });
-                    }
+                    performBasicAttack(
+                      boss as any,
+                      p as any,
+                      dt,
+                      dummyRecap,
+                      s.projectiles,
+                      s.damageTexts,
+                      s.particles,
+                      0.1
+                    );
+
+                    s.shakeTimer = dummyRecap.shakeTimer;
+                    s.shakeIntensity = dummyRecap.shakeIntensity;
+                    p.damageDealt = dummyRecap.playerDamageDealt;
+                    p.damageTaken = dummyRecap.playerDamageTaken;
+                    p.healingDone = dummyRecap.playerHealingDone;
                   }
                 });
               }
@@ -702,7 +580,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                   p.flashTimer = 0.15;
                   p.flashColor = '#ff9500';
                   s.damageTexts.push({ x: p.x, y: p.y - 16, text: `${dmg} (Laser Arc!)`, color: '#ff9500', life: 55, isCrit: true });
-                  addExplosion(p.x, p.y, '#ff9500', 15);
+                  createExplosion(s.particles, p.x, p.y, '#ff9500', 15);
 
                   if (p.reflect && p.reflect > 0) {
                     const refl = Math.round(dmg * p.reflect);
@@ -715,10 +593,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                 });
               }
             } else {
-              // Seek target (and clamp boundaries to 1200x600 resolution)
-              const nextPos = seek(boss, target, boss.speed, dt);
-              boss.x = Math.max(25, Math.min(1175, nextPos.x));
-              boss.y = Math.max(25, Math.min(575, nextPos.y));
+              updateUnitPhysics(boss as any, target, [], dt, canvas.width, canvas.height);
             }
           }
         }
@@ -770,15 +645,11 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         ctx.fillRect(bx, by, barW * hpPct, barH);
       });
 
-      // 4. DRAW PARTICLES
-      s.particles = s.particles.filter(p => {
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vx *= 0.95;
-        p.vy *= 0.95;
-        p.alpha -= 0.015;
-        p.life -= 1;
+      // 4. UPDATE PARTICLES, PROJECTILES, AND FLOATING TEXTS WITH ENGINE
+      updateVisuals(s.projectiles, s.damageTexts, s.particles, dt);
 
+      // Render Particles
+      s.particles = s.particles.filter(p => {
         ctx.fillStyle = p.color;
         ctx.globalAlpha = Math.max(0, p.alpha);
         ctx.beginPath();
@@ -789,9 +660,8 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
       });
       ctx.globalAlpha = 1.0;
 
-      // 5. DRAW PROJECTILE LINES
+      // Render Projectile lines
       s.projectiles = s.projectiles.filter(p => {
-        p.life -= 1;
         ctx.strokeStyle = p.color;
         ctx.lineWidth = 2.5;
         ctx.beginPath();
@@ -801,10 +671,8 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         return p.life > 0;
       });
 
-      // 6. DRAW DAMAGE TEXTS
+      // Render Damage Texts
       s.damageTexts = s.damageTexts.filter(ft => {
-        ft.y -= 0.5;
-        ft.life -= 1;
         ctx.fillStyle = ft.color;
         ctx.font = ft.isCrit ? '900 11px Orbitron, sans-serif' : '700 9px Orbitron, sans-serif';
         ctx.textAlign = 'center';

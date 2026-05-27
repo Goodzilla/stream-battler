@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { CLASSES } from '../game/constants';
+import { CLASSES } from 'shared';
 import { drawPixelSprite } from '../game/sprites';
 
 interface CharacterVisualizerProps {

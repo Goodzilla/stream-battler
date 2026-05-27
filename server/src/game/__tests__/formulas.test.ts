@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { xpToNextLevel, calculateCharacterStats, generateRandomItem } from '../formulas';
-import { validatePassiveAllocation } from '../constants';
+import { xpToNextLevel, calculateCharacterStats, generateRandomItem, validatePassiveAllocation } from 'shared';
 import { getDistance, getDirection, seek } from '../physics';
 
 describe('XP Curve', () => {

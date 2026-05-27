@@ -1,65 +1,27 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../utils/api';
-import { calculateCharacterStats } from '../game/formulas';
-import { CLASSES } from '../game/constants';
-import { getDistance, getDirection, seek } from '../game/physics';
+import { calculateCharacterStats, CLASSES } from 'shared';
+import { getDistance } from '../game/physics';
 import { ArrowLeft, Play, AlertCircle } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { drawPixelSprite } from '../game/sprites';
+import { 
+  updateUnitPhysics, 
+  performBasicAttack, 
+  castActiveSkill, 
+  updateVisuals
+} from '../game/combatEngine';
+import type {
+  CombatUnit,
+  FloatingText,
+  Particle as VisualParticle
+} from '../game/combatEngine';
 
 interface SoloMapProps {
   character: any;
   mapLevel: number;
   onUpdateCharacter: (char: any) => void;
   onBackToDashboard: () => void;
-}
-
-interface CombatUnit {
-  id: string;
-  isPlayer: boolean;
-  name: string;
-  x: number;
-  y: number;
-  maxHp: number;
-  hp: number;
-  speed: number;
-  attackPower: number;
-  critChance: number;
-  critMult: number;
-  atkSpeed: number;
-  attackRange: number;
-  color: string;
-  classType?: string;
-  // CD timers
-  atkTimer: number;
-  skillTimer: number;
-  activeSkillCd: number;
-  // States
-  stunTimer: number;
-  isHealer?: boolean;
-  // Juice
-  flashTimer?: number;
-  flashColor?: string;
-}
-
-interface VisualParticle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  color: string;
-  size: number;
-  alpha: number;
-  life: number;
-}
-
-interface FloatingText {
-  x: number;
-  y: number;
-  text: string;
-  color: string;
-  life: number;
-  isCrit: boolean;
 }
 
 export const SoloMap: React.FC<SoloMapProps> = ({
@@ -441,60 +403,64 @@ export const SoloMap: React.FC<SoloMapProps> = ({
               if (unit.atkTimer > 0) unit.atkTimer -= dt;
               if (unit.skillTimer > 0) unit.skillTimer -= dt;
 
-              // Collision separation: keep distance from other allies
-              let steerX = 0;
-              let steerY = 0;
-              s.units.forEach(other => {
-                if (other.id !== unit.id && other.isPlayer === unit.isPlayer) {
-                  const oDist = getDistance(unit, other);
-                  if (oDist < 25) {
-                    const dir = getDirection(other, unit);
-                    steerX += dir.x * 30 * dt;
-                    steerY += dir.y * 30 * dt;
-                  }
-                }
-              });
+              const alliesList = s.units.filter(other => other.isPlayer === unit.isPlayer);
+              const enemiesList = s.units.filter(other => other.isPlayer !== unit.isPlayer);
 
               // Attack or Move
               if (dist <= unit.attackRange) {
                 // Perform Basic attack on cooldown
                 if (unit.atkTimer <= 0) {
-                  unit.atkTimer = 1.0 / unit.atkSpeed;
-
-                  const isCrit = Math.random() < unit.critChance;
-                  const rawDmg = unit.attackPower * (isCrit ? unit.critMult : 1.0);
-                  const finalDmg = Math.max(1, Math.round(rawDmg - (target.isPlayer ? stats.defense : 0) * 0.1));
-
-                  target.hp = Math.max(0, target.hp - finalDmg);
-                  target.flashTimer = 0.1;
-                  target.flashColor = target.isPlayer ? '#ffffff' : '#ff3b30';
-
-                  if (isCrit) {
-                    s.shakeTimer = 0.15;
-                    s.shakeIntensity = 6;
-                  }
-
+                  const dummyRecap = {
+                    shakeTimer: s.shakeTimer,
+                    shakeIntensity: s.shakeIntensity,
+                    playerDamageDealt: s.playerDamageDealt,
+                    playerDamageTaken: s.playerDamageTaken,
+                    playerHealingDone: s.playerHealingDone
+                  };
+                  
                   if (unit.isPlayer) {
-                    s.playerDamageDealt += finalDmg;
-                  } else {
-                    s.playerDamageTaken += finalDmg;
+                    unit.defense = stats.defense;
+                    unit.lifesteal = stats.lifesteal;
+                    unit.reflect = stats.reflect;
+                  }
+                  if (target.isPlayer) {
+                    target.defense = stats.defense;
+                    target.lifesteal = stats.lifesteal;
+                    target.reflect = stats.reflect;
                   }
 
-                  // Flash attack laser
-                  ctx.strokeStyle = unit.color;
-                  ctx.lineWidth = unit.isPlayer ? 2 : 1;
-                  ctx.beginPath();
-                  ctx.moveTo(unit.x, unit.y);
-                  ctx.lineTo(target.x, target.y);
-                  ctx.stroke();
+                  const dummyProjectiles: any[] = [];
+                  performBasicAttack(
+                    unit,
+                    target,
+                    dt,
+                    dummyRecap,
+                    dummyProjectiles,
+                    s.floatingTexts,
+                    s.particles,
+                    0.1
+                  );
+                  
+                  if (dummyProjectiles.length > 0) {
+                    ctx.strokeStyle = unit.color;
+                    ctx.lineWidth = unit.isPlayer ? 2 : 1;
+                    ctx.beginPath();
+                    ctx.moveTo(unit.x, unit.y);
+                    ctx.lineTo(target.x, target.y);
+                    ctx.stroke();
+                  }
 
-                  addExplosion(target.x, target.y, unit.color, 12);
-                  addFloatingText(target.x, target.y - 10, `${finalDmg}`, isCrit ? '#ff9500' : '#ffffff', isCrit);
+                  s.shakeTimer = dummyRecap.shakeTimer;
+                  s.shakeIntensity = dummyRecap.shakeIntensity;
+                  s.playerDamageDealt = dummyRecap.playerDamageDealt;
+                  s.playerDamageTaken = dummyRecap.playerDamageTaken;
+                  s.playerHealingDone = dummyRecap.playerHealingDone;
 
                   // Rogue poison talent proc
                   const selectedTalents: string[] = JSON.parse(character.talents || '[]');
-                  if (unit.isPlayer && unit.classType === 'ROGUE' && selectedTalents.includes('t1_2') && isCrit) {
-                    // Poison triggers extra floating poison dots
+                  const lastText = s.floatingTexts[s.floatingTexts.length - 1];
+                  const wasCrit = lastText && lastText.isCrit;
+                  if (unit.isPlayer && unit.classType === 'ROGUE' && selectedTalents.includes('t1_2') && wasCrit) {
                     setTimeout(() => {
                       if (target && target.hp > 0) {
                         target.hp = Math.max(0, target.hp - 10);
@@ -505,125 +471,41 @@ export const SoloMap: React.FC<SoloMapProps> = ({
                       }
                     }, 1000);
                   }
-
-                  // Heals lifesteal
-                  if (unit.isPlayer && stats.lifesteal > 0) {
-                    const heal = Math.round(finalDmg * stats.lifesteal);
-                    unit.hp = Math.min(unit.maxHp, unit.hp + heal);
-                    unit.flashTimer = 0.1;
-                    unit.flashColor = '#34c759';
-                    s.playerHealingDone += heal;
-                  }
-
-                  // Reflect damage
-                  if (target.isPlayer && stats.reflect > 0) {
-                    const refl = Math.round(finalDmg * stats.reflect);
-                    unit.hp = Math.max(0, unit.hp - refl);
-                    unit.flashTimer = 0.1;
-                    unit.flashColor = '#af52de';
-                    s.playerDamageDealt += refl;
-                    addFloatingText(unit.x, unit.y - 12, `${refl} (Reflect)`, '#af52de');
-                  }
                 }
 
                 // Cast Active skills on cooldown
                 if (unit.isPlayer && unit.skillTimer <= 0) {
-                  unit.skillTimer = unit.activeSkillCd;
+                  const dummyRecap = {
+                    shakeTimer: s.shakeTimer,
+                    shakeIntensity: s.shakeIntensity,
+                    playerDamageDealt: s.playerDamageDealt,
+                    playerHealingDone: s.playerHealingDone
+                  };
+                  
+                   unit.defense = stats.defense;
+                  unit.lifesteal = stats.lifesteal;
+                  unit.reflect = stats.reflect;
 
-                  // Visual cast effects
-                  addExplosion(unit.x, unit.y, '#ffffff', 20);
+                  const dummyProjectiles: any[] = [];
+                  castActiveSkill(
+                    unit,
+                    target,
+                    alliesList,
+                    enemiesList,
+                    dummyRecap,
+                    dummyProjectiles,
+                    s.floatingTexts,
+                    s.particles,
+                    0.1
+                  );
 
-                  if (unit.classType === 'WARRIOR') {
-                    // Shield bash: stun target
-                    target.stunTimer = 1.5;
-                    const dmg = Math.round(unit.attackPower * 2.0);
-                    target.hp = Math.max(0, target.hp - dmg);
-                    target.flashTimer = 0.1;
-                    target.flashColor = '#ffffff';
-                    s.shakeTimer = 0.25;
-                    s.shakeIntensity = 8;
-                    s.playerDamageDealt += dmg;
-                    addFloatingText(target.x, target.y - 20, `${dmg} (Shield Bash Stun!)`, '#ff3b30');
-                  } else if (unit.classType === 'MAGE') {
-                    // Fireball AoE: hit target and adjacent enemies
-                    const dmg = Math.round(unit.attackPower * 2.5);
-                    target.hp = Math.max(0, target.hp - dmg);
-                    target.flashTimer = 0.1;
-                    target.flashColor = '#ff9500';
-                    s.shakeTimer = 0.35;
-                    s.shakeIntensity = 10;
-                    s.playerDamageDealt += dmg;
-                    addFloatingText(target.x, target.y - 25, `${dmg} (Fireball AoE)`, '#00d8ff', true);
-                    
-                    // Hit others
-                    enemies.forEach(e => {
-                      if (e.id !== target!.id && getDistance(target!, e) < 100) {
-                        const spl = Math.round(dmg * 0.6);
-                        e.hp = Math.max(0, e.hp - spl);
-                        e.flashTimer = 0.1;
-                        e.flashColor = '#ff9500';
-                        s.playerDamageDealt += spl;
-                        addFloatingText(e.x, e.y - 15, `${spl}`, '#00d8ff');
-                      }
-                    });
-                  } else if (unit.classType === 'CLERIC') {
-                    // Holy Nova: heal player, damage all enemies in range
-                    const heal = Math.round(stats.healPower * 3.0);
-                    unit.hp = Math.min(unit.maxHp, unit.hp + heal);
-                    unit.flashTimer = 0.15;
-                    unit.flashColor = '#ffcc00';
-                    s.shakeTimer = 0.15;
-                    s.shakeIntensity = 4;
-                    s.playerHealingDone += heal;
-                    addFloatingText(unit.x, unit.y - 20, `+${heal} (Holy Nova)`, '#ffcc00');
-
-                    enemies.forEach(e => {
-                      if (getDistance(unit, e) < 140) {
-                        const dmg = Math.round(unit.attackPower * 1.5);
-                        e.hp = Math.max(0, e.hp - dmg);
-                        e.flashTimer = 0.1;
-                        e.flashColor = '#ffcc00';
-                        s.playerDamageDealt += dmg;
-                        addFloatingText(e.x, e.y - 15, `${dmg}`, '#ffcc00');
-                      }
-                    });
-                  } else if (unit.classType === 'ROGUE') {
-                    // Blade Dance: multi hit
-                    const dmg = Math.round(unit.attackPower * 0.7);
-                    for (let strike = 0; strike < 5; strike++) {
-                      setTimeout(() => {
-                        if (target && target.hp > 0) {
-                          target.hp = Math.max(0, target.hp - dmg);
-                          target.flashTimer = 0.08;
-                          target.flashColor = '#af52de';
-                          s.shakeTimer = 0.12;
-                          s.shakeIntensity = 4;
-                          s.playerDamageDealt += dmg;
-                          addFloatingText(target.x + (Math.random() * 20 - 10), target.y - 15, `${dmg}`, '#af52de');
-                        }
-                      }, strike * 120);
-                    }
-                  } else if (unit.classType === 'RANGER') {
-                    // Arrow Rain AoE
-                    const dmg = Math.round(unit.attackPower * 1.8);
-                    s.shakeTimer = 0.25;
-                    s.shakeIntensity = 7;
-                    enemies.forEach(e => {
-                      if (getDistance(target!, e) < 80) {
-                        e.hp = Math.max(0, e.hp - dmg);
-                        e.flashTimer = 0.1;
-                        e.flashColor = '#34c759';
-                        s.playerDamageDealt += dmg;
-                        addFloatingText(e.x, e.y - 15, `${dmg} (Arrow Rain)`, '#34c759');
-                      }
-                    });
-                  }
+                  s.shakeTimer = dummyRecap.shakeTimer;
+                  s.shakeIntensity = dummyRecap.shakeIntensity;
+                  s.playerDamageDealt = dummyRecap.playerDamageDealt;
+                  s.playerHealingDone = dummyRecap.playerHealingDone;
                 }
               } else {
-                // Seek target (and clamp boundary to 1200x600 canvas resolution)
-                const nextPos = seek(unit, target, unit.speed, dt);
-                unit.x = Math.max(25, Math.min(1175, nextPos.x + steerX));
-                unit.y = Math.max(25, Math.min(575, nextPos.y + steerY));
+                updateUnitPhysics(unit, target, alliesList, dt, canvas.width, canvas.height);
               }
             }
           });
@@ -688,15 +570,11 @@ export const SoloMap: React.FC<SoloMapProps> = ({
         ctx.fillRect(bx, by, barW * hpPct, barH);
       });
 
-      // 3. UPDATE & RENDER PARTICLES
-      s.particles = s.particles.filter(p => {
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vx *= 0.95; // apply drag
-        p.vy *= 0.95;
-        p.alpha -= 0.015; // fade out smoothly
-        p.life -= 1;
+      // 3. UPDATE PARTICLES & TEXTS WITH ENGINE
+      updateVisuals([], s.floatingTexts, s.particles, dt);
 
+      // Render Particles
+      s.particles = s.particles.filter(p => {
         ctx.fillStyle = p.color;
         ctx.globalAlpha = Math.max(0, p.alpha);
         ctx.beginPath();
@@ -707,11 +585,8 @@ export const SoloMap: React.FC<SoloMapProps> = ({
       });
       ctx.globalAlpha = 1.0; // Reset
 
-      // 4. UPDATE & RENDER FLOATING TEXTS
+      // Render Floating Texts
       s.floatingTexts = s.floatingTexts.filter(ft => {
-        ft.y -= 0.6;
-        ft.life -= 1;
-
         ctx.fillStyle = ft.color;
         ctx.font = ft.isCrit ? '900 12px Orbitron, sans-serif' : '800 10px Orbitron, sans-serif';
         ctx.textAlign = 'center';

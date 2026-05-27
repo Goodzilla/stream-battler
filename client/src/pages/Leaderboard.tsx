@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '../utils/api';
 import { ArrowLeft, Trophy } from 'lucide-react';
-import { CLASSES } from '../game/constants';
+import { CLASSES } from 'shared';
 
 interface LeaderboardProps {
   onBackToDashboard: () => void;

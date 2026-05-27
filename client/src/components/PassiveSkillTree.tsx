@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { PASSIVE_SKILL_TREE } from '../game/constants';
-import type { SkillNode } from '../game/constants';
+import { PASSIVE_SKILL_TREE } from 'shared';
+import type { SkillNode } from 'shared';
 import { apiFetch } from '../utils/api';
 
 interface PassiveSkillTreeProps {

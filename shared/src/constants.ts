@@ -108,7 +108,7 @@ export interface TalentConfig {
   id: string;
   name: string;
   description: string;
-  tier: number; // 1: level 5, 2: level 10, 3: level 15, 4: level 20
+  tier: number; // 1: level 5, 2: level 10, etc.
   effects: Record<string, number>;
 }
 
@@ -249,7 +249,6 @@ const buildTalents = () => {
 };
 buildTalents();
 
-
 export interface SkillNode {
   id: string;
   name: string;
@@ -261,17 +260,8 @@ export interface SkillNode {
   type: 'life' | 'atk' | 'crit' | 'speed' | 'def' | 'start';
 }
 
-// We'll generate a circular node map.
-// Radial concentric design:
-// 1 Center Node (Start) at (500, 500)
-// Ring 1 (radius 120): 6 nodes (angle offset)
-// Ring 2 (radius 240): 12 nodes
-// Ring 3 (radius 380): 18 nodes
-// Total = 1 + 6 + 12 + 18 = 37 nodes.
 export const PASSIVE_SKILL_TREE: Record<string, SkillNode> = {};
 
-// Helper to fill the tree programmatically so we don't write 37 huge blocks manually,
-// but still maintain a deterministic structure.
 const buildPassiveTree = () => {
   PASSIVE_SKILL_TREE['start'] = {
     id: 'start',
@@ -463,12 +453,10 @@ const buildPassiveTree = () => {
 
 buildPassiveTree();
 
-// Helper to check if a set of nodes form a valid path from the start node
 export const validatePassiveAllocation = (allocatedNodes: string[]): boolean => {
   if (allocatedNodes.length === 0) return true;
   if (!allocatedNodes.includes('start')) return false;
 
-  // Perform BFS from start to see if all allocated nodes are reachable
   const visited = new Set<string>();
   const queue = ['start'];
   visited.add('start');
@@ -486,6 +474,5 @@ export const validatePassiveAllocation = (allocatedNodes: string[]): boolean => 
     }
   }
 
-  // If visited size equals allocated length, the tree path is valid and contiguous
   return visited.size === allocatedNodes.length;
 };
