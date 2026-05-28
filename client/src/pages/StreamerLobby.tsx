@@ -151,7 +151,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
     const viewersList = lobby?.viewers || [];
 
     // 1. Build Viewer Units
-    const playerUnits: RaidUnit[] = viewersList.map((v: any, index: number) => {
+    const playerUnits: RaidUnit[] = viewersList.map((v: any) => {
       let baseHp = 130 + v.level * 15;
       let baseAtk = 15 + v.level * 2;
       let speed = 90;
@@ -287,16 +287,13 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         if (talentsList.includes('t10_2')) baseCd -= 3.5;
       }
 
-      // Add simple offset row positions for 1200x600 coordinate grid
-      const row = index % 5;
-      const col = Math.floor(index / 5);
-
+      // Random scatter layout on the left side of the screen (x between 50 and 400, y between 50 and 550)
       return {
         id: v.userId,
         isPlayer: true,
         name: v.displayName,
-        x: 150 - col * 50 + Math.random() * 15,
-        y: 100 + row * 85 + Math.random() * 20,
+        x: 50 + Math.random() * 350,
+        y: 50 + Math.random() * 500,
         maxHp: unitMaxHp,
         hp: unitMaxHp,
         speed: v.speed || speed,
@@ -327,7 +324,8 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
     });
 
     // 2. Build Giant Boss Unit
-    const bossHp = Math.round(300 + viewersList.length * 500 + bossLevel * 150 + Math.pow(bossLevel, 2) * 12);
+    const normalBossHp = Math.round(300 + 500 + bossLevel * 150 + Math.pow(bossLevel, 2) * 12);
+    const bossHp = normalBossHp * viewersList.length;
     const bossAtk = Math.round(8 + bossLevel * 2 + Math.pow(bossLevel, 1.8) * 0.06);
     const bossUnit: RaidUnit = {
       id: 'boss',

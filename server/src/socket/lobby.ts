@@ -185,10 +185,10 @@ export const setupSocketHandlers = (io: Server) => {
               physRes: charStats.physRes
             };
 
-            // Enforce 30 player cap
+            // Enforce 100 player cap
             const alreadyJoined = lobby.viewers.some(v => v.userId === userId);
-            if (!alreadyJoined && lobby.viewers.length >= 30) {
-              socket.emit('lobby-error', { error: 'Lobby is full! Max 30 players.' });
+            if (!alreadyJoined && lobby.viewers.length >= 100) {
+              socket.emit('lobby-error', { error: 'Lobby is full! Max 100 players.' });
               return;
             }
             // Deduplicate viewers
@@ -337,12 +337,12 @@ export const setupSocketHandlers = (io: Server) => {
                 physRes: charStats.physRes
               };
 
-              // Enforce 30 player cap
+              // Enforce 100 player cap
               const alreadyJoined = lobby.viewers.some(v => v.userId === user!.id);
-              if (!alreadyJoined && lobby.viewers.length >= 30) {
+              if (!alreadyJoined && lobby.viewers.length >= 100) {
                 io.to(roomName).emit('chat-log-received', {
                   sender: 'SYSTEM',
-                  message: `@${senderName}, the raid is full! Max 30 players.`,
+                  message: `@${senderName}, the raid is full! Max 100 players.`,
                   timestamp: Date.now()
                 });
                 return;
@@ -408,6 +408,11 @@ export const setupSocketHandlers = (io: Server) => {
           const rewards: Record<string, { xp: number; gold: number; itemDropped?: any; inventoryFull?: boolean }> = {};
 
           if (success) {
+            // Calculate average contribution score of players
+            const totalScore = (recapStats || []).reduce((sum: number, stat: any) => sum + (stat.score || 0), 0);
+            const activeParticipantsCount = (recapStats || []).length;
+            const averageScore = activeParticipantsCount > 0 ? totalScore / activeParticipantsCount : 1;
+
             for (const viewer of lobby.viewers) {
               const user = await prisma.user.findUnique({
                 where: { id: viewer.userId },
@@ -418,8 +423,16 @@ export const setupSocketHandlers = (io: Server) => {
                 const activeClass = resolveActiveClass(user);
                 const character = user.characters.find(c => c.class === activeClass);
                 if (character) {
-                  const xpGained = bossLevel * 80;
-                  const goldGained = bossLevel * 15;
+                  // Find this player's contribution
+                  const playerStat = (recapStats || []).find((stat: any) => stat.userId === viewer.userId);
+                  const playerScore = playerStat?.score || 0;
+                  const scoreRatio = averageScore > 0 ? playerScore / averageScore : 1;
+
+                  // Contribution multiplier: 50% floor, 150% cap, using Math.sqrt
+                  const contributionMult = 0.5 + 0.5 * Math.min(2.0, Math.sqrt(scoreRatio));
+
+                  const xpGained = Math.round(bossLevel * 80 * contributionMult);
+                  const goldGained = Math.round(bossLevel * 15 * contributionMult);
 
                   // Check inventory
                   const unequippedCount = await prisma.item.count({
@@ -435,39 +448,42 @@ export const setupSocketHandlers = (io: Server) => {
                   if (unequippedCount >= 30) {
                     inventoryFull = true;
                   } else {
-                    const rarityRoll = Math.random();
-                    let rarity: 'RARE' | 'EPIC' | 'LEGENDARY' = 'RARE';
+                    const rollDrop = Math.random();
+                    if (rollDrop < contributionMult) {
+                      const rarityRoll = Math.random();
+                      let rarity: 'RARE' | 'EPIC' | 'LEGENDARY' = 'RARE';
 
-                    if (bossLevel >= 15) {
-                      if (rarityRoll < 0.05) rarity = 'LEGENDARY';
-                      else if (rarityRoll < 0.25) rarity = 'EPIC';
-                      else rarity = 'RARE';
-                    } else if (bossLevel >= 10) {
-                      if (rarityRoll < 0.15) rarity = 'EPIC';
-                      else rarity = 'RARE';
-                    } else {
-                      rarity = 'RARE';
-                    }
-
-                    const slots: Array<'WEAPON' | 'ARMOR' | 'ACCESSORY'> = ['WEAPON', 'ARMOR', 'ACCESSORY'];
-                    const slot = slots[Math.floor(Math.random() * slots.length)];
-
-                    const generated = generateRandomItem(bossLevel, rarity, slot, character.class);
-
-                    const dbItem = await prisma.item.create({
-                      data: {
-                        userId: user.id, // Save directly to User backpack
-                        name: generated.name,
-                        slot: generated.slot,
-                        rarity: generated.rarity,
-                        itemLevel: generated.itemLevel,
-                        baseAttack: generated.baseAttack,
-                        baseDefense: generated.baseDefense,
-                        affixes: JSON.stringify(generated.affixes),
-                        isEquipped: false
+                      if (bossLevel >= 15) {
+                        if (rarityRoll < 0.05) rarity = 'LEGENDARY';
+                        else if (rarityRoll < 0.25) rarity = 'EPIC';
+                        else rarity = 'RARE';
+                      } else if (bossLevel >= 10) {
+                        if (rarityRoll < 0.15) rarity = 'EPIC';
+                        else rarity = 'RARE';
+                      } else {
+                        rarity = 'RARE';
                       }
-                    });
-                    itemDropped = dbItem;
+
+                      const slots: Array<'WEAPON' | 'ARMOR' | 'ACCESSORY'> = ['WEAPON', 'ARMOR', 'ACCESSORY'];
+                      const slot = slots[Math.floor(Math.random() * slots.length)];
+
+                      const generated = generateRandomItem(bossLevel, rarity, slot, character.class);
+
+                      const dbItem = await prisma.item.create({
+                        data: {
+                          userId: user.id, // Save directly to User backpack
+                          name: generated.name,
+                          slot: generated.slot,
+                          rarity: generated.rarity,
+                          itemLevel: generated.itemLevel,
+                          baseAttack: generated.baseAttack,
+                          baseDefense: generated.baseDefense,
+                          affixes: JSON.stringify(generated.affixes),
+                          isEquipped: false
+                        }
+                      });
+                      itemDropped = dbItem;
+                    }
                   }
 
                   // Add XP/Level to active character
