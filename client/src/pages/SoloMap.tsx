@@ -3,7 +3,7 @@ import { apiFetch } from '../utils/api';
 import { calculateCharacterStats, CLASSES, ARENA_CONFIGS, getEnemyAttackRange } from 'shared';
 import { soundManager } from '../game/soundManager';
 import { getDistance } from '../game/physics';
-import { ArrowLeft, AlertCircle } from 'lucide-react';
+import { ArrowLeft, AlertCircle, RotateCcw } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { drawPixelSprite, drawProceduralBackground } from '../game/sprites';
 import { 
@@ -222,8 +222,8 @@ export const SoloMap: React.FC<SoloMapProps> = ({
   // Spawn enemy wave
   const spawnEnemies = (waveNum: number) => {
     const enemyCount = 2 + waveNum;
-    const baseEnemyHp = Math.round(30 + currentMapLevel * 15 + Math.pow(currentMapLevel, 2) * 0.8 + waveNum * 5);
-    const baseEnemyAtk = Math.round(4 + currentMapLevel * 1.2 + Math.pow(currentMapLevel, 1.8) * 0.05 + waveNum * 0.8);
+    const baseEnemyHp = Math.round(30 + currentMapLevel * 12 + Math.pow(currentMapLevel, 2) * 0.4 + waveNum * 5);
+    const baseEnemyAtk = Math.round(3.5 + currentMapLevel * 0.8 + Math.pow(currentMapLevel, 1.5) * 0.03 + waveNum * 0.6);
 
     const newEnemies: CombatUnit[] = [];
 
@@ -776,13 +776,22 @@ export const SoloMap: React.FC<SoloMapProps> = ({
             SOLO ARENA: LEVEL {currentMapLevel} (WAVE {wave} / 3)
           </span>
 
-          <button
-            onClick={onBackToDashboard}
-            className="flex items-center gap-2 text-[10px] font-display font-semibold uppercase tracking-wider text-slate-400 hover:text-white transition border border-white/10 hover:border-white/20 px-3 py-1.5 rounded-lg bg-black/25"
-          >
-            <ArrowLeft size={12} />
-            Abandon Run
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={initBattle}
+              className="flex items-center gap-2 text-[10px] font-display font-semibold uppercase tracking-wider text-slate-400 hover:text-white transition border border-white/10 hover:border-white/20 px-3 py-1.5 rounded-lg bg-black/25"
+            >
+              <RotateCcw size={12} />
+              Restart Battle
+            </button>
+            <button
+              onClick={onBackToDashboard}
+              className="flex items-center gap-2 text-[10px] font-display font-semibold uppercase tracking-wider text-slate-400 hover:text-white transition border border-white/10 hover:border-white/20 px-3 py-1.5 rounded-lg bg-black/25"
+            >
+              <ArrowLeft size={12} />
+              Abandon Run
+            </button>
+          </div>
         </div>
 
         {/* Split Main Body */}
