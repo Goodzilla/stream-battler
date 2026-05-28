@@ -1,6 +1,6 @@
-# Stream Battler Architecture Documentation
+# Stream Battlers Architecture Documentation
 
-This document describes the design, monorepo workspace structure, and technical workflow of the Stream Battler codebase after our architectural refactoring to implement clean enterprise-grade design patterns.
+This document describes the design, monorepo workspace structure, and technical workflow of the Stream Battlers codebase after our architectural refactoring to implement clean enterprise-grade design patterns.
 
 ---
 

@@ -1,6 +1,6 @@
-# Stream Battler
+# Stream Battlers
 
-Stream Battler is a full-stack, real-time multiplayer simulation game modeled after Stream Raiders. It allows Twitch streamers to host interactive lobbies and viewer groups to join, customize their characters, allocate passive skill trees, and engage in autobattles against epic custom wave-based monster encounters.
+Stream Battlers is a full-stack, real-time multiplayer simulation game modeled after Stream Raiders. It allows Twitch streamers to host interactive lobbies and viewer groups to join, customize their characters, allocate passive skill trees, and engage in autobattles against epic custom wave-based monster encounters.
 
 ---
 

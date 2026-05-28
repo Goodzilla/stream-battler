@@ -1,6 +1,6 @@
-# Contributing to Stream Battler
+# Contributing to Stream Battlers
 
-First off, thank you for taking the time to contribute to Stream Battler! Contributions from the community help make this project more robust and feature-rich.
+First off, thank you for taking the time to contribute to Stream Battlers! Contributions from the community help make this project more robust and feature-rich.
 
 Please read through these guidelines to understand how you can help.
 

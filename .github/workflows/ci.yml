@@ -1,4 +1,4 @@
-name: Stream Battler CI
+name: Stream Battlers CI
 
 on:
   push:

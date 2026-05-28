@@ -95,7 +95,7 @@ async function ensureAdmin() {
 
 // Start server
 server.listen(Number(PORT), () => {
-  console.log(`Stream Battler Server running on port ${PORT}`);
+  console.log(`Stream Battlers Server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV}`);
   ensureAdmin();
 });

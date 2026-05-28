@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-We actively support and fix security issues in the following versions of Stream Battler:
+We actively support and fix security issues in the following versions of Stream Battlers:
 
 | Version | Supported          |
 | ------- | ------------------ |
@@ -13,7 +13,7 @@ We actively support and fix security issues in the following versions of Stream 
 
 ## Reporting a Vulnerability
 
-We take the security of Stream Battler very seriously. If you find a security vulnerability, please do not open a public issue. Instead, report it using the following steps:
+We take the security of Stream Battlers very seriously. If you find a security vulnerability, please do not open a public issue. Instead, report it using the following steps:
 
 1. **Email us**: Send a description of the vulnerability to the project maintainers (e.g. `security@streambattler.dev` or directly via contact links provided on our GitHub profiles).
 2. **Details to include**:
