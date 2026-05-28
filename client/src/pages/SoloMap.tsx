@@ -230,14 +230,11 @@ export const SoloMap: React.FC<SoloMapProps> = ({
     const arena = ARENA_CONFIGS[currentMapLevel] || ARENA_CONFIGS[1];
 
     for (let i = 0; i < enemyCount; i++) {
-      const name = i % 2 === 0
-        ? `${arena.enemyNames[0]} v${waveNum}`
-        : `${arena.enemyNames[1] || arena.enemyNames[0]} v${waveNum}`;
+      const enemyIndex = i % arena.enemyNames.length;
+      const baseName = arena.enemyNames[enemyIndex];
+      const name = `${baseName} lvl${waveNum}`;
       
-      let spriteType = arena.enemySprite;
-      if (name.toLowerCase().includes('archer')) {
-        spriteType = 'GOBLIN_ARCHER';
-      }
+      const spriteType = arena.enemySprites ? arena.enemySprites[enemyIndex] : arena.enemySprite;
 
       const range = getEnemyAttackRange(name, spriteType);
 

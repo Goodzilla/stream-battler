@@ -567,8 +567,99 @@ export const SPRITES: Record<string, string[]> = {
     "rr.....rr.....rr",
     "kk.....kk.....kk",
     "................"
+  ],
+  GOBLIN_KING: [
+    "......yyyy......",
+    ".....yyyyyy.....",
+    "...kkgyyyyggkk..",
+    "..ggkggggggggkgg",
+    "..ggkgkyykgkykgg",
+    "...gkkggggggkkg.",
+    "....kkggggggkk..",
+    "....rrrrrrrr....",
+    "...rrrrrrrrrr...",
+    "..rrkkrrrrkkrr..",
+    "..rrkkrrrrkkrr..",
+    "..rrrrrrrrrrrr..",
+    "...rrrr..rrrr...",
+    "...rrr....rrr...",
+    "...kk......kk...",
+    "................"
+  ],
+  SLITHER_KING: [
+    "......yyyy......",
+    ".....yyyyyy.....",
+    "....kkbbbbkk....",
+    "...kbbbbbbbbk...",
+    "..kbbkyykkyybbk.",
+    "..kbkkbbbbbbkkb.",
+    "..kbbbbbbbbbbbk.",
+    "...kbbbbbbbbbk..",
+    "....kbbwbbwbk...",
+    ".....kbbwwbk....",
+    ".....kbbwbbk....",
+    "....kbbbbbbk....",
+    "...kbbbbbbbbk...",
+    "..kbbbbbbbbbbk..",
+    "..kkbbbbbbbbkk..",
+    "....kkkkkkkk...."
+  ],
+  ORC_CHIEFTAIN: [
+    "......wwww......",
+    ".....wkkkkw.....",
+    "....wkkkkkkw....",
+    "...wkkggwwggkw..",
+    "...wkgkwwkkwkw..",
+    "..wwkggyyyyggkww",
+    "..wwkkggggggkkww",
+    "..wwwwwwwwwwww..",
+    ".wwwwwwwwwwwwww.",
+    "wwwkkwwwwwwkkwww",
+    "wwkkkggggggkkkww",
+    "wwkkkkggggkkkkww",
+    ".wwkkkkkkkkkkww.",
+    "..wkk......kkw..",
+    "...kk......kk...",
+    "................"
+  ],
+  NEON_LICH: [
+    ".....pppppp.....",
+    "....pppppppp....",
+    "...ppwwwwwwpp...",
+    "..ppwwkwkwkwwpp.",
+    "..ppwwwwwwwwwwp.",
+    "...ppwwwwwwkpp..",
+    "....pppppppp....",
+    "...ppcccccccc...",
+    "..ppcccccccccc..",
+    "..ppcckkkkccpp..",
+    "..ppcckkkkccpp..",
+    "..pppppppppppp..",
+    "...ppp....ppp...",
+    "...pp......pp...",
+    "...kk......kk...",
+    "................"
+  ],
+  INFERNO_DRAGON: [
+    "......kkkk......",
+    "r....koooook...r",
+    "rr..koooooook..r",
+    "rr.kooykkyyook.r",
+    "r.kooooooooooook",
+    "kkkoooooooooookk",
+    "..kooookkooook..",
+    "..kooooooooooo..",
+    "rr.koooooooook.r",
+    "rr.kooookooook.r",
+    "rrr.koookoook.rr",
+    "rrr.kkkkkkkkk.rr",
+    ".rr...........rr",
+    "..r...........r.",
+    "..k...........k.",
+    "................"
   ]
 };
+
 
 export const drawPixelSprite = (
   ctx: CanvasRenderingContext2D,
@@ -626,6 +717,7 @@ export interface ArenaConfig {
   desc: string;
   bgColor: string;
   detailColor: string;
+  enemySprites?: string[];
 }
 
 export const drawProceduralBackground = (

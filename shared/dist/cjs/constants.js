@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getArenaConfigForLevel = exports.ARENA_CONFIGS = exports.validatePassiveAllocation = exports.PASSIVE_SKILL_TREE = exports.TALENTS = exports.CLASSES = void 0;
+exports.getArenaConfigForLevel = exports.ARENA_CONFIGS = exports.RAID_ARENA_CONFIGS = exports.validatePassiveAllocation = exports.PASSIVE_SKILL_TREE = exports.TALENTS = exports.CLASSES = void 0;
 exports.CLASSES = {
     WARRIOR: {
         name: 'Warrior',
@@ -1319,27 +1319,79 @@ const validatePassiveAllocation = (allocatedNodes) => {
     return visited.size === allocatedNodes.length;
 };
 exports.validatePassiveAllocation = validatePassiveAllocation;
+exports.RAID_ARENA_CONFIGS = {
+    'Goblin King': {
+        name: 'Goblin King Throne Room',
+        level: 1,
+        theme: 'FOREST',
+        enemySprite: 'GOBLIN_KING',
+        enemyNames: [],
+        desc: 'The dark swamp throne room of the Goblin King.',
+        bgColor: '#0f1c13',
+        detailColor: '#1d3524'
+    },
+    'Slither King': {
+        name: 'Slither King Nest',
+        level: 21,
+        theme: 'POISON_CAVES',
+        enemySprite: 'SLITHER_KING',
+        enemyNames: [],
+        desc: 'A bright neon toxic cave filled with acid pools.',
+        bgColor: '#080512',
+        detailColor: '#c026d3'
+    },
+    'Orc Chieftain': {
+        name: 'Orc Chieftain Stronghold',
+        level: 41,
+        theme: 'RUINS',
+        enemySprite: 'ORC_CHIEFTAIN',
+        enemyNames: [],
+        desc: 'The red brick stone fortress of the Orc Vanguard.',
+        bgColor: '#1c0f0f',
+        detailColor: '#ef4444'
+    },
+    'Neon Lich': {
+        name: 'Neon Lich Sepulchre',
+        level: 61,
+        theme: 'CRYPT',
+        enemySprite: 'NEON_LICH',
+        enemyNames: [],
+        desc: 'A dark purple crypt radiating with void energy.',
+        bgColor: '#0d071a',
+        detailColor: '#a855f7'
+    },
+    'Inferno Dragon': {
+        name: 'Inferno Dragon Caldera',
+        level: 81,
+        theme: 'VOLCANO',
+        enemySprite: 'INFERNO_DRAGON',
+        enemyNames: [],
+        desc: 'A volcanic crater with flowing rivers of lava.',
+        bgColor: '#140500',
+        detailColor: '#ea580c'
+    }
+};
 exports.ARENA_CONFIGS = {
-    1: { name: 'Forest of Trials', level: 1, theme: 'FOREST', enemySprite: 'GOBLIN_SCOUT', enemyNames: ['Goblin Scout', 'Goblin Thief'], desc: 'A dense wood where goblins roam. Ideal for starters.', bgColor: '#08170e', detailColor: '#0f2919' },
-    5: { name: 'Echoing Groves', level: 5, theme: 'FOREST', enemySprite: 'GOBLIN_RAIDER', enemyNames: ['Goblin Raider', 'Goblin Archer'], desc: 'Deeper into the forest, goblin scouts set traps.', bgColor: '#06130b', detailColor: '#0a1d11' },
-    10: { name: 'Serpent Caves', level: 10, theme: 'POISON_CAVES', enemySprite: 'YOUNG_ADDER', enemyNames: ['Young Adder', 'Green Snake'], desc: 'Damp caverns containing slithering neon adders.', bgColor: '#0b0512', detailColor: '#8a2be2' },
-    15: { name: 'Neon Caves', level: 15, theme: 'POISON_CAVES', enemySprite: 'NEON_VIPER', enemyNames: ['Spitting Adder', 'Slither Viper'], desc: 'Glowing crystal tunnels with swift venomous snakes.', bgColor: '#050a14', detailColor: '#00ffff' },
-    20: { name: 'Whispering Woods', level: 20, theme: 'FOREST', enemySprite: 'FERAL_GOBLIN', enemyNames: ['Feral Goblin', 'Forest Goblin'], desc: 'Haunted woodlands where rogue goblins hide.', bgColor: '#03080c', detailColor: '#0b1d28' },
-    25: { name: 'Orc Campsite', level: 25, theme: 'RUINS', enemySprite: 'ORC_VANGUARD', enemyNames: ['Orc Vanguard', 'Orc Scout'], desc: 'A temporary camp set up by vanguard orc grunts.', bgColor: '#141210', detailColor: '#201c18' },
-    30: { name: 'Skeletal Catacombs', level: 30, theme: 'CRYPT', enemySprite: 'SKELETAL_GRUNT', enemyNames: ['Skeletal Grunt', 'Rattled Skeleton'], desc: 'Underground catacombs guarded by skeletal warriors.', bgColor: '#07080b', detailColor: '#1e3a8a' },
-    35: { name: 'Obsidian Ruins', level: 35, theme: 'RUINS', enemySprite: 'ORC_RAIDER', enemyNames: ['Orc Grunt', 'Orc Raider'], desc: 'Cursed obsidian pillars and heavy orc raiders.', bgColor: '#110b08', detailColor: '#281a13' },
-    40: { name: 'Poison Gardens', level: 40, theme: 'POISON_CAVES', enemySprite: 'TOXIC_COBRA', enemyNames: ['Poisonous Cobra', 'Giant Mamba'], desc: 'Overgrown ruins rich with toxic fumes and slithering vipers.', bgColor: '#0d1a0d', detailColor: '#10b981' },
-    45: { name: 'Orc Stronghold', level: 45, theme: 'RUINS', enemySprite: 'ORC_BERSERKER', enemyNames: ['Orc Berserker', 'Orc Gladiator'], desc: 'A heavily fortified encampment of orc berserkers.', bgColor: '#1a1510', detailColor: '#302820' },
-    50: { name: 'Catacombs of Doom', level: 50, theme: 'CRYPT', enemySprite: 'SKELETAL_ACOLYTE', enemyNames: ['Skeletal Guard', 'Crypt Wight'], desc: 'Deep chambers where ancient skeleton acolytes practice necromancy.', bgColor: '#030712', detailColor: '#3b82f6' },
-    55: { name: 'Lich Crypt', level: 55, theme: 'CRYPT', enemySprite: 'LICH_ACOLYTE', enemyNames: ['Lich Acolyte', 'Ancient Mummy'], desc: 'A dark, cold maze guarded by ancient skeleton acolyths.', bgColor: '#0f172a', detailColor: '#6366f1' },
-    60: { name: 'Ancient Fortress', level: 60, theme: 'RUINS', enemySprite: 'ORC_COMMANDER', enemyNames: ['Orc Commander', 'Orc Warlord'], desc: 'The historic keep of the orc kings, filled with elite warriors.', bgColor: '#1c1917', detailColor: '#44403c' },
-    65: { name: 'Shadow Crypt', level: 65, theme: 'CRYPT', enemySprite: 'SKELETAL_LICH', enemyNames: ['Skeletal Lich', 'Wraith Priest'], desc: 'A void-touched tomb filled with skeleton liches.', bgColor: '#180018', detailColor: '#4b0082' },
-    70: { name: 'Dragon Ridge', level: 70, theme: 'VOLCANO', enemySprite: 'VOLCANO_HATCHLING', enemyNames: ['Volcano Hatchling', 'Wyvern'], desc: 'Rocky volcanic cliffs populated by small fire drakes.', bgColor: '#1c0a00', detailColor: '#d97706' },
-    75: { name: 'Volcanic Caldera', level: 75, theme: 'VOLCANO', enemySprite: 'VOLCANO_DRAGON', enemyNames: ['Young Drake', 'Volcano Dragon'], desc: 'Lava flows, magma giants, and legendary fire dragons.', bgColor: '#0f0500', detailColor: '#ef4444' },
-    80: { name: 'Frozen Tombs', level: 80, theme: 'CRYPT', enemySprite: 'FROST_WIGHT', enemyNames: ['Frost Skeleton', 'Lich Overlord'], desc: 'Icy crypts holding preserved ancient skeletal commanders.', bgColor: '#0f172a', detailColor: '#38bdf8' },
-    85: { name: 'Magma Chamber', level: 85, theme: 'VOLCANO', enemySprite: 'MAGMA_DRAGON', enemyNames: ['Infernal Drake', 'Magma Dragon'], desc: 'Subterranean lava chambers guarded by high-rank lava dragons.', bgColor: '#0c0200', detailColor: '#f97316' },
-    90: { name: 'Abyssal Maw', level: 90, theme: 'VOLCANO', enemySprite: 'VOID_DRAGON', enemyNames: ['Void Drake', 'Abyssal Dragon'], desc: 'The final frontier. Face the strongest challenges here.', bgColor: '#000000', detailColor: '#8b5cf6' },
-    95: { name: 'Dragon Throne', level: 95, theme: 'VOLCANO', enemySprite: 'ANCIENT_SOVEREIGN', enemyNames: ['Ancient Sovereign', 'Lava Dragon King'], desc: 'The apex of the volcano. Defeat the ancient dragon sovereign.', bgColor: '#000000', detailColor: '#b91c1c' }
+    1: { name: 'Forest of Trials', level: 1, theme: 'FOREST', enemySprite: 'GOBLIN_SCOUT', enemyNames: ['Goblin Scout', 'Goblin Thief', 'Goblin Archer'], enemySprites: ['GOBLIN_SCOUT', 'GOBLIN_RAIDER', 'GOBLIN_ARCHER'], desc: 'A dense wood where goblins roam. Ideal for starters.', bgColor: '#08170e', detailColor: '#0f2919' },
+    5: { name: 'Echoing Groves', level: 5, theme: 'FOREST', enemySprite: 'GOBLIN_RAIDER', enemyNames: ['Forest Scout', 'Forest Archer', 'Feral Thief'], enemySprites: ['GOBLIN_SCOUT', 'GOBLIN_ARCHER', 'FERAL_GOBLIN'], desc: 'Deeper into the forest, goblin scouts set traps.', bgColor: '#06130b', detailColor: '#0a1d11' },
+    10: { name: 'Serpent Caves', level: 10, theme: 'POISON_CAVES', enemySprite: 'YOUNG_ADDER', enemyNames: ['Young Adder', 'Green Snake', 'Cavern Cobra'], enemySprites: ['YOUNG_ADDER', 'NEON_VIPER', 'TOXIC_COBRA'], desc: 'Damp caverns containing slithering neon adders.', bgColor: '#0b0512', detailColor: '#8a2be2' },
+    15: { name: 'Neon Caves', level: 15, theme: 'POISON_CAVES', enemySprite: 'NEON_VIPER', enemyNames: ['Crystal Viper', 'Neon Cobra', 'Slither Warden'], enemySprites: ['NEON_VIPER', 'TOXIC_COBRA', 'YOUNG_ADDER'], desc: 'Glowing crystal tunnels with swift venomous snakes.', bgColor: '#050a14', detailColor: '#00ffff' },
+    20: { name: 'Whispering Woods', level: 20, theme: 'FOREST', enemySprite: 'FERAL_GOBLIN', enemyNames: ['Feral Goblin', 'Woodland Archer', 'Forest Raider'], enemySprites: ['FERAL_GOBLIN', 'GOBLIN_ARCHER', 'GOBLIN_RAIDER'], desc: 'Haunted woodlands where rogue goblins hide.', bgColor: '#03080c', detailColor: '#0b1d28' },
+    25: { name: 'Orc Campsite', level: 25, theme: 'RUINS', enemySprite: 'ORC_VANGUARD', enemyNames: ['Orc Vanguard', 'Orc Scout', 'Orc Recruit'], enemySprites: ['ORC_VANGUARD', 'ORC_RAIDER', 'ORC_BERSERKER'], desc: 'A temporary camp set up by vanguard orc grunts.', bgColor: '#141210', detailColor: '#201c18' },
+    30: { name: 'Skeletal Catacombs', level: 30, theme: 'CRYPT', enemySprite: 'SKELETAL_GRUNT', enemyNames: ['Skeletal Grunt', 'Rattled Skeleton', 'Crypt Acolyte'], enemySprites: ['SKELETAL_GRUNT', 'SKELETAL_ACOLYTE', 'LICH_ACOLYTE'], desc: 'Underground catacombs guarded by skeletal warriors.', bgColor: '#07080b', detailColor: '#1e3a8a' },
+    35: { name: 'Obsidian Ruins', level: 35, theme: 'RUINS', enemySprite: 'ORC_RAIDER', enemyNames: ['Orc Grunt', 'Orc Raider', 'Orc Smasher'], enemySprites: ['ORC_RAIDER', 'ORC_BERSERKER', 'ORC_VANGUARD'], desc: 'Cursed obsidian pillars and heavy orc raiders.', bgColor: '#110b08', detailColor: '#281a13' },
+    40: { name: 'Poison Gardens', level: 40, theme: 'POISON_CAVES', enemySprite: 'TOXIC_COBRA', enemyNames: ['Poisonous Cobra', 'Giant Mamba', 'Toxic Adder'], enemySprites: ['TOXIC_COBRA', 'NEON_VIPER', 'YOUNG_ADDER'], desc: 'Overgrown ruins rich with toxic fumes and slithering vipers.', bgColor: '#0d1a0d', detailColor: '#10b981' },
+    45: { name: 'Orc Stronghold', level: 45, theme: 'RUINS', enemySprite: 'ORC_BERSERKER', enemyNames: ['Orc Berserker', 'Orc Gladiator', 'Orc Destroyer'], enemySprites: ['ORC_BERSERKER', 'ORC_RAIDER', 'ORC_COMMANDER'], desc: 'A heavily fortified encampment of orc berserkers.', bgColor: '#1a1510', detailColor: '#302820' },
+    50: { name: 'Catacombs of Doom', level: 50, theme: 'CRYPT', enemySprite: 'SKELETAL_ACOLYTE', enemyNames: ['Skeletal Guard', 'Crypt Wight', 'Acolyte of Doom'], enemySprites: ['SKELETAL_GRUNT', 'SKELETAL_ACOLYTE', 'LICH_ACOLYTE'], desc: 'Deep chambers where ancient skeleton acolytes practice necromancy.', bgColor: '#030712', detailColor: '#3b82f6' },
+    55: { name: 'Lich Crypt', level: 55, theme: 'CRYPT', enemySprite: 'LICH_ACOLYTE', enemyNames: ['Lich Acolyte', 'Ancient Mummy', 'Crypt Necromancer'], enemySprites: ['LICH_ACOLYTE', 'SKELETAL_LICH', 'FROST_WIGHT'], desc: 'A dark, cold maze guarded by ancient skeleton acolyths.', bgColor: '#0f172a', detailColor: '#6366f1' },
+    60: { name: 'Ancient Fortress', level: 60, theme: 'RUINS', enemySprite: 'ORC_COMMANDER', enemyNames: ['Orc Commander', 'Orc Warlord', 'Fortress Champion'], enemySprites: ['ORC_COMMANDER', 'ORC_BERSERKER', 'ORC_VANGUARD'], desc: 'The historic keep of the orc kings, filled with elite warriors.', bgColor: '#1c1917', detailColor: '#44403c' },
+    65: { name: 'Shadow Crypt', level: 65, theme: 'CRYPT', enemySprite: 'SKELETAL_LICH', enemyNames: ['Skeletal Lich', 'Wraith Priest', 'Shadow Reaper'], enemySprites: ['SKELETAL_LICH', 'LICH_ACOLYTE', 'FROST_WIGHT'], desc: 'A void-touched tomb filled with skeleton liches.', bgColor: '#180018', detailColor: '#4b0082' },
+    70: { name: 'Dragon Ridge', level: 70, theme: 'VOLCANO', enemySprite: 'VOLCANO_HATCHLING', enemyNames: ['Volcano Hatchling', 'Ridge Wyvern', 'Fire Drake'], enemySprites: ['VOLCANO_HATCHLING', 'VOLCANO_DRAGON', 'MAGMA_DRAGON'], desc: 'Rocky volcanic cliffs populated by small fire drakes.', bgColor: '#1c0a00', detailColor: '#d97706' },
+    75: { name: 'Volcanic Caldera', level: 75, theme: 'VOLCANO', enemySprite: 'VOLCANO_DRAGON', enemyNames: ['Young Drake', 'Volcano Dragon', 'Caldera Giant'], enemySprites: ['VOLCANO_DRAGON', 'MAGMA_DRAGON', 'ANCIENT_SOVEREIGN'], desc: 'Lava flows, magma giants, and legendary fire dragons.', bgColor: '#0f0500', detailColor: '#ef4444' },
+    80: { name: 'Frozen Tombs', level: 80, theme: 'CRYPT', enemySprite: 'FROST_WIGHT', enemyNames: ['Frost Skeleton', 'Lich Overlord', 'Frost Wight'], enemySprites: ['FROST_WIGHT', 'SKELETAL_LICH', 'SKELETAL_ACOLYTE'], desc: 'Icy crypts holding preserved ancient skeletal commanders.', bgColor: '#0f172a', detailColor: '#38bdf8' },
+    85: { name: 'Magma Chamber', level: 85, theme: 'VOLCANO', enemySprite: 'MAGMA_DRAGON', enemyNames: ['Infernal Drake', 'Magma Dragon', 'Lava Behemoth'], enemySprites: ['MAGMA_DRAGON', 'VOLCANO_DRAGON', 'ANCIENT_SOVEREIGN'], desc: 'Subterranean lava chambers guarded by high-rank lava dragons.', bgColor: '#0c0200', detailColor: '#f97316' },
+    90: { name: 'Abyssal Maw', level: 90, theme: 'VOLCANO', enemySprite: 'VOID_DRAGON', enemyNames: ['Void Drake', 'Abyssal Dragon', 'Maw Leviathan'], enemySprites: ['VOID_DRAGON', 'MAGMA_DRAGON', 'VOLCANO_DRAGON'], desc: 'The final frontier. Face the strongest challenges here.', bgColor: '#000000', detailColor: '#8b5cf6' },
+    95: { name: 'Dragon Throne', level: 95, theme: 'VOLCANO', enemySprite: 'ANCIENT_SOVEREIGN', enemyNames: ['Ancient Sovereign', 'Lava Dragon King', 'Throne Sentinel'], enemySprites: ['ANCIENT_SOVEREIGN', 'VOLCANO_DRAGON', 'VOID_DRAGON'], desc: 'The apex of the volcano. Defeat the ancient dragon sovereign.', bgColor: '#000000', detailColor: '#b91c1c' }
 };
 const getArenaConfigForLevel = (level) => {
     const levels = Object.keys(exports.ARENA_CONFIGS).map(Number).sort((a, b) => a - b);

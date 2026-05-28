@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Users } from 'lucide-react';
 import { lerp, getDistance } from '../game/physics';
 import confetti from 'canvas-confetti';
-import { getArenaConfigForLevel } from 'shared';
+import { getArenaConfigForLevel, RAID_ARENA_CONFIGS } from 'shared';
 import { drawPixelSprite, drawProceduralBackground } from '../game/sprites';
 import { soundManager } from '../game/soundManager';
 import { useAuth } from '../contexts/AuthContext';
@@ -242,6 +242,7 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
       }
 
       const level = lobby?.bossLevel || 1;
+      const bossName = lobby?.bossName || '';
       const s = stateRef.current;
 
 
@@ -257,8 +258,9 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
         ctx.translate(dx, dy);
       }
 
-      // Draw themed background based on boss level
-      drawProceduralBackground(ctx, canvas.width, canvas.height, getArenaConfigForLevel(level));
+      // Draw themed background based on boss level or raid arena config
+      const arenaConfig = RAID_ARENA_CONFIGS[bossName] || getArenaConfigForLevel(level);
+      drawProceduralBackground(ctx, canvas.width, canvas.height, arenaConfig);
 
       // Update unit hit flash timers
       s.units.forEach(unit => {

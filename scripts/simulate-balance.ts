@@ -225,21 +225,18 @@ function getGearForBuild(level: number, buildType: 'DPS' | 'TANK'): ItemData[] {
 // Generate wave enemies using formulas matching SoloMap.tsx
 function spawnEnemiesForWave(waveNum: number, mapLevel: number): CombatUnit[] {
   const enemyCount = 2 + waveNum;
-  const baseEnemyHp = Math.round(30 + mapLevel * 15 + Math.pow(mapLevel, 2) * 0.8 + waveNum * 5);
-  const baseEnemyAtk = Math.round(4 + mapLevel * 1.2 + Math.pow(mapLevel, 1.8) * 0.05 + waveNum * 0.8);
+  const baseEnemyHp = Math.round(30 + mapLevel * 12 + Math.pow(mapLevel, 2) * 0.4 + waveNum * 5);
+  const baseEnemyAtk = Math.round(3.5 + mapLevel * 0.8 + Math.pow(mapLevel, 1.5) * 0.03 + waveNum * 0.6);
 
   const arena = getArenaConfigForLevel(mapLevel);
 
   const list: CombatUnit[] = [];
   for (let i = 0; i < enemyCount; i++) {
-    const name = i % 2 === 0
-      ? `${arena.enemyNames[0]} v${waveNum}`
-      : `${arena.enemyNames[1] || arena.enemyNames[0]} v${waveNum}`;
+    const enemyIndex = i % arena.enemyNames.length;
+    const baseName = arena.enemyNames[enemyIndex];
+    const name = `${baseName} lvl${waveNum}`;
     
-    let spriteType = arena.enemySprite;
-    if (name.toLowerCase().includes('archer')) {
-      spriteType = 'GOBLIN_ARCHER';
-    }
+    const spriteType = arena.enemySprites ? arena.enemySprites[enemyIndex] : arena.enemySprite;
 
     const range = getEnemyAttackRange(name, spriteType);
 

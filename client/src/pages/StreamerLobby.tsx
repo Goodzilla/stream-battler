@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { TwitchConsole } from '../components/TwitchConsole';
 import { getDistance } from '../game/physics';
 import { ArrowLeft, Play, Users, Skull, ShieldAlert } from 'lucide-react';
-import { CLASSES, getArenaConfigForLevel } from 'shared';
+import { CLASSES, getArenaConfigForLevel, RAID_ARENA_CONFIGS } from 'shared';
 import confetti from 'canvas-confetti';
 import { soundManager } from '../game/soundManager';
 import { drawPixelSprite, drawProceduralBackground } from '../game/sprites';
@@ -30,7 +30,13 @@ interface StreamerLobbyProps {
   onBackToDashboard: () => void;
 }
 
-const getBossSprite = (level: number) => {
+const getBossSprite = (bossName: string, level: number) => {
+  const nameLower = bossName.toLowerCase();
+  if (nameLower.includes('goblin king')) return 'GOBLIN_KING';
+  if (nameLower.includes('slither king')) return 'SLITHER_KING';
+  if (nameLower.includes('orc chieftain')) return 'ORC_CHIEFTAIN';
+  if (nameLower.includes('neon lich')) return 'NEON_LICH';
+  if (nameLower.includes('inferno dragon')) return 'INFERNO_DRAGON';
   return getArenaConfigForLevel(level).enemySprite;
 };
 
@@ -346,7 +352,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
       skillTimer: 5.0, // boss laser cooldown
       activeSkillCd: 6.0,
       stunTimer: 0,
-      classType: getBossSprite(bossLevel),
+      classType: getBossSprite(bossName, bossLevel),
       damageDealt: 0,
       healingDone: 0,
       damageTaken: 0
@@ -401,8 +407,9 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         ctx.translate(dx, dy);
       }
 
-      // Draw themed background based on boss level
-      drawProceduralBackground(ctx, canvas.width, canvas.height, getArenaConfigForLevel(bossLevel));
+      // Draw themed background based on boss level or raid arena config
+      const arenaConfig = RAID_ARENA_CONFIGS[bossName] || getArenaConfigForLevel(bossLevel);
+      drawProceduralBackground(ctx, canvas.width, canvas.height, arenaConfig);
 
       const boss = s.units.find(u => !u.isPlayer);
       const livingPlayers = s.units.filter(u => u.isPlayer && u.hp > 0);

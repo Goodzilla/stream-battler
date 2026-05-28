@@ -47,6 +47,8 @@ export interface ArenaConfig {
     desc: string;
     bgColor: string;
     detailColor: string;
+    enemySprites?: string[];
 }
+export declare const RAID_ARENA_CONFIGS: Record<string, ArenaConfig>;
 export declare const ARENA_CONFIGS: Record<number, ArenaConfig>;
 export declare const getArenaConfigForLevel: (level: number) => ArenaConfig;
