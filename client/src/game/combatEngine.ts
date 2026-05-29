@@ -162,7 +162,7 @@ export const performBasicAttack = (
   if (attacker.isHealer && target.isPlayer) {
     // Healing action (Cleric target healing allies)
     const isCrit = Math.random() < attacker.critChance;
-    const finalHeal = Math.round(attacker.attackPower * (isCrit ? attacker.critMult : 1.0) * 0.8);
+    const finalHeal = Math.round(attacker.attackPower * (isCrit ? attacker.critMult : 1.0) * 0.4);
     
     target.hp = Math.min(target.maxHp, target.hp + finalHeal);
     attacker.healingDone = (attacker.healingDone || 0) + finalHeal;
@@ -547,11 +547,11 @@ export const castActiveSkill = (
 
   } else if (classType === 'CLERIC') {
     // Holy Nova: heal all living allies, damage adjacent enemies
-    let healFactor = 3.0;
-    if (talentsList.includes('t2_1')) healFactor += 0.75; // +25%
-    if (talentsList.includes('t4_2')) healFactor -= 0.60; // -20%
-    if (talentsList.includes('t5_2')) healFactor += 1.20; // +40%
-    if (talentsList.includes('t10_1')) healFactor += 1.50; // +50%
+    let healFactor = 1.5;
+    if (talentsList.includes('t2_1')) healFactor += 0.375; // +25%
+    if (talentsList.includes('t4_2')) healFactor -= 0.30; // -20%
+    if (talentsList.includes('t5_2')) healFactor += 0.60; // +40%
+    if (talentsList.includes('t10_1')) healFactor += 0.75; // +50%
 
     let dmgFactor = 1.5;
     if (talentsList.includes('t2_2')) dmgFactor += 0.60; // +40%

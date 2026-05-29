@@ -65,7 +65,7 @@ export const CLASSES: Record<string, ClassConfig> = {
     activeSkill: {
       name: 'Holy Nova',
       cooldown: 7,
-      description: 'Heals all nearby allies for 300% heal power and deals 100% damage to adjacent enemies'
+      description: 'Heals all nearby allies for 150% heal power and deals 100% damage to adjacent enemies'
     }
   },
   ROGUE: {
