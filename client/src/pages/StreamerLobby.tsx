@@ -331,7 +331,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
 
     // 2. Build Giant Boss Unit
     const normalBossHp = Math.round(300 + 500 + bossLevel * 150 + Math.pow(bossLevel, 2) * 12);
-    const bossHp = normalBossHp * viewersList.length;
+    const bossHp = Math.round(normalBossHp * viewersList.length * 0.5);
     const bossAtk = Math.round(8 + bossLevel * 2 + Math.pow(bossLevel, 1.8) * 0.06);
     const bossUnit: RaidUnit = {
       id: 'boss',

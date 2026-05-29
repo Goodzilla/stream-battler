@@ -1328,7 +1328,8 @@ exports.RAID_ARENA_CONFIGS = {
         enemyNames: [],
         desc: 'The dark swamp throne room of the Goblin King.',
         bgColor: '#0f1c13',
-        detailColor: '#1d3524'
+        detailColor: '#1d3524',
+        enemySprites: ['GOBLIN_SCOUT', 'GOBLIN_RAIDER', 'GOBLIN_ARCHER']
     },
     'Slither King': {
         name: 'Slither King Nest',
@@ -1338,7 +1339,8 @@ exports.RAID_ARENA_CONFIGS = {
         enemyNames: [],
         desc: 'A bright neon toxic cave filled with acid pools.',
         bgColor: '#080512',
-        detailColor: '#c026d3'
+        detailColor: '#c026d3',
+        enemySprites: ['YOUNG_ADDER', 'NEON_VIPER', 'TOXIC_COBRA']
     },
     'Orc Chieftain': {
         name: 'Orc Chieftain Stronghold',
@@ -1348,7 +1350,8 @@ exports.RAID_ARENA_CONFIGS = {
         enemyNames: [],
         desc: 'The red brick stone fortress of the Orc Vanguard.',
         bgColor: '#1c0f0f',
-        detailColor: '#ef4444'
+        detailColor: '#ef4444',
+        enemySprites: ['ORC_VANGUARD', 'ORC_RAIDER', 'ORC_BERSERKER']
     },
     'Neon Lich': {
         name: 'Neon Lich Sepulchre',
@@ -1358,7 +1361,8 @@ exports.RAID_ARENA_CONFIGS = {
         enemyNames: [],
         desc: 'A dark purple crypt radiating with void energy.',
         bgColor: '#0d071a',
-        detailColor: '#a855f7'
+        detailColor: '#a855f7',
+        enemySprites: ['LICH_ACOLYTE', 'SKELETAL_LICH', 'FROST_WIGHT']
     },
     'Inferno Dragon': {
         name: 'Inferno Dragon Caldera',
@@ -1368,7 +1372,8 @@ exports.RAID_ARENA_CONFIGS = {
         enemyNames: [],
         desc: 'A volcanic crater with flowing rivers of lava.',
         bgColor: '#140500',
-        detailColor: '#ea580c'
+        detailColor: '#ea580c',
+        enemySprites: ['VOLCANO_HATCHLING', 'VOLCANO_DRAGON', 'MAGMA_DRAGON']
     }
 };
 exports.ARENA_CONFIGS = {

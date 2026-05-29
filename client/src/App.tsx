@@ -44,12 +44,14 @@ export default function App() {
   useEffect(() => {
     if (!loading) {
       if (user) {
-        setPage('DASHBOARD');
+        if (page === 'AUTH') {
+          setPage('DASHBOARD');
+        }
       } else {
         setPage('AUTH');
       }
     }
-  }, [user, loading]);
+  }, [user, loading, page]);
 
   // Listen to boot events and character updates from WebSocket
   useEffect(() => {

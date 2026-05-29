@@ -249,7 +249,7 @@ export const GearStash: React.FC<GearStashProps> = ({
               </button>
             ) : (
               <>
-                {selectedItem.itemLevel > charLevel ? (
+                {Number(selectedItem.itemLevel) > Number(charLevel) ? (
                   <div className="relative group flex-1">
                     <button
                       disabled

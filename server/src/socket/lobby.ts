@@ -643,8 +643,8 @@ export const setupSocketHandlers = (io: Server) => {
                   // Contribution multiplier: 50% floor, 150% cap, using Math.sqrt
                   const contributionMult = 0.5 + 0.5 * Math.min(2.0, Math.sqrt(scoreRatio));
 
-                  const xpGained = Math.round(bossLevel * 80 * contributionMult);
-                  const goldGained = Math.round(bossLevel * 15 * contributionMult);
+                  const xpGained = Math.round(bossLevel * 200 * contributionMult);
+                  const goldGained = Math.round(bossLevel * 45 * contributionMult);
 
                   // Check inventory
                   const unequippedCount = await prisma.item.count({

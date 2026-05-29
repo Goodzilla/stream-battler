@@ -27,7 +27,7 @@ export class InventoryService {
       throw new NotFoundError('Item not found in your stash');
     }
 
-    if (itemToEquip.itemLevel > activeChar.level) {
+    if (Number(itemToEquip.itemLevel) > Number(activeChar.level)) {
       throw new BadRequestError(`Requires character level ${itemToEquip.itemLevel} to equip this item.`);
     }
 
