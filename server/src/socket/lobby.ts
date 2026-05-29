@@ -284,17 +284,17 @@ export async function handleChatJoin(
     }
 
     const activeClass = resolveActiveClass(user!);
-    const char = user!.characters.find(c => c.class === activeClass);
+    const char = user!.characters.find((c: any) => c.class === activeClass);
     if (char) {
-      const weapon = user!.items.find(i => i.slot === 'WEAPON' && i.isEquipped && i.equippedCharacterId === char.id);
-      const armor = user!.items.find(i => i.slot === 'ARMOR' && i.isEquipped && i.equippedCharacterId === char.id);
+      const weapon = user!.items.find((i: any) => i.slot === 'WEAPON' && i.isEquipped && i.equippedCharacterId === char.id);
+      const armor = user!.items.find((i: any) => i.slot === 'ARMOR' && i.isEquipped && i.equippedCharacterId === char.id);
 
       const charStats = calculateCharacterStats(
         char.class,
         char.level,
         JSON.parse(char.talents || '[]'),
         JSON.parse(char.passives || '[]'),
-        user!.items.filter(i => i.isEquipped && i.equippedCharacterId === char.id) as any
+        user!.items.filter((i: any) => i.isEquipped && i.equippedCharacterId === char.id) as any
       );
 
       const viewerData: LobbyViewer = {

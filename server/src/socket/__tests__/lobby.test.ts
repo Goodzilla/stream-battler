@@ -91,7 +91,7 @@ describe('Twitch Chat Lobby Join Handler', () => {
     };
 
     // User lookup initially returns null
-    vi.mocked(prisma.user.findUnique).mockImplementation(async (args: any) => {
+    (prisma.user.findUnique as any).mockImplementation(async (args: any) => {
       if (args.where.twitchId) return null;
       if (args.where.id === 'new_user_id') return mockCreatedUser as any;
       return null;
@@ -179,7 +179,7 @@ describe('Twitch Chat Lobby Join Handler', () => {
     };
     
     vi.mocked(prisma.user.findFirst).mockResolvedValue(mockExistingUser as any);
-    vi.mocked(prisma.user.findUnique).mockImplementation(async (args: any) => {
+    (prisma.user.findUnique as any).mockImplementation(async (args: any) => {
       if (args.where.twitchId) return mockExistingUser as any;
       if (args.where.id === 'existing_id') {
         return {
