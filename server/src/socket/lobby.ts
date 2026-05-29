@@ -2,6 +2,7 @@ import { Server, Socket } from 'socket.io';
 import { prisma } from '../db';
 import { generateRandomItem, xpToNextLevel, calculateCharacterStats } from 'shared';
 import { resolveActiveClass, getActiveCharacter } from '../routes/auth';
+import tmi from 'tmi.js';
 
 export interface LobbyViewer {
   userId: string;
@@ -40,6 +41,308 @@ export interface LobbyState {
 
 // In-memory registry of active lobbies
 export const activeLobbies: Record<string, LobbyState> = {};
+
+// In-memory mapping of active Twitch IRC client connections
+const twitchClients: Record<string, tmi.Client> = {};
+
+const CLASS_UNLOCK_REQUIREMENTS: Record<string, string> = {
+  VALKYRIE: 'WARRIOR',
+  NECROMANCER: 'MAGE',
+  MONK: 'CLERIC',
+  ALCHEMIST: 'ROGUE',
+  BARD: 'RANGER'
+};
+
+/**
+ * Unified helper function to handle spectator joining via chat (Twitch IRC or simulated).
+ */
+export async function handleChatJoin(
+  io: Server,
+  streamerName: string,
+  senderName: string,
+  message: string,
+  twitchUserId?: string
+) {
+  const streamerKey = streamerName.toLowerCase();
+  const roomName = `lobby_${streamerKey}`;
+  const lobby = activeLobbies[streamerKey];
+
+  if (!lobby || lobby.status !== 'LOBBY') return;
+
+  const messageTrim = message.trim();
+  const lowerMsg = messageTrim.toLowerCase();
+  if (!lowerMsg.startsWith('!join')) return;
+
+  // Extract requested class if provided, e.g. "!join warrior"
+  const parts = messageTrim.split(/\s+/);
+  let requestedClass: string | null = null;
+  if (parts.length > 1) {
+    const classArg = parts[1].toUpperCase();
+    if (['WARRIOR', 'MAGE', 'CLERIC', 'ROGUE', 'RANGER', 'VALKYRIE', 'NECROMANCER', 'MONK', 'ALCHEMIST', 'BARD'].includes(classArg)) {
+      requestedClass = classArg;
+    }
+  }
+
+  try {
+    let user = null;
+
+    // 1. Attempt to find user by twitch ID (for real Twitch viewers)
+    if (twitchUserId) {
+      user = await prisma.user.findUnique({
+        where: { twitchId: twitchUserId },
+        include: { characters: true, items: true }
+      });
+    }
+
+    // 2. Fallback to lookup by username
+    if (!user) {
+      user = await prisma.user.findFirst({
+        where: { username: senderName.toLowerCase() },
+        include: { characters: true, items: true }
+      });
+    }
+
+    // 3. Fallback to simulation Twitch ID prefix
+    const simTwitchId = `sim_twitch_${senderName.toLowerCase()}`;
+    if (!user) {
+      user = await prisma.user.findUnique({
+        where: { twitchId: simTwitchId },
+        include: { characters: true, items: true }
+      });
+    }
+
+    // 4. Create user if they don't exist
+    if (!user) {
+      const startClass = requestedClass || ['WARRIOR', 'MAGE', 'CLERIC', 'ROGUE', 'RANGER'][Math.floor(Math.random() * 5)];
+      
+      user = await prisma.user.create({
+        data: {
+          twitchId: twitchUserId || simTwitchId,
+          username: senderName.toLowerCase(),
+          displayName: senderName,
+          gold: 50,
+          activeClass: startClass,
+          characters: {
+            create: {
+              class: startClass,
+              level: Math.floor(Math.random() * 3) + 1,
+              xp: 0,
+              talents: '[]',
+              passives: '["start"]'
+            }
+          }
+        },
+        include: { characters: true, items: true }
+      });
+
+      const simChar = user.characters[0];
+      const weaponName = 
+        startClass === 'WARRIOR' ? 'Rusty Gladius' :
+        startClass === 'MAGE' ? 'Initiate Wand' :
+        startClass === 'CLERIC' ? 'Novice Scepter' :
+        startClass === 'ROGUE' ? 'Serrated Dirk' :
+        startClass === 'RANGER' ? 'Trimming Bow' :
+        startClass === 'VALKYRIE' ? 'Novice Spear' :
+        startClass === 'NECROMANCER' ? 'Apprentice Scythe' :
+        startClass === 'MONK' ? 'Worn Fist Wraps' :
+        startClass === 'ALCHEMIST' ? 'Crude Flask' : 'Tuned Lute';
+
+      const armorName =
+        startClass === 'WARRIOR' ? 'Tattered Mail' :
+        startClass === 'MAGE' ? 'Apprentice Robe' :
+        startClass === 'CLERIC' ? 'Acolyte Vestment' :
+        startClass === 'ROGUE' ? 'Scout Leather' :
+        startClass === 'RANGER' ? 'Scout Leather' :
+        startClass === 'VALKYRIE' ? 'Valkyrie Plate' :
+        startClass === 'NECROMANCER' ? 'Dark Robe' :
+        startClass === 'MONK' ? 'Monk Gi' :
+        startClass === 'ALCHEMIST' ? 'Alchemist Coat' : 'Bard Garb';
+
+      await prisma.item.createMany({
+        data: [
+          {
+            userId: user.id,
+            equippedCharacterId: simChar.id,
+            name: weaponName,
+            slot: 'WEAPON',
+            rarity: 'COMMON',
+            itemLevel: 1,
+            baseAttack: 5,
+            baseDefense: 0,
+            affixes: '[]',
+            isEquipped: true
+          },
+          {
+            userId: user.id,
+            equippedCharacterId: simChar.id,
+            name: armorName,
+            slot: 'ARMOR',
+            rarity: 'COMMON',
+            itemLevel: 1,
+            baseAttack: 0,
+            baseDefense: 3,
+            affixes: '[]',
+            isEquipped: true
+          }
+        ]
+      });
+
+      user = await prisma.user.findUnique({
+        where: { id: user.id },
+        include: { characters: true, items: true }
+      }) as any;
+    } else {
+      // User exists. Enforce locks on advanced class selection if requested.
+      if (requestedClass) {
+        const requiredBaseClass = CLASS_UNLOCK_REQUIREMENTS[requestedClass];
+        if (requiredBaseClass) {
+          const baseChar = user.characters.find(c => c.class === requiredBaseClass);
+          if (!baseChar || baseChar.level < 100) {
+            requestedClass = requiredBaseClass; // Fallback to base starting class
+          }
+        }
+
+        // Switch class if they requested a different unlocked class
+        if (user.activeClass !== requestedClass) {
+          let char = user.characters.find(c => c.class === requestedClass);
+          if (!char) {
+            char = await prisma.character.create({
+              data: {
+                userId: user.id,
+                class: requestedClass,
+                level: 1,
+                xp: 0,
+                talents: '[]',
+                passives: '["start"]'
+              }
+            });
+
+            const weaponName = 
+              requestedClass === 'WARRIOR' ? 'Rusty Gladius' :
+              requestedClass === 'MAGE' ? 'Initiate Wand' :
+              requestedClass === 'CLERIC' ? 'Novice Scepter' :
+              requestedClass === 'ROGUE' ? 'Serrated Dirk' :
+              requestedClass === 'RANGER' ? 'Trimming Bow' :
+              requestedClass === 'VALKYRIE' ? 'Novice Spear' :
+              requestedClass === 'NECROMANCER' ? 'Apprentice Scythe' :
+              requestedClass === 'MONK' ? 'Worn Fist Wraps' :
+              requestedClass === 'ALCHEMIST' ? 'Crude Flask' : 'Tuned Lute';
+
+            const armorName =
+              requestedClass === 'WARRIOR' ? 'Tattered Mail' :
+              requestedClass === 'MAGE' ? 'Apprentice Robe' :
+              requestedClass === 'CLERIC' ? 'Acolyte Vestment' :
+              requestedClass === 'ROGUE' ? 'Scout Leather' :
+              requestedClass === 'RANGER' ? 'Scout Leather' :
+              requestedClass === 'VALKYRIE' ? 'Valkyrie Plate' :
+              requestedClass === 'NECROMANCER' ? 'Dark Robe' :
+              requestedClass === 'MONK' ? 'Monk Gi' :
+              requestedClass === 'ALCHEMIST' ? 'Alchemist Coat' : 'Bard Garb';
+
+            await prisma.item.createMany({
+              data: [
+                {
+                  userId: user.id,
+                  equippedCharacterId: char.id,
+                  name: weaponName,
+                  slot: 'WEAPON',
+                  rarity: 'COMMON',
+                  itemLevel: 1,
+                  baseAttack: 5,
+                  baseDefense: 0,
+                  affixes: '[]',
+                  isEquipped: true
+                },
+                {
+                  userId: user.id,
+                  equippedCharacterId: char.id,
+                  name: armorName,
+                  slot: 'ARMOR',
+                  rarity: 'COMMON',
+                  itemLevel: 1,
+                  baseAttack: 0,
+                  baseDefense: 3,
+                  affixes: '[]',
+                  isEquipped: true
+                }
+              ]
+            });
+          }
+
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { activeClass: requestedClass }
+          });
+          user.activeClass = requestedClass;
+
+          user = await prisma.user.findUnique({
+            where: { id: user.id },
+            include: { characters: true, items: true }
+          }) as any;
+        }
+      }
+    }
+
+    const activeClass = resolveActiveClass(user!);
+    const char = user!.characters.find(c => c.class === activeClass);
+    if (char) {
+      const weapon = user!.items.find(i => i.slot === 'WEAPON' && i.isEquipped && i.equippedCharacterId === char.id);
+      const armor = user!.items.find(i => i.slot === 'ARMOR' && i.isEquipped && i.equippedCharacterId === char.id);
+
+      const charStats = calculateCharacterStats(
+        char.class,
+        char.level,
+        JSON.parse(char.talents || '[]'),
+        JSON.parse(char.passives || '[]'),
+        user!.items.filter(i => i.isEquipped && i.equippedCharacterId === char.id) as any
+      );
+
+      const viewerData: LobbyViewer = {
+        userId: user!.id,
+        username: user!.username,
+        displayName: user!.displayName,
+        charClass: char.class,
+        level: char.level,
+        weaponRarity: weapon ? weapon.rarity : 'COMMON',
+        armorRarity: armor ? armor.rarity : 'COMMON',
+        maxHp: charStats.maxHp,
+        attackPower: charStats.attackPower,
+        defense: charStats.defense,
+        critChance: charStats.critChance,
+        critMult: charStats.critMult,
+        atkSpeed: charStats.atkSpeed,
+        lifesteal: charStats.lifesteal,
+        reflect: charStats.reflect,
+        cdr: charStats.cdr,
+        speed: charStats.moveSpeed,
+        selectedTalents: JSON.parse(char.talents || '[]'),
+        fireRes: charStats.fireRes,
+        coldRes: charStats.coldRes,
+        poisonRes: charStats.poisonRes,
+        physRes: charStats.physRes
+      };
+
+      const alreadyJoined = lobby.viewers.some(v => v.userId === user!.id);
+      if (!alreadyJoined && lobby.viewers.length >= 100) {
+        io.to(roomName).emit('chat-log-received', {
+          sender: 'SYSTEM',
+          message: `@${senderName}, the raid is full! Max 100 players.`,
+          timestamp: Date.now()
+        });
+        return;
+      }
+
+      lobby.viewers = lobby.viewers.filter(v => v.userId !== user!.id);
+      lobby.viewers.push(viewerData);
+
+      io.to(`user_${user!.id}`).emit('boot-from-solo-arena');
+      io.to(roomName).emit('lobby-update', lobby);
+      io.emit('global-lobbies-update', Object.values(activeLobbies));
+    }
+  } catch (err) {
+    console.error('Error handling chat join:', err);
+  }
+}
 
 export const setupSocketHandlers = (io: Server) => {
   io.on('connection', (socket: Socket) => {
@@ -125,6 +428,58 @@ export const setupSocketHandlers = (io: Server) => {
 
       io.to(roomName).emit('lobby-update', activeLobbies[streamerName.toLowerCase()]);
       io.emit('global-lobbies-update', Object.values(activeLobbies)); // Alert everyone of new lobby
+
+      // Connect to streamer's Twitch chat channel asynchronously
+      const streamerKey = streamerName.toLowerCase();
+      if (twitchClients[streamerKey]) {
+        try {
+          await twitchClients[streamerKey].disconnect();
+        } catch (e) {
+          console.error(`Error disconnecting old Twitch client for ${streamerName}:`, e);
+        }
+        delete twitchClients[streamerKey];
+      }
+
+      (async () => {
+        try {
+          const client = new tmi.Client({
+            options: { debug: false },
+            connection: {
+              reconnect: true,
+              secure: true
+            },
+            channels: [ streamerName ]
+          });
+
+          client.on('message', async (channel, tags, msg, self) => {
+            if (self) return;
+
+            // Broadcast message to the lobby socket room
+            io.to(roomName).emit('chat-log-received', {
+              sender: tags['display-name'] || tags['username'] || 'TwitchUser',
+              message: msg,
+              timestamp: Date.now()
+            });
+
+            // Parse and handle join
+            if (msg.trim().toLowerCase().startsWith('!join')) {
+              await handleChatJoin(
+                io,
+                streamerName,
+                tags['username'] || tags['display-name'] || 'TwitchUser',
+                msg,
+                tags['user-id']
+              );
+            }
+          });
+
+          await client.connect();
+          twitchClients[streamerKey] = client;
+          console.log(`Successfully connected to Twitch chat for channel: ${streamerName}`);
+        } catch (err) {
+          console.error(`Failed to connect to Twitch chat for channel ${streamerName}:`, err);
+        }
+      })();
     });
 
     // VIEWER/STREAMER: JOIN LOBBY
@@ -215,150 +570,8 @@ export const setupSocketHandlers = (io: Server) => {
       });
 
       // Parse join command: "!join"
-      if (message.trim().toLowerCase() === '!join') {
-        const lobby = activeLobbies[streamerKey];
-        if (lobby && lobby.status === 'LOBBY') {
-          try {
-            // Find or create the viewer profile in DB
-            const viewerTwitchId = `sim_twitch_${senderName.toLowerCase()}`;
-            let user = await prisma.user.findUnique({
-              where: { twitchId: viewerTwitchId },
-              include: { characters: true, items: true }
-            });
-
-            if (!user) {
-              const startClass = ['WARRIOR', 'MAGE', 'CLERIC', 'ROGUE', 'RANGER'][Math.floor(Math.random() * 5)];
-              user = await prisma.user.create({
-                data: {
-                  twitchId: viewerTwitchId,
-                  username: senderName.toLowerCase(),
-                  displayName: senderName,
-                  gold: 50,
-                  activeClass: startClass,
-                  characters: {
-                    create: {
-                      class: startClass,
-                      level: Math.floor(Math.random() * 3) + 1, // Start level 1-3
-                      xp: 0,
-                      talents: '[]',
-                      passives: '["start"]'
-                    }
-                  }
-                },
-                include: { characters: true, items: true }
-              });
-
-              // Starter items for new class
-              const simChar = user.characters[0];
-              const weaponName = 
-                startClass === 'WARRIOR' ? 'Rusty Gladius' :
-                startClass === 'MAGE' ? 'Initiate Wand' :
-                startClass === 'CLERIC' ? 'Novice Scepter' :
-                startClass === 'ROGUE' ? 'Serrated Dirk' : 'Trimming Bow';
-
-              const armorName =
-                startClass === 'WARRIOR' ? 'Tattered Mail' :
-                startClass === 'MAGE' ? 'Apprentice Robe' :
-                startClass === 'CLERIC' ? 'Acolyte Vestment' :
-                startClass === 'ROGUE' ? 'Scout Leather' : 'Scout Leather';
-
-              await prisma.item.createMany({
-                data: [
-                  {
-                    userId: user.id,
-                    equippedCharacterId: simChar.id,
-                    name: weaponName,
-                    slot: 'WEAPON',
-                    rarity: 'COMMON',
-                    itemLevel: 1,
-                    baseAttack: 5,
-                    baseDefense: 0,
-                    affixes: '[]',
-                    isEquipped: true
-                  },
-                  {
-                    userId: user.id,
-                    equippedCharacterId: simChar.id,
-                    name: armorName,
-                    slot: 'ARMOR',
-                    rarity: 'COMMON',
-                    itemLevel: 1,
-                    baseAttack: 0,
-                    baseDefense: 3,
-                    affixes: '[]',
-                    isEquipped: true
-                  }
-                ]
-              });
-
-              // Refetch simulated user
-              user = await prisma.user.findUnique({
-                where: { id: user.id },
-                include: { characters: true, items: true }
-              }) as any;
-            }
-
-            const activeClass = resolveActiveClass(user);
-            const char = user!.characters.find(c => c.class === activeClass);
-            if (char) {
-              const weapon = user!.items.find(i => i.slot === 'WEAPON' && i.isEquipped && i.equippedCharacterId === char.id);
-              const armor = user!.items.find(i => i.slot === 'ARMOR' && i.isEquipped && i.equippedCharacterId === char.id);
-
-              const charStats = calculateCharacterStats(
-                char.class,
-                char.level,
-                JSON.parse(char.talents || '[]'),
-                JSON.parse(char.passives || '[]'),
-                user!.items.filter(i => i.isEquipped && i.equippedCharacterId === char.id) as any
-              );
-
-              const viewerData: LobbyViewer = {
-                userId: user!.id,
-                username: user!.username,
-                displayName: user!.displayName,
-                charClass: char.class,
-                level: char.level,
-                weaponRarity: weapon ? weapon.rarity : 'COMMON',
-                armorRarity: armor ? armor.rarity : 'COMMON',
-                maxHp: charStats.maxHp,
-                attackPower: charStats.attackPower,
-                defense: charStats.defense,
-                critChance: charStats.critChance,
-                critMult: charStats.critMult,
-                atkSpeed: charStats.atkSpeed,
-                lifesteal: charStats.lifesteal,
-                reflect: charStats.reflect,
-                cdr: charStats.cdr,
-                speed: charStats.moveSpeed,
-                selectedTalents: JSON.parse(char.talents || '[]'),
-                fireRes: charStats.fireRes,
-                coldRes: charStats.coldRes,
-                poisonRes: charStats.poisonRes,
-                physRes: charStats.physRes
-              };
-
-              // Enforce 100 player cap
-              const alreadyJoined = lobby.viewers.some(v => v.userId === user!.id);
-              if (!alreadyJoined && lobby.viewers.length >= 100) {
-                io.to(roomName).emit('chat-log-received', {
-                  sender: 'SYSTEM',
-                  message: `@${senderName}, the raid is full! Max 100 players.`,
-                  timestamp: Date.now()
-                });
-                return;
-              }
-
-              lobby.viewers = lobby.viewers.filter(v => v.userId !== user!.id);
-              lobby.viewers.push(viewerData);
-
-              io.to(`user_${user!.id}`).emit('boot-from-solo-arena');
-              io.to(roomName).emit('lobby-update', lobby);
-              io.emit('global-lobbies-update', Object.values(activeLobbies));
-            }
-          } catch (err) {
-            console.error('Error handling simulated chat join:', err);
-          }
-        }
+      if (message.trim().toLowerCase().startsWith('!join')) {
+        await handleChatJoin(io, streamerName, senderName, message);
       }
     });
 
@@ -597,6 +810,14 @@ export const setupSocketHandlers = (io: Server) => {
       delete activeLobbies[streamerName.toLowerCase()];
       io.to(roomName).emit('lobby-closed');
       io.emit('global-lobbies-update', Object.values(activeLobbies));
+
+      const streamerKey = streamerName.toLowerCase();
+      if (twitchClients[streamerKey]) {
+        twitchClients[streamerKey].disconnect().catch(err => {
+          console.error(`Error disconnecting Twitch client for ${streamerName}:`, err);
+        });
+        delete twitchClients[streamerKey];
+      }
     });
 
     // SOCKET DISCONNECT / CLEANUP
@@ -606,6 +827,13 @@ export const setupSocketHandlers = (io: Server) => {
         delete activeLobbies[streamerName];
         io.to(currentLobby).emit('lobby-closed');
         io.emit('global-lobbies-update', Object.values(activeLobbies));
+
+        if (twitchClients[streamerName]) {
+          twitchClients[streamerName].disconnect().catch(err => {
+            console.error(`Error disconnecting Twitch client for ${streamerName}:`, err);
+          });
+          delete twitchClients[streamerName];
+        }
       } else if (currentLobby && connectedUserId) {
         const streamerName = currentLobby.replace('lobby_', '');
         const lobby = activeLobbies[streamerName];
