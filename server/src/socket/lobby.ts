@@ -605,6 +605,7 @@ export const setupSocketHandlers = (io: Server) => {
       if (lobby && lobby.status === 'FIGHTING') {
         lobby.status = 'LOBBY';
 
+        const rewards: Record<string, { xp: number; gold: number; itemDropped?: any; inventoryFull?: boolean }> = {};
         try {
           // Log raid history
           await prisma.raidHistory.create({
@@ -618,8 +619,6 @@ export const setupSocketHandlers = (io: Server) => {
           });
 
           // Award loot if successful
-          const rewards: Record<string, { xp: number; gold: number; itemDropped?: any; inventoryFull?: boolean }> = {};
-
           if (success) {
             // Calculate average contribution score of players
             const totalScore = (recapStats || []).reduce((sum: number, stat: any) => sum + (stat.score || 0), 0);
@@ -634,7 +633,7 @@ export const setupSocketHandlers = (io: Server) => {
 
               if (user) {
                 const activeClass = resolveActiveClass(user);
-                const character = user.characters.find(c => c.class === activeClass);
+                const character = user.characters.find((c: any) => c.class === activeClass);
                 if (character) {
                   // Find this player's contribution
                   const playerStat = (recapStats || []).find((stat: any) => stat.userId === viewer.userId);
@@ -794,12 +793,12 @@ export const setupSocketHandlers = (io: Server) => {
               }
             }
           }
-
+        } catch (err) {
+          console.error('Error resolving raid end rewards:', err);
+        } finally {
           io.to(roomName).emit('raid-ended', { success, rewards, recapStats });
           io.to(roomName).emit('lobby-update', lobby);
           io.emit('global-lobbies-update', Object.values(activeLobbies));
-        } catch (err) {
-          console.error('Error resolving raid end rewards:', err);
         }
       }
     });

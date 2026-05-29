@@ -1172,7 +1172,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                 </span>
                 <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto pr-2">
                   {Object.entries(rewardsList).map(([userId, rew]: [string, any]) => {
-                    const viewer = lobby?.viewers.find((v: any) => v.userId === userId);
+                    const viewer = (lobby?.viewers || []).find((v: any) => v.userId === userId);
                     return (
                       <div key={userId} className="flex justify-between items-center py-1 border-b border-white/5 last:border-0">
                         <span className="font-bold text-white">{viewer?.displayName || 'Viewer'}</span>

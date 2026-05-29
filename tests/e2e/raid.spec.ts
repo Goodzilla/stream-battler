@@ -90,6 +90,13 @@ test.describe('Stream Raiders Clone - E2E Raid Test Flow', () => {
     await expect(streamerPage.locator('canvas')).toBeVisible();
     await expect(viewerPage.locator('canvas')).toBeVisible();
 
+    // Wait for the raid to complete and the results screen to appear
+    console.log("Waiting for raid to complete...");
+    await expect(streamerPage.locator('h3:has-text("RAID")')).toBeVisible({ timeout: 45000 });
+    console.log("Raid completed successfully on host!");
+    await expect(viewerPage.locator('h3:has-text("RAID")')).toBeVisible({ timeout: 45000 });
+    console.log("Raid completed successfully on spectator!");
+
     // Clean up contexts
     await viewerContext.close();
     await streamerContext.close();
