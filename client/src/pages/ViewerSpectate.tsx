@@ -278,15 +278,18 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
 
         if (unit.hp <= 0) return;
 
-        const isB = !unit.isPlayer;
-        const r = isB ? 44 : 16;
+        const isBoss = unit.id === 'boss';
+        const isAdd = !unit.isPlayer && !isBoss;
+        const r = isBoss ? 44 : (isAdd ? 22 : 16);
         const uFlash = (unit.flashTimer && unit.flashTimer > 0) ? unit.flashColor : undefined;
 
         // Render retro 2D pixel-art sprite
         if (unit.isPlayer) {
           drawPixelSprite(ctx, unit.x, unit.y, unit.classType || 'WARRIOR', 2.4, false, unit.color, uFlash);
-        } else {
+        } else if (isBoss) {
           drawPixelSprite(ctx, unit.x, unit.y, unit.classType || 'GOBLIN', 5.5, true, unit.color, uFlash);
+        } else {
+          drawPixelSprite(ctx, unit.x, unit.y, unit.classType || 'GOBLIN_SCOUT', 3.0, true, unit.color, uFlash);
         }
 
         // Name
@@ -312,7 +315,7 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
       // 2. DRAW PROJECTILES
       s.projectiles.forEach(p => {
         ctx.strokeStyle = p.color;
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = p.color === '#ff9500' ? 12 : 2.5;
         ctx.beginPath();
         ctx.moveTo(p.fx, p.fy);
         ctx.lineTo(p.tx, p.ty);

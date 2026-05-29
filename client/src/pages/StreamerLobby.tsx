@@ -358,8 +358,54 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
       damageTaken: 0
     };
 
+    // Spawning themed adds next to the boss
+    const numAdds = Math.max(1, Math.min(8, Math.floor(viewersList.length / 2)));
+    const arenaConfig = RAID_ARENA_CONFIGS[bossName] || getArenaConfigForLevel(bossLevel);
+    const possibleAddSprites = arenaConfig.enemySprites || [arenaConfig.enemySprite];
+    const formatSpriteName = (s: string) =>
+      s.split('_')
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ');
+
+    const adds: RaidUnit[] = [];
+    for (let i = 0; i < numAdds; i++) {
+      const sprite = possibleAddSprites[i % possibleAddSprites.length];
+      const addHp = Math.round((100 + bossLevel * 25) * (1 + viewersList.length * 0.1));
+      const addAtk = Math.round((4 + bossLevel * 1) * (1 + viewersList.length * 0.05));
+      
+      let addY = 300;
+      if (numAdds > 1) {
+        addY = 150 + (300 / (numAdds - 1)) * i;
+      }
+
+      adds.push({
+        id: `add_${i}`,
+        isPlayer: false,
+        name: formatSpriteName(sprite),
+        x: 950 + (Math.random() * 40 - 20),
+        y: addY,
+        maxHp: addHp,
+        hp: addHp,
+        speed: 55 + Math.random() * 20,
+        attackPower: addAtk,
+        critChance: 0.05,
+        critMult: 1.5,
+        atkSpeed: 0.8 + Math.random() * 0.4,
+        attackRange: sprite.includes('ARCHER') ? 180 : 45,
+        color: '#ff4444',
+        atkTimer: Math.random() * 1.5,
+        skillTimer: 999.0,
+        activeSkillCd: 999.0,
+        stunTimer: 0,
+        classType: sprite,
+        damageDealt: 0,
+        healingDone: 0,
+        damageTaken: 0
+      });
+    }
+
     stateRef.current = {
-      units: [...playerUnits, bossUnit],
+      units: [...playerUnits, bossUnit, ...adds],
       projectiles: [],
       damageTexts: [],
       particles: [],
@@ -411,7 +457,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
       const arenaConfig = RAID_ARENA_CONFIGS[bossName] || getArenaConfigForLevel(bossLevel);
       drawProceduralBackground(ctx, canvas.width, canvas.height, arenaConfig);
 
-      const boss = s.units.find(u => !u.isPlayer);
+      const boss = s.units.find(u => u.id === 'boss');
       const livingPlayers = s.units.filter(u => u.isPlayer && u.hp > 0);
       const allPlayers = s.units.filter(u => u.isPlayer);
 
@@ -498,9 +544,31 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                 target = other;
               }
             });
-            if (lowestHp > 0.85) target = boss;
+            if (lowestHp > 0.85) {
+              // Healer does DPS: target closest enemy
+              let minDist = 9999;
+              s.units.forEach(u => {
+                if (!u.isPlayer && u.hp > 0) {
+                  const dist = getDistance(p, u);
+                  if (dist < minDist) {
+                    minDist = dist;
+                    target = u;
+                  }
+                }
+              });
+            }
           } else {
-            target = boss;
+            // Target closest enemy
+            let minDist = 9999;
+            s.units.forEach(u => {
+              if (!u.isPlayer && u.hp > 0) {
+                const dist = getDistance(p, u);
+                if (dist < minDist) {
+                  minDist = dist;
+                  target = u;
+                }
+              }
+            });
           }
 
           if (target) {
@@ -570,45 +638,78 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
           }
         });
 
-        // 2. UPDATE BOSS
-        if (boss.stunTimer > 0) {
-          boss.stunTimer -= dt;
-        } else {
-          let target: RaidUnit | null = null;
-          let minDist = 9999;
-          allPlayers.forEach(p => {
-            if (p.hp <= 0) return;
-            const dist = getDistance(boss, p);
-            if (dist < minDist) {
-              minDist = dist;
-              target = p;
-            }
-          });
+        // 2. UPDATE ENEMIES (Boss and Adds)
+        const enemies = s.units.filter(u => !u.isPlayer && u.hp > 0);
+        enemies.forEach(enemy => {
+          if (enemy.stunTimer > 0) {
+            enemy.stunTimer -= dt;
+          } else {
+            // Find closest living player
+            let target: RaidUnit | null = null;
+            let minDist = 9999;
+            allPlayers.forEach(p => {
+              if (p.hp <= 0) return;
+              const dist = getDistance(enemy, p);
+              if (dist < minDist) {
+                minDist = dist;
+                target = p;
+              }
+            });
 
-          if (target) {
-            if (boss.atkTimer > 0) boss.atkTimer -= dt;
-            if (boss.skillTimer > 0) boss.skillTimer -= dt;
+            if (target) {
+              if (enemy.atkTimer > 0) enemy.atkTimer -= dt;
+              if (enemy.skillTimer > 0) enemy.skillTimer -= dt;
 
-            const dist = getDistance(boss, target);
+              const dist = getDistance(enemy, target);
 
-            if (dist <= boss.attackRange) {
-              if (boss.atkTimer <= 0) {
-                boss.atkTimer = 1.0 / boss.atkSpeed;
+              if (dist <= enemy.attackRange) {
+                if (enemy.atkTimer <= 0) {
+                  enemy.atkTimer = 1.0 / enemy.atkSpeed;
 
-                allPlayers.forEach(p => {
-                  if (p.hp <= 0) return;
-                  if (getDistance(boss, p) <= boss.attackRange + 20) {
+                  if (enemy.id === 'boss') {
+                    // Boss cleave / AoE basic attack on close targets
+                    allPlayers.forEach(p => {
+                      if (p.hp <= 0) return;
+                      if (getDistance(enemy, p) <= enemy.attackRange + 20) {
+                        const dummyRecap = {
+                          shakeTimer: s.shakeTimer,
+                          shakeIntensity: s.shakeIntensity,
+                          playerDamageDealt: p.damageDealt || 0,
+                          playerDamageTaken: p.damageTaken || 0,
+                          playerHealingDone: p.healingDone || 0
+                        };
+
+                        performBasicAttack(
+                          enemy as any,
+                          p as any,
+                          dt,
+                          dummyRecap,
+                          s.projectiles,
+                          s.damageTexts,
+                          s.particles,
+                          0.1
+                        );
+
+                        s.shakeTimer = dummyRecap.shakeTimer;
+                        s.shakeIntensity = dummyRecap.shakeIntensity;
+                        p.damageDealt = dummyRecap.playerDamageDealt;
+                        p.damageTaken = dummyRecap.playerDamageTaken;
+                        p.healingDone = dummyRecap.playerHealingDone;
+                      }
+                    });
+                  } else {
+                    // Regular add basic attack on its single target
                     const dummyRecap = {
                       shakeTimer: s.shakeTimer,
                       shakeIntensity: s.shakeIntensity,
-                      playerDamageDealt: p.damageDealt || 0,
-                      playerDamageTaken: p.damageTaken || 0,
-                      playerHealingDone: p.healingDone || 0
+                      playerDamageDealt: target.damageDealt || 0,
+                      playerDamageTaken: target.damageTaken || 0,
+                      playerHealingDone: target.healingDone || 0
                     };
 
                     performBasicAttack(
-                      boss as any,
-                      p as any,
+                      enemy as any,
+                      target as any,
                       dt,
                       dummyRecap,
                       s.projectiles,
@@ -619,92 +720,262 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
 
                     s.shakeTimer = dummyRecap.shakeTimer;
                     s.shakeIntensity = dummyRecap.shakeIntensity;
-                    p.damageDealt = dummyRecap.playerDamageDealt;
-                    p.damageTaken = dummyRecap.playerDamageTaken;
-                    p.healingDone = dummyRecap.playerHealingDone;
+                    target.damageDealt = dummyRecap.playerDamageDealt;
+                    target.damageTaken = dummyRecap.playerDamageTaken;
+                    target.healingDone = dummyRecap.playerHealingDone;
                   }
-                });
+                }
+
+                if (enemy.id === 'boss') {
+                  if (enemy.skillTimer <= 0) {
+                    enemy.skillTimer = enemy.activeSkillCd;
+
+                    const skillIndex = Math.floor(Math.random() * 3);
+                    const scalingFactor = 1 + Math.min(1.5, allPlayers.length * 0.03);
+
+                    if (skillIndex === 0) {
+                      // 1. Laser Arc
+                      const tx = 50;
+                      const ty = enemy.y + (Math.random() * 200 - 100);
+                      s.projectiles.push({
+                        fx: enemy.x,
+                        fy: enemy.y,
+                        tx,
+                        ty,
+                        color: '#ff9500',
+                        life: 8
+                      });
+
+                      s.shakeTimer = 0.4;
+                      s.shakeIntensity = 12;
+
+                      allPlayers.forEach(p => {
+                        if (p.hp <= 0) return;
+                        const baseDmg = Math.max(1, Math.round((enemy.attackPower * 2.2 * scalingFactor) - (p.defense || 0) * 0.1));
+                        const theme = enemy.spriteType || enemy.classType || 'GOBLIN_SCOUT';
+                        const dmgTheme = getUnitDamageTheme(theme);
+                        let physPortion = 1.0;
+                        let firePortion = 0.0;
+                        let coldPortion = 0.0;
+                        let poisonPortion = 0.0;
+
+                        if (dmgTheme === 'SNAKE') {
+                          physPortion = 0.5;
+                          poisonPortion = 0.5;
+                        } else if (dmgTheme === 'LICH') {
+                          physPortion = 0.0;
+                          coldPortion = 1.0;
+                        } else if (dmgTheme === 'DRAGON') {
+                          physPortion = 0.3;
+                          firePortion = 0.7;
+                        }
+
+                        const physRes = p.physRes || 0;
+                        const fireRes = p.fireRes || 0;
+                        const coldRes = p.coldRes || 0;
+                        const poisonRes = p.poisonRes || 0;
+
+                        const reducedPhys = baseDmg * physPortion * (1 - physRes);
+                        const reducedFire = baseDmg * firePortion * (1 - fireRes);
+                        const reducedCold = baseDmg * coldPortion * (1 - coldRes);
+                        const reducedPoison = baseDmg * poisonPortion * (1 - poisonRes);
+
+                        const dmg = Math.max(1, Math.round(reducedPhys + reducedFire + reducedCold + reducedPoison));
+                        p.hp = Math.max(0, p.hp - dmg);
+                        p.damageTaken = (p.damageTaken || 0) + dmg;
+                        p.flashTimer = 0.15;
+                        p.flashColor = '#ff9500';
+                        s.damageTexts.push({ x: p.x, y: p.y - 16, text: `${dmg} (Laser Arc!)`, color: '#ff9500', life: 55, isCrit: true });
+                        createExplosion(s.particles, p.x, p.y, '#ff9500', 15);
+
+                        if (p.reflect && p.reflect > 0) {
+                          const refl = Math.round((enemy.attackPower * 2.2 * scalingFactor) * p.reflect);
+                          enemy.hp = Math.max(0, enemy.hp - refl);
+                          p.damageDealt = (p.damageDealt || 0) + refl;
+                          enemy.flashTimer = 0.1;
+                          enemy.flashColor = '#ff3b30';
+                          s.damageTexts.push({ x: enemy.x + (Math.random() * 40 - 20), y: enemy.y - 20, text: `${refl} (Reflect)`, color: '#af52de', life: 40 });
+                        }
+                      });
+                    } else if (skillIndex === 1) {
+                      // 2. Shockwave Slam (Cataclysm)
+                      s.damageTexts.push({ x: enemy.x, y: enemy.y - 40, text: 'CATACLYSM SHOCKWAVE!', color: '#ff4400', life: 60, isCrit: true });
+
+                      // Spawn radiating lines
+                      for (let angle = 0; angle < Math.PI * 2; angle += (Math.PI * 2) / 6) {
+                        s.projectiles.push({
+                          fx: enemy.x,
+                          fy: enemy.y,
+                          tx: enemy.x + Math.cos(angle) * 150,
+                          ty: enemy.y + Math.sin(angle) * 150,
+                          color: '#ff4400',
+                          life: 12
+                        });
+                      }
+
+                      s.shakeTimer = 0.4;
+                      s.shakeIntensity = 12;
+
+                      allPlayers.forEach(p => {
+                        if (p.hp <= 0) return;
+                        const baseDmg = Math.max(1, Math.round((enemy.attackPower * 1.5 * scalingFactor) - (p.defense || 0) * 0.1));
+
+                        // Apply defense reduction and resistances
+                        const theme = enemy.spriteType || enemy.classType || 'GOBLIN_SCOUT';
+                        const dmgTheme = getUnitDamageTheme(theme);
+                        let physPortion = 1.0;
+                        let firePortion = 0.0;
+                        let coldPortion = 0.0;
+                        let poisonPortion = 0.0;
+
+                        if (dmgTheme === 'SNAKE') {
+                          physPortion = 0.5;
+                          poisonPortion = 0.5;
+                        } else if (dmgTheme === 'LICH') {
+                          physPortion = 0.0;
+                          coldPortion = 1.0;
+                        } else if (dmgTheme === 'DRAGON') {
+                          physPortion = 0.3;
+                          firePortion = 0.7;
+                        }
+
+                        const physRes = p.physRes || 0;
+                        const fireRes = p.fireRes || 0;
+                        const coldRes = p.coldRes || 0;
+                        const poisonRes = p.poisonRes || 0;
+
+                        const reducedPhys = baseDmg * physPortion * (1 - physRes);
+                        const reducedFire = baseDmg * firePortion * (1 - fireRes);
+                        const reducedCold = baseDmg * coldPortion * (1 - coldRes);
+                        const reducedPoison = baseDmg * poisonPortion * (1 - poisonRes);
+
+                        const dmg = Math.max(1, Math.round(reducedPhys + reducedFire + reducedCold + reducedPoison));
+
+                        p.hp = Math.max(0, p.hp - dmg);
+                        p.damageTaken = (p.damageTaken || 0) + dmg;
+                        p.flashTimer = 0.15;
+                        p.flashColor = '#ff4400';
+                        p.stunTimer = 0.8; // stun!
+                        s.damageTexts.push({ x: p.x, y: p.y - 16, text: `${dmg} (Stunned!)`, color: '#ff4400', life: 55, isCrit: true });
+                        createExplosion(s.particles, p.x, p.y, '#ff4400', 12);
+
+                        if (p.reflect && p.reflect > 0) {
+                          const refl = Math.round((enemy.attackPower * 1.5 * scalingFactor) * p.reflect);
+                          enemy.hp = Math.max(0, enemy.hp - refl);
+                          p.damageDealt = (p.damageDealt || 0) + refl;
+                          enemy.flashTimer = 0.1;
+                          enemy.flashColor = '#ff3b30';
+                        }
+                      });
+                    } else {
+                      // 3. Themed Elemental Barrage
+                      const theme = enemy.spriteType || enemy.classType || 'GOBLIN_SCOUT';
+                      const dmgTheme = getUnitDamageTheme(theme);
+
+                      let attackName = 'BOMBARDMENT!';
+                      let projectileColor = '#ef4444';
+                      if (dmgTheme === 'SNAKE') {
+                        attackName = 'ACID RAIN!';
+                        projectileColor = '#adff2f';
+                      } else if (dmgTheme === 'LICH') {
+                        attackName = 'HAILSTORM!';
+                        projectileColor = '#38bdf8';
+                      } else if (dmgTheme === 'DRAGON') {
+                        attackName = 'METEOR SHOWER!';
+                        projectileColor = '#ea580c';
+                      }
+
+                      s.damageTexts.push({ x: enemy.x, y: enemy.y - 45, text: attackName, color: projectileColor, life: 60, isCrit: true });
+
+                      allPlayers.forEach(p => {
+                        if (p.hp <= 0) return;
+
+                        // Spawn meteor falling from top of screen to player
+                        s.projectiles.push({
+                          fx: p.x,
+                          fy: 0,
+                          tx: p.x,
+                          ty: p.y,
+                          color: projectileColor,
+                          life: 10
+                        });
+
+                        const baseDmg = Math.max(1, Math.round((enemy.attackPower * 1.8 * scalingFactor) - (p.defense || 0) * 0.1));
+
+                        let physPortion = 1.0;
+                        let firePortion = 0.0;
+                        let coldPortion = 0.0;
+                        let poisonPortion = 0.0;
+
+                        if (dmgTheme === 'SNAKE') {
+                          physPortion = 0.5;
+                          poisonPortion = 0.5;
+                        } else if (dmgTheme === 'LICH') {
+                          physPortion = 0.0;
+                          coldPortion = 1.0;
+                        } else if (dmgTheme === 'DRAGON') {
+                          physPortion = 0.3;
+                          firePortion = 0.7;
+                        }
+
+                        const physRes = p.physRes || 0;
+                        const fireRes = p.fireRes || 0;
+                        const coldRes = p.coldRes || 0;
+                        const poisonRes = p.poisonRes || 0;
+
+                        const reducedPhys = baseDmg * physPortion * (1 - physRes);
+                        const reducedFire = baseDmg * firePortion * (1 - fireRes);
+                        const reducedCold = baseDmg * coldPortion * (1 - coldRes);
+                        const reducedPoison = baseDmg * poisonPortion * (1 - poisonRes);
+
+                        const dmg = Math.max(1, Math.round(reducedPhys + reducedFire + reducedCold + reducedPoison));
+
+                        setTimeout(() => {
+                          if (p.hp <= 0 || s.battleState !== 'FIGHTING') return;
+                          p.hp = Math.max(0, p.hp - dmg);
+                          p.damageTaken = (p.damageTaken || 0) + dmg;
+                          p.flashTimer = 0.15;
+                          p.flashColor = projectileColor;
+                          s.damageTexts.push({ x: p.x, y: p.y - 16, text: `${dmg}`, color: projectileColor, life: 45, isCrit: true });
+                          createExplosion(s.particles, p.x, p.y, projectileColor, 12);
+
+                          if (p.reflect && p.reflect > 0) {
+                            const refl = Math.round((enemy.attackPower * 1.8 * scalingFactor) * p.reflect);
+                            enemy.hp = Math.max(0, enemy.hp - refl);
+                            p.damageDealt = (p.damageDealt || 0) + refl;
+                            enemy.flashTimer = 0.1;
+                            enemy.flashColor = '#ff3b30';
+                          }
+                        }, 200); // delay damage to match meteor landing
+                      });
+                    }
+                  }
+                }
+              } else {
+                // Seek closest player, separate from other enemies
+                updateUnitPhysics(enemy as any, target, enemies as any[], dt, canvas.width, canvas.height);
               }
-
-              if (boss.skillTimer <= 0) {
-                boss.skillTimer = boss.activeSkillCd;
-
-                ctx.strokeStyle = '#ff9500';
-                ctx.lineWidth = 15;
-                ctx.beginPath(); ctx.moveTo(boss.x, boss.y); ctx.lineTo(50, boss.y + (Math.random() * 200 - 100)); ctx.stroke();
-
-                s.shakeTimer = 0.4;
-                s.shakeIntensity = 12;
-
-                allPlayers.forEach(p => {
-                  if (p.hp <= 0) return;
-                  const baseDmg = Math.max(1, Math.round(boss.attackPower * 2.2 - (p.defense || 0) * 0.1));
-                  const theme = boss.spriteType || boss.classType || 'GOBLIN_SCOUT';
-                  const dmgTheme = getUnitDamageTheme(theme);
-                  let physPortion = 1.0;
-                  let firePortion = 0.0;
-                  let coldPortion = 0.0;
-                  let poisonPortion = 0.0;
-
-                  if (dmgTheme === 'SNAKE') {
-                    physPortion = 0.5;
-                    poisonPortion = 0.5;
-                  } else if (dmgTheme === 'LICH') {
-                    physPortion = 0.0;
-                    coldPortion = 1.0;
-                  } else if (dmgTheme === 'DRAGON') {
-                    physPortion = 0.3;
-                    firePortion = 0.7;
-                  }
-
-                  const physRes = p.physRes || 0;
-                  const fireRes = p.fireRes || 0;
-                  const coldRes = p.coldRes || 0;
-                  const poisonRes = p.poisonRes || 0;
-
-                  const reducedPhys = baseDmg * physPortion * (1 - physRes);
-                  const reducedFire = baseDmg * firePortion * (1 - fireRes);
-                  const reducedCold = baseDmg * coldPortion * (1 - coldRes);
-                  const reducedPoison = baseDmg * poisonPortion * (1 - poisonRes);
-
-                  const dmg = Math.max(1, Math.round(reducedPhys + reducedFire + reducedCold + reducedPoison));
-                  p.hp = Math.max(0, p.hp - dmg);
-                  p.damageTaken = (p.damageTaken || 0) + dmg;
-                  p.flashTimer = 0.15;
-                  p.flashColor = '#ff9500';
-                  s.damageTexts.push({ x: p.x, y: p.y - 16, text: `${dmg} (Laser Arc!)`, color: '#ff9500', life: 55, isCrit: true });
-                  createExplosion(s.particles, p.x, p.y, '#ff9500', 15);
-
-                  if (p.reflect && p.reflect > 0) {
-                    const refl = Math.round((boss.attackPower * 2.2) * p.reflect);
-                    boss.hp = Math.max(0, boss.hp - refl);
-                    p.damageDealt = (p.damageDealt || 0) + refl;
-                    boss.flashTimer = 0.1;
-                    boss.flashColor = '#ff3b30';
-                    s.damageTexts.push({ x: boss.x + (Math.random() * 40 - 20), y: boss.y - 20, text: `${refl} (Reflect)`, color: '#af52de', life: 40 });
-                  }
-                });
-              }
-            } else {
-              updateUnitPhysics(boss as any, target, [], dt, canvas.width, canvas.height);
             }
           }
-        }
+        });
       }
 
       // 3. DRAW COMBAT SCENE
       s.units.forEach(unit => {
         if (unit.hp <= 0) return;
 
-        const isB = !unit.isPlayer;
-        const r = isB ? 44 : 16;
+        const isBoss = unit.id === 'boss';
+        const isAdd = !unit.isPlayer && !isBoss;
+        const r = isBoss ? 44 : (isAdd ? 22 : 16);
         const uFlash = (unit.flashTimer && unit.flashTimer > 0) ? unit.flashColor : undefined;
 
         // Render retro 2D pixel-art sprite
         if (unit.isPlayer) {
           drawPixelSprite(ctx, unit.x, unit.y, unit.classType || 'WARRIOR', 2.4, false, unit.color, uFlash);
-        } else {
+        } else if (isBoss) {
           drawPixelSprite(ctx, unit.x, unit.y, unit.classType || 'GOBLIN', 5.5, true, unit.color, uFlash);
+        } else {
+          drawPixelSprite(ctx, unit.x, unit.y, unit.classType || 'GOBLIN_SCOUT', 3.0, true, unit.color, uFlash);
         }
 
         // Stunned indicator
@@ -756,7 +1027,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
       // Render Projectile lines
       s.projectiles = s.projectiles.filter(p => {
         ctx.strokeStyle = p.color;
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = p.color === '#ff9500' ? 12 : 2.5;
         ctx.beginPath();
         ctx.moveTo(p.fx, p.fy);
         ctx.lineTo(p.tx, p.ty);
@@ -810,7 +1081,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
   }, [battleState]);
 
   if (battleState === 'FIGHTING') {
-    const bossUnit = stateRef.current.units.find(u => !u.isPlayer);
+    const bossUnit = stateRef.current.units.find(u => u.id === 'boss');
     const bossHp = bossUnit?.hp || 0;
     const livingPlayers = stateRef.current.units.filter(u => u.isPlayer && u.hp > 0).length;
     const totalPlayers = stateRef.current.units.filter(u => u.isPlayer).length;
