@@ -966,6 +966,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
 
         const isBoss = unit.id === 'boss';
         const isAdd = !unit.isPlayer && !isBoss;
+        const isB = !unit.isPlayer;
         const r = isBoss ? 44 : (isAdd ? 22 : 16);
         const uFlash = (unit.flashTimer && unit.flashTimer > 0) ? unit.flashColor : undefined;
 
