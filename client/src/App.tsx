@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { Auth } from './pages/Auth';
 import { Dashboard } from './pages/Dashboard';
 import { SoloMap } from './pages/SoloMap';
@@ -12,14 +13,86 @@ import { CLASSES } from 'shared';
 import { Zap } from 'lucide-react';
 import { CharacterVisualizer } from './components/CharacterVisualizer';
 
-type PageState = 'AUTH' | 'DASHBOARD' | 'SOLO_ARENA' | 'STREAMER_LOBBY' | 'VIEWER_LOBBY' | 'LEADERBOARD';
-
 const CLASS_UNLOCK_REQUIREMENTS: Record<string, string> = {
   VALKYRIE: 'WARRIOR',
   NECROMANCER: 'MAGE',
   MONK: 'CLERIC',
   ALCHEMIST: 'ROGUE',
   BARD: 'RANGER'
+};
+
+// Route wrapper for authenticated users
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+  return <>{children}</>;
+};
+
+// Route wrapper for public pages (redirects logged-in users away from login)
+const PublicRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children}</>;
+};
+
+// Wrapper to parse parameters for SoloMap
+const SoloMapWrapper = ({ checkAuth }: { checkAuth: () => void }) => {
+  const { level } = useParams<{ level: string }>();
+  const navigate = useNavigate();
+  const { character } = useAuth();
+  
+  if (!character) return <Navigate to="/auth" replace />;
+  
+  return (
+    <SoloMap
+      mapLevel={Number(level) || 1}
+      onBackToDashboard={() => {
+        checkAuth();
+        navigate('/dashboard');
+      }}
+    />
+  );
+};
+
+// Wrapper to parse query params for StreamerLobby
+const StreamerLobbyWrapper = ({ checkAuth }: { checkAuth: () => void }) => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const bossName = searchParams.get('bossName') || 'Neon Goliath';
+  const bossLevel = Number(searchParams.get('bossLevel')) || 5;
+
+  return (
+    <StreamerLobby
+      bossName={bossName}
+      bossLevel={bossLevel}
+      onBackToDashboard={() => {
+        checkAuth();
+        navigate('/dashboard');
+      }}
+    />
+  );
+};
+
+// Wrapper to parse parameters for ViewerSpectate
+const ViewerSpectateWrapper = ({ checkAuth }: { checkAuth: () => void }) => {
+  const { streamerName } = useParams<{ streamerName: string }>();
+  const navigate = useNavigate();
+
+  return (
+    <ViewerSpectate
+      streamerName={streamerName}
+      onBackToDashboard={() => {
+        checkAuth();
+        navigate('/dashboard');
+      }}
+    />
+  );
 };
 
 export default function App() {
@@ -36,30 +109,16 @@ export default function App() {
 
   const { socket } = useSocket();
   const { showAlert } = useUI();
-
-  const [page, setPage] = useState<PageState>('AUTH');
-  const [navigationParams, setNavigationParams] = useState<any>(null);
-
-  // Sync route on auth state changes
-  useEffect(() => {
-    if (!loading) {
-      if (user) {
-        if (page === 'AUTH') {
-          setPage('DASHBOARD');
-        }
-      } else {
-        setPage('AUTH');
-      }
-    }
-  }, [user, loading, page]);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   // Listen to boot events and character updates from WebSocket
   useEffect(() => {
     if (!socket) return;
     
     socket.on('boot-from-solo-arena', () => {
-      if (page === 'SOLO_ARENA') {
-        setPage('DASHBOARD');
+      if (location.pathname.startsWith('/arena/play')) {
+        navigate('/dashboard');
         showAlert('You joined a streamer raid and were booted from your solo arena run.', 'RAID JOINED');
       }
     });
@@ -72,17 +131,28 @@ export default function App() {
       socket.off('boot-from-solo-arena');
       socket.off('character-updated');
     };
-  }, [socket, page]);
+  }, [socket, location.pathname]);
 
   const handleNavigate = (targetPage: string, params: any = null) => {
-    setNavigationParams(params);
-    setPage(targetPage.toUpperCase().replace(/-/g, '_') as PageState);
+    const normalizedPage = targetPage.toUpperCase().replace(/-/g, '_');
+    if (normalizedPage === 'LEADERBOARD') {
+      navigate('/leaderboard');
+    } else if (normalizedPage === 'SOLO_ARENA') {
+      navigate(`/arena/play/${params?.mapLevel || 1}`);
+    } else if (normalizedPage === 'STREAMER_LOBBY') {
+      const p = new URLSearchParams();
+      if (params?.bossName) p.set('bossName', params.bossName);
+      if (params?.bossLevel) p.set('bossLevel', String(params.bossLevel));
+      navigate(`/raids/streamer?${p.toString()}`);
+    } else if (normalizedPage === 'VIEWER_LOBBY') {
+      navigate(`/raids/viewer/${params?.streamerName}`);
+    }
   };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#07090e] flex items-center justify-center font-display text-xs tracking-widest text-slate-500">
-        LOADING BATTLER INTERFACE...
+        LOADING BATTLERS INTERFACE...
       </div>
     );
   }
@@ -92,10 +162,14 @@ export default function App() {
       {/* Header Bar */}
       <header className="px-6 py-4 bg-[#0a0d17]/80 backdrop-blur-md border-b border-white/5 flex items-center justify-between select-none">
         <div 
-          onClick={() => user && checkAuth()}
+          onClick={() => {
+            if (user) {
+              navigate('/dashboard');
+            }
+          }}
           className="font-display font-black text-white text-lg tracking-wider cursor-pointer hover:opacity-80"
         >
-          STREAM <span className="text-neon-cyan">BATTLER</span>
+          STREAM <span className="text-neon-cyan">BATTLERS</span>
         </div>
         <div className="text-[10px] text-slate-600 font-display uppercase tracking-wider">
           v1.0.0-Beta
@@ -104,43 +178,72 @@ export default function App() {
 
       {/* Main viewport */}
       <main className="flex-1 w-full relative">
-        {page === 'AUTH' && (
-          <Auth onLoginSuccess={(_, char) => updateCharacter(char)} />
-        )}
-        
-        {page === 'DASHBOARD' && character && (
-          <Dashboard
-            onNavigate={handleNavigate}
-          />
-        )}
+        <Routes>
+          {/* Public login/register page */}
+          <Route path="/auth" element={
+            <PublicRoute>
+              <Auth onLoginSuccess={(_, char) => {
+                updateCharacter(char);
+                navigate('/dashboard');
+              }} />
+            </PublicRoute>
+          } />
 
-        {page === 'SOLO_ARENA' && character && (
-          <SoloMap
-            mapLevel={navigationParams?.mapLevel || 1}
-            onBackToDashboard={checkAuth}
-          />
-        )}
+          {/* Core dashboard layouts mapped to sub-routes */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              {character ? <Dashboard onNavigate={handleNavigate} /> : <Navigate to="/auth" replace />}
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/dashboard/:tab" element={
+            <ProtectedRoute>
+              {character ? <Dashboard onNavigate={handleNavigate} /> : <Navigate to="/auth" replace />}
+            </ProtectedRoute>
+          } />
 
-        {page === 'STREAMER_LOBBY' && (
-          <StreamerLobby
-            bossName={navigationParams?.bossName || 'Neon Goliath'}
-            bossLevel={navigationParams?.bossLevel || 5}
-            onBackToDashboard={checkAuth}
-          />
-        )}
+          <Route path="/arena" element={
+            <ProtectedRoute>
+              {character ? <Dashboard onNavigate={handleNavigate} /> : <Navigate to="/auth" replace />}
+            </ProtectedRoute>
+          } />
 
-        {page === 'VIEWER_LOBBY' && (
-          <ViewerSpectate
-            streamerName={navigationParams?.streamerName}
-            onBackToDashboard={checkAuth}
-          />
-        )}
+          <Route path="/raids" element={
+            <ProtectedRoute>
+              {character ? <Dashboard onNavigate={handleNavigate} /> : <Navigate to="/auth" replace />}
+            </ProtectedRoute>
+          } />
 
-        {page === 'LEADERBOARD' && (
-          <Leaderboard
-            onBackToDashboard={checkAuth}
-          />
-        )}
+          {/* Active battle/raid views */}
+          <Route path="/arena/play/:level" element={
+            <ProtectedRoute>
+              <SoloMapWrapper checkAuth={checkAuth} />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/raids/streamer" element={
+            <ProtectedRoute>
+              <StreamerLobbyWrapper checkAuth={checkAuth} />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/raids/viewer/:streamerName" element={
+            <ProtectedRoute>
+              <ViewerSpectateWrapper checkAuth={checkAuth} />
+            </ProtectedRoute>
+          } />
+
+          {/* Leaderboard page */}
+          <Route path="/leaderboard" element={
+            <ProtectedRoute>
+              <Leaderboard onBackToDashboard={() => navigate('/dashboard')} />
+            </ProtectedRoute>
+          } />
+
+          {/* Fallback redirects */}
+          <Route path="/" element={<Navigate to={user ? "/dashboard" : "/auth"} replace />} />
+          <Route path="*" element={<Navigate to={user ? "/dashboard" : "/auth"} replace />} />
+        </Routes>
       </main>
 
       {/* Footer */}

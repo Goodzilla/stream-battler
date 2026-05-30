@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { InventoryService } from '../services/InventoryService';
+import { syncUserUpdate } from '../socket/lobby';
 
 export class InventoryController {
   constructor(private inventoryService: InventoryService) {}
@@ -8,6 +9,7 @@ export class InventoryController {
     try {
       const { itemId } = req.body;
       const result = await this.inventoryService.equipItem(req.user!.id, itemId);
+      syncUserUpdate(req.user!.id);
       res.json(result);
     } catch (error) {
       next(error);
@@ -18,6 +20,7 @@ export class InventoryController {
     try {
       const { itemId } = req.body;
       const result = await this.inventoryService.unequipItem(req.user!.id, itemId);
+      syncUserUpdate(req.user!.id);
       res.json(result);
     } catch (error) {
       next(error);
@@ -28,6 +31,7 @@ export class InventoryController {
     try {
       const { itemId } = req.body;
       const result = await this.inventoryService.dismantleItem(req.user!.id, itemId);
+      syncUserUpdate(req.user!.id);
       res.json(result);
     } catch (error) {
       next(error);
@@ -37,6 +41,7 @@ export class InventoryController {
   dismantleAll = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const result = await this.inventoryService.dismantleAll(req.user!.id);
+      syncUserUpdate(req.user!.id);
       res.json(result);
     } catch (error) {
       next(error);

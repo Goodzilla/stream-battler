@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { CharacterVisualizer } from '../components/CharacterVisualizer';
 import { PassiveSkillTree } from '../components/PassiveSkillTree';
 import { apiFetch } from '../utils/api';
@@ -78,8 +79,54 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const { user, character, updateCharacter, logout } = useAuth();
   const { showAlert, showConfirm } = useUI();
 
-  const [activeSection, setActiveSection] = useState<'character' | 'solo' | 'raids'>('character');
-  const [activeTab, setActiveTab] = useState<'inventory' | 'talents' | 'tree' | 'shop' | 'admin'>('inventory');
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Dynamically compute activeSection and activeTab based on current URL path
+  let activeSection: 'character' | 'solo' | 'raids' = 'character';
+  let activeTab: 'inventory' | 'talents' | 'tree' | 'shop' | 'admin' = 'inventory';
+
+  if (location.pathname === '/arena') {
+    activeSection = 'solo';
+  } else if (location.pathname === '/raids') {
+    activeSection = 'raids';
+  } else if (location.pathname.startsWith('/dashboard')) {
+    activeSection = 'character';
+    const pathParts = location.pathname.split('/');
+    const tabPart = pathParts[2];
+    if (tabPart === 'talents') {
+      activeTab = 'talents';
+    } else if (tabPart === 'skills' || tabPart === 'tree') {
+      activeTab = 'tree';
+    } else if (tabPart === 'shop') {
+      activeTab = 'shop';
+    } else if (tabPart === 'admin') {
+      activeTab = 'admin';
+    } else {
+      activeTab = 'inventory';
+    }
+  }
+
+  // Define setters that update the URL path instead of local React state
+  const setActiveSection = (section: 'character' | 'solo' | 'raids') => {
+    if (section === 'solo') {
+      navigate('/arena');
+    } else if (section === 'raids') {
+      navigate('/raids');
+    } else {
+      navigate('/dashboard');
+    }
+  };
+
+  const setActiveTab = (tab: 'inventory' | 'talents' | 'tree' | 'shop' | 'admin') => {
+    if (tab === 'inventory') {
+      navigate('/dashboard');
+    } else if (tab === 'tree') {
+      navigate('/dashboard/skills');
+    } else {
+      navigate(`/dashboard/${tab}`);
+    }
+  };
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
 
 

@@ -5,6 +5,7 @@ import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext'
 import { SocketProvider } from './contexts/SocketContext'
 import { UIProvider } from './contexts/UIContext'
+import { BrowserRouter } from 'react-router-dom'
 
 // Force redeploy - 2026-05-27
 createRoot(document.getElementById('root')!).render(
@@ -12,7 +13,9 @@ createRoot(document.getElementById('root')!).render(
     <AuthProvider>
       <SocketProvider>
         <UIProvider>
-          <App />
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
         </UIProvider>
       </SocketProvider>
     </AuthProvider>

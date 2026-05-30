@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { CharacterService } from '../services/CharacterService';
+import { syncUserUpdate } from '../socket/lobby';
 
 export class CharacterController {
   constructor(private characterService: CharacterService) {}
@@ -17,6 +18,7 @@ export class CharacterController {
     try {
       const { charClass } = req.body;
       const result = await this.characterService.selectClass(req.user!.id, charClass);
+      syncUserUpdate(req.user!.id);
       res.json(result);
     } catch (error) {
       next(error);
@@ -27,6 +29,7 @@ export class CharacterController {
     try {
       const { passives } = req.body;
       const result = await this.characterService.allocatePassives(req.user!.id, passives);
+      syncUserUpdate(req.user!.id);
       res.json(result);
     } catch (error) {
       next(error);
@@ -37,6 +40,7 @@ export class CharacterController {
     try {
       const { talents } = req.body;
       const result = await this.characterService.selectTalents(req.user!.id, talents);
+      syncUserUpdate(req.user!.id);
       res.json(result);
     } catch (error) {
       next(error);
@@ -53,6 +57,7 @@ export class CharacterController {
         mapLevel,
         won
       });
+      syncUserUpdate(req.user!.id);
       res.json(result);
     } catch (error) {
       next(error);

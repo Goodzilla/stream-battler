@@ -57,7 +57,7 @@ export const Auth: React.FC<AuthProps> = ({ onLoginSuccess }) => {
           </div>
           
           <h1 className="text-4xl md:text-5xl font-black m-0 mb-3 tracking-wider text-white select-none">
-            STREAM <span className="text-neon-cyan text-neon-cyan">BATTLER</span>
+            STREAM <span className="text-neon-cyan text-neon-cyan">BATTLERS</span>
           </h1>
           <p className="text-[10px] text-slate-400 font-pixel uppercase tracking-widest leading-relaxed">
             [ MULTIPLAYER TWITCH IDLE RPG ]

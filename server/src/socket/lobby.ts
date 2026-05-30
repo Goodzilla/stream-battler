@@ -344,7 +344,10 @@ export async function handleChatJoin(
   }
 }
 
+export let globalIo: Server | null = null;
+
 export const setupSocketHandlers = (io: Server) => {
+  globalIo = io;
   io.on('connection', (socket: Socket) => {
     let currentLobby: string | null = null;
     let isStreamer = false;
@@ -845,3 +848,91 @@ export const setupSocketHandlers = (io: Server) => {
     });
   });
 };
+
+/**
+ * Pushes real-time WebSocket updates to all of a user's open tabs
+ * and updates their stats in any active streamer lobbies they have joined.
+ */
+export async function syncUserUpdate(userId: string) {
+  if (!globalIo) {
+    console.warn(`[syncUserUpdate] globalIo is not initialized yet. Skipping sync for user ${userId}.`);
+    return;
+  }
+  
+  try {
+    // 1. Fetch user and their associated characters/items
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { characters: true, items: true }
+    });
+    if (!user) return;
+
+    const activeClass = resolveActiveClass(user);
+    const character = user.characters.find(c => c.class === activeClass);
+    if (!character) return;
+
+    const activeChar = getActiveCharacter(user);
+    
+    // 2. Broadcast the updated active character payload to all user connections
+    globalIo.to(`user_${userId}`).emit('character-updated', activeChar);
+
+    // 3. Scan and update active lobbies where this user is present as a viewer
+    let lobbyUpdated = false;
+    
+    for (const lobby of Object.values(activeLobbies)) {
+      const viewerIdx = lobby.viewers.findIndex(v => v.userId === userId);
+      if (viewerIdx !== -1) {
+        const weapon = user.items.find(i => i.slot === 'WEAPON' && i.isEquipped && i.equippedCharacterId === character.id);
+        const armor = user.items.find(i => i.slot === 'ARMOR' && i.isEquipped && i.equippedCharacterId === character.id);
+
+        const charStats = calculateCharacterStats(
+          character.class,
+          character.level,
+          JSON.parse(character.talents || '[]'),
+          JSON.parse(character.passives || '[]'),
+          user.items.filter(i => i.isEquipped && i.equippedCharacterId === character.id) as any
+        );
+
+        const updatedViewerData: LobbyViewer = {
+          userId: user.id,
+          username: user.username,
+          displayName: user.displayName,
+          charClass: character.class,
+          level: character.level,
+          weaponRarity: weapon ? weapon.rarity : 'COMMON',
+          armorRarity: armor ? armor.rarity : 'COMMON',
+          maxHp: charStats.maxHp,
+          attackPower: charStats.attackPower,
+          defense: charStats.defense,
+          critChance: charStats.critChance,
+          critMult: charStats.critMult,
+          atkSpeed: charStats.atkSpeed,
+          lifesteal: charStats.lifesteal,
+          reflect: charStats.reflect,
+          cdr: charStats.cdr,
+          speed: charStats.moveSpeed,
+          selectedTalents: JSON.parse(character.talents || '[]'),
+          fireRes: charStats.fireRes,
+          coldRes: charStats.coldRes,
+          poisonRes: charStats.poisonRes,
+          physRes: charStats.physRes
+        };
+
+        // Update in-memory viewer state
+        lobby.viewers[viewerIdx] = updatedViewerData;
+
+        // Emit updated lobby state to this lobby room
+        const roomName = `lobby_${lobby.streamerName.toLowerCase()}`;
+        globalIo.to(roomName).emit('lobby-update', lobby);
+        lobbyUpdated = true;
+      }
+    }
+
+    // 4. Update the global lobbies explorer for all players if lobby states changed
+    if (lobbyUpdated) {
+      globalIo.emit('global-lobbies-update', Object.values(activeLobbies));
+    }
+  } catch (err) {
+    console.error(`[syncUserUpdate] Error synchronizing stats for user ${userId}:`, err);
+  }
+}

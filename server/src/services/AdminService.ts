@@ -190,7 +190,7 @@ export class AdminService {
     return getActiveCharacter(updatedUser);
   }
 
-  async promoteUser(username: string): Promise<string> {
+  async promoteUser(username: string): Promise<{ message: string; userId: string }> {
     const userToPromote = await this.userRepository.findByUsername(username.trim().toLowerCase());
     if (!userToPromote) {
       throw new NotFoundError(`User with username ${username} not found.`);
@@ -200,7 +200,10 @@ export class AdminService {
       isAdmin: true
     });
 
-    return `Successfully promoted ${updatedUser.displayName} to Admin.`;
+    return {
+      message: `Successfully promoted ${updatedUser.displayName} to Admin.`,
+      userId: updatedUser.id
+    };
   }
 
   async unlockAllClasses(userId: string): Promise<any> {
