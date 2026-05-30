@@ -5,8 +5,8 @@ class SoundManager {
   private masterGain: GainNode | null = null;
   private musicGain: GainNode | null = null;
   
-  private masterVolume: number = 0.5;
-  private musicVolume: number = 0.2;
+  private masterVolume: number = 0.3;
+  private musicVolume: number = 0.1;
 
   // Throttling to prevent overlapping audio overload
   private lastHitTime: number = 0;
@@ -21,7 +21,22 @@ class SoundManager {
   private scheduleAheadTime: number = 0.1; // schedule 100ms ahead
 
   constructor() {
-    // Audio context is initialized lazily on first user interaction to bypass browser policies
+    try {
+      const savedMaster = localStorage.getItem('masterVolume');
+      if (savedMaster !== null) this.masterVolume = parseFloat(savedMaster);
+      const savedMusic = localStorage.getItem('musicVolume');
+      if (savedMusic !== null) this.musicVolume = parseFloat(savedMusic);
+    } catch (err) {
+      console.warn("Failed to load volume preferences:", err);
+    }
+  }
+
+  public getMasterVolume(): number {
+    return this.masterVolume;
+  }
+
+  public getMusicVolume(): number {
+    return this.musicVolume;
   }
 
   public init() {
@@ -69,6 +84,10 @@ class SoundManager {
   public setVolume(master: number, music: number) {
     this.masterVolume = master;
     this.musicVolume = music;
+    try {
+      localStorage.setItem('masterVolume', String(master));
+      localStorage.setItem('musicVolume', String(music));
+    } catch {}
 
     if (this.ctx) {
       if (this.masterGain) {
@@ -251,7 +270,7 @@ class SoundManager {
       filter.frequency.exponentialRampToValueAtTime(freq * 1.5, time + dur);
 
       gainNode.gain.setValueAtTime(0, time);
-      gainNode.gain.linearRampToValueAtTime(0.22, time + 0.03); // Quick fade-in
+      gainNode.gain.linearRampToValueAtTime(0.06, time + 0.03); // Quick fade-in (lowered gain)
       gainNode.gain.exponentialRampToValueAtTime(0.005, time + dur);
 
       osc.connect(filter);
@@ -297,7 +316,7 @@ class SoundManager {
       filter.frequency.exponentialRampToValueAtTime(freq * 0.8, time + dur);
 
       gainNode.gain.setValueAtTime(0, time);
-      gainNode.gain.linearRampToValueAtTime(0.24, time + 0.04);
+      gainNode.gain.linearRampToValueAtTime(0.07, time + 0.04); // Quick fade-in (lowered gain)
       gainNode.gain.exponentialRampToValueAtTime(0.005, time + dur);
 
       osc.connect(filter);

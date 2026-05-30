@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, Users, Send, ChevronRight, ChevronLeft, Flame } from 'lucide-react';
+import { MessageSquare, Users, Send, ChevronRight, ChevronLeft, Flame, Settings } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
 import { MiniSprite } from './MiniSprite';
+import { AudioSettingsModal } from './AudioSettingsModal';
 
 interface ChatMessage {
   id: string;
@@ -53,6 +54,7 @@ export const MmoSidebar: React.FC = () => {
   const { socket } = useSocket();
 
   const [isOpen, setIsOpen] = useState(true);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'CHAT' | 'ROSTER' | 'SESSION'>('CHAT');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [onlinePlayers, setOnlinePlayers] = useState<OnlinePlayer[]>([]);
@@ -364,6 +366,18 @@ export const MmoSidebar: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* Sidebar Footer with Settings */}
+          <div className="p-3 border-t border-white/5 bg-black/10 flex justify-between items-center shrink-0">
+            <span className="text-[8px] text-slate-600 font-mono">V1.0.0</span>
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className="flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-wider text-slate-400 hover:text-white transition border border-white/5 hover:border-white/10 px-2 py-1 rounded bg-white/[0.02] cursor-pointer"
+            >
+              <Settings size={11} />
+              Audio Options
+            </button>
+          </div>
         </div>
       ) : (
         // COLLAPSED STATE (Ribbon icons)
@@ -388,7 +402,19 @@ export const MmoSidebar: React.FC = () => {
           >
             <Users size={14} />
           </div>
+          
+          <div
+            onClick={() => setIsSettingsOpen(true)}
+            className="w-8 h-8 rounded-xl bg-black/45 border border-white/10 hover:border-white/20 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer pointer-events-auto transition active:scale-90 mt-auto mb-4"
+            title="Audio Settings"
+          >
+            <Settings size={14} />
+          </div>
         </div>
+      )}
+
+      {isSettingsOpen && (
+        <AudioSettingsModal onClose={() => setIsSettingsOpen(false)} />
       )}
     </div>
   );
