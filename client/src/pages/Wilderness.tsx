@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
+import { useUI } from '../contexts/UIContext';
 import { calculateCharacterStats, CLASSES } from 'shared';
 import { soundManager } from '../game/soundManager';
 import { getDistance, lerp } from '../game/physics';
@@ -54,7 +55,14 @@ const getProjectileType = (name: string, spriteOrClass?: string): 'ARROW' | 'FIR
 export const Wilderness: React.FC<WildernessProps> = ({ onBackToDashboard }) => {
   const { character } = useAuth();
   const { socket } = useSocket();
+  const { showConfirm } = useUI();
   
+  const characterRef = useRef(character);
+  useEffect(() => {
+    characterRef.current = character;
+  }, [character]);
+
+  const [mySession, setMySession] = useState<any | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [reviveTimer, setReviveTimer] = useState(0);
@@ -82,75 +90,77 @@ export const Wilderness: React.FC<WildernessProps> = ({ onBackToDashboard }) => 
     shakeIntensity: 0
   });
 
-  const equipped = character.items.filter((item: any) => item.isEquipped);
-  const stats = calculateCharacterStats(
-    character.class,
-    character.level,
-    JSON.parse(character.talents || '[]'),
-    JSON.parse(character.passives || '[]'),
-    equipped
-  );
 
   // 1. Initialize Battle Character Representation
   const initPlayerUnit = (): CombatUnit => {
-    const classConfig = CLASSES[character.class];
-    const selectedTalents: string[] = JSON.parse(character.talents || '[]');
+    const char = characterRef.current;
+    const classConfig = CLASSES[char.class];
+    const selectedTalents: string[] = JSON.parse(char.talents || '[]');
     let baseCd = classConfig.activeSkill.cooldown;
 
     // Apply CDR talents
-    if (character.class === 'WARRIOR') {
+    if (char.class === 'WARRIOR') {
       if (selectedTalents.includes('t1_1')) baseCd -= 1.5;
       if (selectedTalents.includes('t5_2')) baseCd += 2.0;
       if (selectedTalents.includes('t6_2')) baseCd -= 2.0;
       if (selectedTalents.includes('t10_1')) baseCd -= 3.0;
-    } else if (character.class === 'MAGE') {
+    } else if (char.class === 'MAGE') {
       if (selectedTalents.includes('t1_1')) baseCd -= 1.0;
       if (selectedTalents.includes('t6_1')) baseCd -= 1.5;
       if (selectedTalents.includes('t10_2')) baseCd -= 2.5;
-    } else if (character.class === 'CLERIC') {
+    } else if (char.class === 'CLERIC') {
       if (selectedTalents.includes('t1_1')) baseCd -= 1.5;
       if (selectedTalents.includes('t5_1')) baseCd -= 2.0;
       if (selectedTalents.includes('t10_1')) baseCd -= 1.0;
       if (selectedTalents.includes('t10_2')) baseCd -= 3.0;
-    } else if (character.class === 'ROGUE') {
+    } else if (char.class === 'ROGUE') {
       if (selectedTalents.includes('t2_2')) baseCd -= 1.5;
       if (selectedTalents.includes('t6_1')) baseCd -= 2.0;
       if (selectedTalents.includes('t10_2')) baseCd -= 3.0;
-    } else if (character.class === 'RANGER') {
+    } else if (char.class === 'RANGER') {
       if (selectedTalents.includes('t1_2')) baseCd -= 1.5;
       if (selectedTalents.includes('t5_1')) baseCd -= 2.0;
       if (selectedTalents.includes('t9_1')) baseCd -= 3.0;
       if (selectedTalents.includes('t10_2')) baseCd -= 4.0;
     }
 
+    const equippedItems = char.items.filter((item: any) => item.isEquipped);
+    const charStats = calculateCharacterStats(
+      char.class,
+      char.level,
+      JSON.parse(char.talents || '[]'),
+      JSON.parse(char.passives || '[]'),
+      equippedItems
+    );
+
     return {
-      id: character.userId,
+      id: char.userId,
       isPlayer: true,
-      name: character.user.displayName,
+      name: char.user.displayName,
       x: 100 + Math.random() * 80,
       y: 150 + Math.random() * 300,
-      maxHp: stats.maxHp,
-      hp: stats.maxHp,
-      speed: stats.moveSpeed,
-      attackPower: stats.attackPower,
-      critChance: stats.critChance,
-      critMult: stats.critMult,
-      atkSpeed: stats.atkSpeed,
-      attackRange: character.class === 'RANGER' ? 220 : (character.class === 'MAGE' ? 180 : 40),
+      maxHp: charStats.maxHp,
+      hp: charStats.maxHp,
+      speed: charStats.moveSpeed,
+      attackPower: charStats.attackPower,
+      critChance: charStats.critChance,
+      critMult: charStats.critMult,
+      atkSpeed: charStats.atkSpeed,
+      attackRange: char.class === 'RANGER' ? 220 : (char.class === 'MAGE' ? 180 : 40),
       color: classConfig.color,
-      classType: character.class,
+      classType: char.class,
       atkTimer: 0,
       skillTimer: 0,
-      activeSkillCd: Math.max(1, baseCd * (1 - stats.cdr)),
+      activeSkillCd: Math.max(1, baseCd * (1 - charStats.cdr)),
       stunTimer: 0,
-      isHealer: character.class === 'CLERIC',
-      defense: stats.defense,
-      lifesteal: stats.lifesteal,
-      reflect: stats.reflect,
-      fireRes: stats.fireRes,
-      coldRes: stats.coldRes,
-      poisonRes: stats.poisonRes,
-      physRes: stats.physRes,
+      isHealer: char.class === 'CLERIC',
+      defense: charStats.defense,
+      lifesteal: charStats.lifesteal,
+      reflect: charStats.reflect,
+      fireRes: charStats.fireRes,
+      coldRes: charStats.coldRes,
+      poisonRes: charStats.poisonRes,
+      physRes: charStats.physRes,
       selectedTalents
     };
   };
@@ -188,7 +198,7 @@ export const Wilderness: React.FC<WildernessProps> = ({ onBackToDashboard }) => 
     if (!socket) return;
 
     // Join room
-    socket.emit('join-wilderness', { userId: character.userId });
+    socket.emit('join-wilderness', { userId: characterRef.current.userId });
 
     // Initial state
     socket.on('wilderness-init', ({ players, monsters }) => {
@@ -198,7 +208,7 @@ export const Wilderness: React.FC<WildernessProps> = ({ onBackToDashboard }) => 
       // Load other players
       s.otherPlayers = {};
       players.forEach((p: any) => {
-        if (p.userId !== character.userId) {
+        if (p.userId !== characterRef.current.userId) {
           s.otherPlayers[p.userId] = {
             id: p.userId,
             isPlayer: true,
@@ -292,7 +302,7 @@ export const Wilderness: React.FC<WildernessProps> = ({ onBackToDashboard }) => 
 
       // Update other players roster
       players.forEach((p: any) => {
-        if (p.userId === character.userId) return;
+        if (p.userId === characterRef.current.userId) return;
 
         const existing = s.otherPlayers[p.userId];
         if (existing) {
@@ -353,7 +363,7 @@ export const Wilderness: React.FC<WildernessProps> = ({ onBackToDashboard }) => 
     // Damage updates
     socket.on('wilderness-player-damaged-sync', ({ userId, damage, newHp }) => {
       const s = stateRef.current;
-      const target = userId === character.userId ? s.player : s.otherPlayers[userId];
+      const target = userId === characterRef.current.userId ? s.player : s.otherPlayers[userId];
       if (target) {
         target.hp = newHp;
         target.flashTimer = 0.1;
@@ -366,7 +376,7 @@ export const Wilderness: React.FC<WildernessProps> = ({ onBackToDashboard }) => 
     // Heal updates
     socket.on('wilderness-player-healed-sync', ({ targetUserId, amount, newHp }) => {
       const s = stateRef.current;
-      const target = targetUserId === character.userId ? s.player : s.otherPlayers[targetUserId];
+      const target = targetUserId === characterRef.current.userId ? s.player : s.otherPlayers[targetUserId];
       if (target) {
         target.hp = newHp;
         target.flashTimer = 0.15;
@@ -380,7 +390,7 @@ export const Wilderness: React.FC<WildernessProps> = ({ onBackToDashboard }) => 
     socket.on('monster-damaged-sync', ({ monsterId, hp, damage, isCrit, attackerId }) => {
       const s = stateRef.current;
       const mon = s.monsters.find(m => m.id === monsterId);
-      const attacker = attackerId === character.userId ? s.player : s.otherPlayers[attackerId];
+      const attacker = attackerId === characterRef.current.userId ? s.player : s.otherPlayers[attackerId];
 
       if (mon) {
         mon.hp = hp;
@@ -456,8 +466,16 @@ export const Wilderness: React.FC<WildernessProps> = ({ onBackToDashboard }) => 
       setLootAlert({ text, subText, life: 3.5 });
     });
 
+    // Session updates
+    socket.on('wilderness-session-update', (sessions: any[]) => {
+      const me = sessions.find((s: any) => s.userId === characterRef.current.userId);
+      if (me) {
+        setMySession(me);
+      }
+    });
+
     return () => {
-      socket.emit('leave-wilderness', { userId: character.userId });
+      socket.emit('leave-wilderness', { userId: characterRef.current.userId });
       socket.off('wilderness-init');
       socket.off('wilderness-update');
       socket.off('wilderness-chat-announcement');
@@ -467,9 +485,10 @@ export const Wilderness: React.FC<WildernessProps> = ({ onBackToDashboard }) => 
       socket.off('monster-damaged-sync');
       socket.off('monster-died-sync');
       socket.off('wilderness-loot-reward');
+      socket.off('wilderness-session-update');
       soundManager.stopMusic();
     };
-  }, [socket, character]);
+  }, [socket]);
 
   // Graveyard revive tick
   useEffect(() => {
@@ -485,7 +504,7 @@ export const Wilderness: React.FC<WildernessProps> = ({ onBackToDashboard }) => 
             s.player.y = 150 + Math.random() * 300;
             
             socket?.emit('sync-wilderness-player', {
-              userId: character.userId,
+              userId: characterRef.current.userId,
               x: s.player.x,
               y: s.player.y,
               hp: s.player.hp,
@@ -493,7 +512,7 @@ export const Wilderness: React.FC<WildernessProps> = ({ onBackToDashboard }) => 
             });
 
             socket?.emit('wilderness-chat-announcement', {
-              message: `${character.user.displayName} resurrected at the portal gates.`,
+              message: `${characterRef.current.user.displayName} resurrected at the portal gates.`,
               color: '#38bdf8'
             });
           }
@@ -503,7 +522,7 @@ export const Wilderness: React.FC<WildernessProps> = ({ onBackToDashboard }) => 
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [reviveTimer, socket, character]);
+  }, [reviveTimer, socket]);
 
   // 3. Gameplay Canvas Render and Physics update loop
   useEffect(() => {
@@ -956,7 +975,29 @@ export const Wilderness: React.FC<WildernessProps> = ({ onBackToDashboard }) => 
       cancelAnimationFrame(animId);
       soundManager.stopMusic();
     };
-  }, [reviveTimer, socket, character]);
+  }, [reviveTimer, socket]);
+
+  const handleReturnToTown = () => {
+    if (mySession && (mySession.goldAccumulated > 0 || mySession.xpAccumulated > 0 || mySession.itemsAccumulated.length > 0)) {
+      const itemsList = mySession.itemsAccumulated.map((i: any) => i.name).join(', ');
+      const itemsSummary = mySession.itemsAccumulated.length > 0
+        ? `\nPending Items: ${mySession.itemsAccumulated.length} (${itemsList})`
+        : '';
+      const message = `Are you sure you want to leave the Neon Wilderness?\n\nYou will claim:\nGold: +${mySession.goldAccumulated}\nXP: +${mySession.xpAccumulated}${itemsSummary}`;
+      
+      showConfirm(
+        message,
+        () => {
+          socket?.emit('leave-wilderness', { userId: characterRef.current.userId });
+          onBackToDashboard();
+        },
+        'LEAVE WILDERNESS'
+      );
+    } else {
+      socket?.emit('leave-wilderness', { userId: characterRef.current.userId });
+      onBackToDashboard();
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-[#04060d] z-20 flex flex-col overflow-hidden select-none font-display">
@@ -968,7 +1009,7 @@ export const Wilderness: React.FC<WildernessProps> = ({ onBackToDashboard }) => 
         </span>
 
         <button
-          onClick={onBackToDashboard}
+          onClick={handleReturnToTown}
           className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400 hover:text-white transition border border-white/10 hover:border-white/20 px-3.5 py-1.5 rounded-xl bg-black/35 cursor-pointer"
         >
           <ArrowLeft size={12} />
