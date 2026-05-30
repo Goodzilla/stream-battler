@@ -8,6 +8,8 @@ import { soundManager } from '../game/soundManager';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
 import { useUI } from '../contexts/UIContext';
+import { MiniSprite } from '../components/MiniSprite';
+import { CharacterVisualizer } from '../components/CharacterVisualizer';
 
 interface ViewerSpectateProps {
   streamerName: string;
@@ -24,6 +26,11 @@ interface SpectatorUnit {
   color: string;
   isPlayer: boolean;
   classType?: string;
+  level?: number;
+  stagger?: number;
+  maxStagger?: number;
+  staggered?: boolean;
+  lagHp?: number;
   // Local interpolation targets
   tx?: number;
   ty?: number;
@@ -53,6 +60,8 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
   void recapTick;
 
 
+  const [activeTab, setActiveTab] = useState<'DPS' | 'HEALING' | 'TANKED'>('DPS');
+
   const stateRef = useRef<{
     units: SpectatorUnit[];
     projectiles: any[];
@@ -60,13 +69,17 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
     battleState: 'LOBBY' | 'FIGHTING' | 'VICTORY' | 'DEFEAT';
     shakeTimer: number;
     shakeIntensity: number;
+    bossSkillAlert?: { name: string; color: string; life: number };
+    combatLog?: Array<{ id: string; text: string; color: string; time: number }>;
   }>({
     units: [],
     projectiles: [],
     damageTexts: [],
     battleState: 'LOBBY',
     shakeTimer: 0,
-    shakeIntensity: 0
+    shakeIntensity: 0,
+    bossSkillAlert: undefined,
+    combatLog: []
   });
 
   useEffect(() => {
@@ -137,6 +150,10 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
           existing.damageDealt = snapU.damageDealt || 0;
           existing.healingDone = snapU.healingDone || 0;
           existing.damageTaken = snapU.damageTaken || 0;
+          existing.level = snapU.level || 1;
+          existing.stagger = snapU.stagger || 0;
+          existing.maxStagger = snapU.maxStagger || 0;
+          existing.staggered = snapU.staggered || false;
         } else {
           s.units.push({
             id: snapU.id,
@@ -147,9 +164,14 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
             ty: snapU.y,
             hp: snapU.hp,
             maxHp: snapU.maxHp,
+            lagHp: snapU.hp,
             color: snapU.color,
             isPlayer: snapU.isPlayer,
             classType: snapU.classType,
+            level: snapU.level || 1,
+            stagger: snapU.stagger || 0,
+            maxStagger: snapU.maxStagger || 0,
+            staggered: snapU.staggered || false,
             damageDealt: snapU.damageDealt || 0,
             healingDone: snapU.healingDone || 0,
             damageTaken: snapU.damageTaken || 0
@@ -160,9 +182,11 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
       // Remove units not in snapshot
       s.units = s.units.filter(u => receivedIds.has(u.id));
 
-      // Append projectiles and damage floats
+      // Append projectiles, damage floats, skill alerts and logs
       s.projectiles = snapshot.projectiles || [];
       s.damageTexts = snapshot.damageTexts || [];
+      s.bossSkillAlert = snapshot.bossSkillAlert;
+      s.combatLog = snapshot.combatLog;
     };
 
     const handleRaidEnded = (results: any) => {
@@ -251,6 +275,11 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
         s.shakeTimer -= dt;
       }
 
+      // Boss special attack timer countdown
+      if (s.bossSkillAlert && s.bossSkillAlert.life > 0) {
+        s.bossSkillAlert.life -= dt;
+      }
+
       ctx.save();
       if (s.shakeTimer > 0) {
         const dx = (Math.random() - 0.5) * s.shakeIntensity;
@@ -262,10 +291,24 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
       const arenaConfig = RAID_ARENA_CONFIGS[bossName] || getArenaConfigForLevel(level);
       drawProceduralBackground(ctx, canvas.width, canvas.height, arenaConfig);
 
-      // Update unit hit flash timers
+      // Screen Tint Ambiance during Boss Skills
+      if (s.bossSkillAlert && s.bossSkillAlert.life > 0) {
+        ctx.save();
+        ctx.fillStyle = s.bossSkillAlert.color + '15'; // 8% opacity tint
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+      }
+
+      // Update unit hit flash timers & lagHp
       s.units.forEach(unit => {
         if (unit.flashTimer && unit.flashTimer > 0) {
           unit.flashTimer -= dt;
+        }
+        if (unit.lagHp === undefined || unit.lagHp < unit.hp) {
+          unit.lagHp = unit.hp;
+        } else if (unit.lagHp > unit.hp) {
+          unit.lagHp -= dt * (unit.maxHp * 0.25);
+          if (unit.lagHp < unit.hp) unit.lagHp = unit.hp;
         }
       });
 
@@ -293,6 +336,15 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
           drawPixelSprite(ctx, unit.x, unit.y, unit.classType || 'GOBLIN_SCOUT', 3.0, true, unit.color, uFlash);
         }
 
+        // Stunned indicator (stagger stun)
+        if (unit.staggered) {
+          ctx.strokeStyle = '#007aff';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(unit.x, unit.y - r - 22, 3, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
         // Name
         ctx.fillStyle = '#94a3b8';
         ctx.font = isB ? 'bold 10px Orbitron, sans-serif' : '8px font-display, sans-serif';
@@ -308,9 +360,26 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
         ctx.fillRect(bx, by, barW, barH);
 
+        // Lag bar (red damage trail)
+        const lagPct = Math.max(0, (unit.lagHp || unit.hp) / unit.maxHp);
+        ctx.fillStyle = '#ff453a';
+        ctx.fillRect(bx, by, barW * lagPct, barH);
+
         const hpPct = Math.max(0, unit.hp / unit.maxHp);
-        ctx.fillStyle = !isB ? '#34c759' : '#ff9500';
+        ctx.fillStyle = !isB ? '#30d158' : '#ff9f0a';
         ctx.fillRect(bx, by, barW * hpPct, barH);
+
+        // Boss Stagger Bar
+        if (isBoss) {
+          const sby = by + barH + 2;
+          const sbh = 3;
+          ctx.fillStyle = 'rgba(0,0,0,0.5)';
+          ctx.fillRect(bx, sby, barW, sbh);
+
+          const staggerPct = Math.max(0, ((unit as any).stagger || 0) / ((unit as any).maxStagger || 150));
+          ctx.fillStyle = (unit as any).staggered ? '#facc15' : '#eab308';
+          ctx.fillRect(bx, sby, barW * staggerPct, sbh);
+        }
       });
 
       // 2. DRAW PROJECTILES
@@ -330,6 +399,77 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
         ctx.textAlign = 'center';
         ctx.fillText(ft.text, ft.x, ft.y);
       });
+
+      // Render Boss Special Attack Banner
+      if (s.bossSkillAlert && s.bossSkillAlert.life > 0) {
+        ctx.save();
+        // Draw banner strip
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)'; // Slate 900 translucent
+        ctx.fillRect(0, 40, canvas.width, 45);
+        
+        // Draw top/bottom borders
+        ctx.strokeStyle = s.bossSkillAlert.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, 40);
+        ctx.lineTo(canvas.width, 40);
+        ctx.moveTo(0, 85);
+        ctx.lineTo(canvas.width, 85);
+        ctx.stroke();
+
+        // Write warning text
+        ctx.fillStyle = s.bossSkillAlert.color;
+        ctx.font = 'bold 15px Orbitron, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`⚡ BOSS WARNING: CASTING ${s.bossSkillAlert.name.toUpperCase()}! ⚡`, canvas.width / 2, 62.5);
+        ctx.restore();
+      }
+
+      // Draw Combat Ticker Overlay
+      if (s.combatLog && s.combatLog.length > 0) {
+        ctx.save();
+        const startX = 20;
+        const startY = canvas.height - 180;
+        const width = 340;
+        const height = 160;
+
+        // Background box
+        ctx.fillStyle = 'rgba(9, 14, 26, 0.82)'; // dark slate
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1;
+        
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(startX, startY, width, height, 8);
+        } else {
+          ctx.rect(startX, startY, width, height);
+        }
+        ctx.fill();
+        ctx.stroke();
+
+        // Title
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'bold 9px Orbitron, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('BATTLE LOG', startX + 15, startY + 20);
+
+        // Grid lines
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+        ctx.beginPath();
+        ctx.moveTo(startX + 15, startY + 28);
+        ctx.lineTo(startX + width - 15, startY + 28);
+        ctx.stroke();
+
+        // Render log rows
+        ctx.font = 'bold 10px monospace';
+        s.combatLog.forEach((log, index) => {
+          ctx.fillStyle = log.color;
+          ctx.fillText(log.text, startX + 15, startY + 48 + index * 26);
+        });
+
+        ctx.restore();
+      }
 
       ctx.restore();
 
@@ -379,45 +519,107 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
 
           {/* Right Live Recap Sidebar */}
           <div className="w-80 border-l border-white/5 bg-[#090e1a]/95 flex flex-col p-4 gap-4 overflow-y-auto">
-            <h4 className="m-0 text-white font-display text-xs tracking-wider uppercase border-b border-white/5 pb-2">
-              Raid Live Stats
-            </h4>
+            <div className="flex flex-col gap-1 border-b border-white/5 pb-2">
+              <h4 className="m-0 text-white font-display text-xs tracking-wider uppercase">
+                Raid Live Stats
+              </h4>
+            </div>
+
+            {/* Tab Swappers */}
+            <div className="flex bg-black/40 p-0.5 rounded-lg border border-white/5 gap-1">
+              {(['DPS', 'HEALING', 'TANKED'] as const).map(tab => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex-1 py-1 rounded text-[9px] font-display uppercase tracking-wider font-semibold transition ${
+                    activeTab === tab 
+                      ? 'bg-purple-600 text-white shadow' 
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
 
             {/* Live Metrics List */}
             <div className="flex-grow overflow-y-auto flex flex-col gap-2 pr-1">
-              {stateRef.current.units
-                .filter(u => u.isPlayer)
-                .map(p => {
+              {(() => {
+                const topDpsId = [...stateRef.current.units]
+                  .filter(u => u.isPlayer)
+                  .sort((a, b) => (b.damageDealt || 0) - (a.damageDealt || 0))[0]?.id;
+                const topHealId = [...stateRef.current.units]
+                  .filter(u => u.isPlayer)
+                  .sort((a, b) => (b.healingDone || 0) - (a.healingDone || 0))[0]?.id;
+                const topTankId = [...stateRef.current.units]
+                  .filter(u => u.isPlayer)
+                  .sort((a, b) => (b.damageTaken || 0) - (a.damageTaken || 0))[0]?.id;
+
+                const sortedPlayers = [...stateRef.current.units]
+                  .filter(u => u.isPlayer)
+                  .sort((a, b) => {
+                    if (activeTab === 'DPS') return (b.damageDealt || 0) - (a.damageDealt || 0);
+                    if (activeTab === 'HEALING') return (b.healingDone || 0) - (a.healingDone || 0);
+                    return (b.damageTaken || 0) - (a.damageTaken || 0);
+                  });
+
+                return sortedPlayers.map(p => {
                   const dmg = p.damageDealt || 0;
                   const heal = p.healingDone || 0;
                   const taken = p.damageTaken || 0;
+
+                  let isLeader = false;
+                  let leaderBadge = '';
+                  if (activeTab === 'DPS' && p.id === topDpsId && dmg > 0) {
+                    isLeader = true;
+                    leaderBadge = '⚔️';
+                  } else if (activeTab === 'HEALING' && p.id === topHealId && heal > 0) {
+                    isLeader = true;
+                    leaderBadge = '💚';
+                  } else if (activeTab === 'TANKED' && p.id === topTankId && taken > 0) {
+                    isLeader = true;
+                    leaderBadge = '🛡️';
+                  }
+
                   return (
                     <div
                       key={p.id}
-                      className="bg-[#0b0f19]/80 border border-white/5 rounded-lg p-2.5 flex flex-col gap-1 text-[10px] font-mono animate-fadeIn"
+                      className={`bg-[#0b0f19]/80 border rounded-lg p-2.5 flex items-center gap-2.5 text-[10px] font-mono transition-all duration-300 animate-fadeIn ${
+                        isLeader ? 'border-yellow-500/25 bg-[#121622]/90' : 'border-white/5'
+                      }`}
                     >
-                      <div className="flex justify-between items-center">
-                        <span className="font-bold text-white flex items-center gap-1.5 truncate max-w-[120px]">
-                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
-                          {p.name}
-                        </span>
-                        {p.hp <= 0 && (
-                          <span className="text-[9px] bg-red-950/40 text-red-500 border border-red-950 px-1 rounded uppercase font-bold">
-                            DEAD
+                      <MiniSprite classType={p.classType || 'WARRIOR'} color={p.color} size={1.6} />
+
+                      <div className="flex-grow flex flex-col gap-0.5 min-w-0">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-white flex items-center gap-1 truncate max-w-[110px]">
+                            {p.name}
+                            {isLeader && <span className="text-[10px]" title="Leader">{leaderBadge}</span>}
                           </span>
-                        )}
-                      </div>
-                      <div className="flex justify-between text-slate-400 mt-1">
-                        <span>Dmg: <strong className="text-orange-400">{dmg}</strong></span>
-                        <span>Heal: <strong className="text-emerald-400">{heal}</strong></span>
-                        <span>Tanked: <strong className="text-blue-400">{taken}</strong></span>
+                          {p.hp <= 0 ? (
+                            <span className="text-[8px] bg-red-950/40 text-red-500 border border-red-950 px-1 rounded uppercase font-bold shrink-0">
+                              DEAD
+                            </span>
+                          ) : (
+                            <span className="text-[8px] text-slate-500 font-mono shrink-0">
+                              Lvl {p.level || 1}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex justify-between text-slate-400 mt-1">
+                          <span className={activeTab === 'DPS' ? 'text-orange-400 font-bold' : ''}>Dmg: <strong>{dmg}</strong></span>
+                          <span className={activeTab === 'HEALING' ? 'text-emerald-400 font-bold' : ''}>Heal: <strong>{heal}</strong></span>
+                          <span className={activeTab === 'TANKED' ? 'text-blue-400 font-bold' : ''}>Tank: <strong>{taken}</strong></span>
+                        </div>
                       </div>
                     </div>
                   );
-                })}
+                });
+              })()}
             </div>
 
-            <div className="flex flex-col gap-2 text-xs text-slate-400 border-t border-white/5 pt-4">
+            <div className="flex flex-col gap-2 text-xs text-slate-400 border-t border-white/5 pt-4 shrink-0">
               <div className="flex justify-between">
                 <span>Total Viewers:</span>
                 <span className="text-white font-bold">{totalPlayers}</span>
@@ -433,7 +635,7 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
               <div className="flex flex-col gap-1 border-t border-white/5 pt-2">
                 <div className="flex justify-between font-bold text-slate-300">
                   <span>Boss Health:</span>
-                  <span className="text-orange-400 font-bold">
+                  <span className="text-orange-400">
                     {bossHp} / {bossMaxHp}
                   </span>
                 </div>
@@ -442,6 +644,24 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
                     className="bg-orange-500 h-full transition-all duration-100"
                     style={{
                       width: `${Math.max(0, (bossHp / bossMaxHp) * 100)}%`
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Boss stagger bar */}
+              <div className="flex flex-col gap-1 mt-1">
+                <div className="flex justify-between text-[10px] font-bold text-slate-300">
+                  <span>Boss Stagger:</span>
+                  <span className="text-yellow-400 font-bold">
+                    {bossUnit?.staggered ? 'STAGGERED!' : `${Math.round((bossUnit as any)?.stagger || 0)} / ${(bossUnit as any)?.maxStagger || 150}`}
+                  </span>
+                </div>
+                <div className="w-full bg-black/60 rounded-full h-1.5 overflow-hidden border border-white/5">
+                  <div
+                    className={`h-full transition-all duration-100 ${(bossUnit as any)?.staggered ? 'bg-yellow-400 animate-pulse' : 'bg-yellow-500/80'}`}
+                    style={{
+                      width: `${Math.max(0, (((bossUnit as any)?.stagger || 0) / ((bossUnit as any)?.maxStagger || 150)) * 100)}%`
                     }}
                   />
                 </div>
@@ -545,8 +765,14 @@ export const ViewerSpectate: React.FC<ViewerSpectateProps> = ({
             {recapStats && recapStats.length > 0 && (
               <div className="w-full max-w-xl mb-6">
                 {/* MVP Crown Block */}
-                <div className="bg-gradient-to-r from-yellow-950/35 via-yellow-900/20 to-yellow-950/35 border border-yellow-500/30 rounded-xl p-5 mb-5 text-center relative overflow-hidden">
+                <div className="bg-gradient-to-r from-yellow-950/35 via-yellow-900/20 to-yellow-950/35 border border-yellow-500/30 rounded-xl p-5 mb-5 text-center relative overflow-hidden flex flex-col items-center justify-center">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-500/5 rounded-full blur-xl pointer-events-none" />
+                  
+                  {/* MVP Character Preview */}
+                  <div className="mb-2 shrink-0">
+                    <CharacterVisualizer charClass={recapStats[0].classType || 'WARRIOR'} equippedItems={[]} />
+                  </div>
+
                   <span className="text-yellow-400 text-3xl block mb-1">👑</span>
                   <span className="text-[10px] font-pixel text-yellow-400 uppercase tracking-widest">[ Raid MVP ]</span>
                   <h4 className="m-0 text-white font-display text-base font-extrabold uppercase mt-1">

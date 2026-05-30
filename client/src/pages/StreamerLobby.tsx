@@ -23,6 +23,8 @@ import type {
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
 import { useUI } from '../contexts/UIContext';
+import { MiniSprite } from '../components/MiniSprite';
+import { CharacterVisualizer } from '../components/CharacterVisualizer';
 
 interface StreamerLobbyProps {
   bossName: string;
@@ -73,6 +75,8 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
     battleState: 'LOBBY' | 'FIGHTING' | 'VICTORY' | 'DEFEAT';
     shakeTimer: number;
     shakeIntensity: number;
+    bossSkillAlert?: { name: string; color: string; life: number };
+    combatLog?: Array<{ id: string; text: string; color: string; time: number }>;
   }>({
     units: [],
     projectiles: [],
@@ -81,10 +85,27 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
     bossMaxHp: 100,
     battleState: 'LOBBY',
     shakeTimer: 0,
-    shakeIntensity: 0
+    shakeIntensity: 0,
+    bossSkillAlert: undefined,
+    combatLog: []
   });
 
   const streamerName = user.username;
+  const [activeTab, setActiveTab] = useState<'DPS' | 'HEALING' | 'TANKED'>('DPS');
+
+  const pushCombatLog = (text: string, color: string) => {
+    const log = stateRef.current.combatLog || [];
+    log.push({
+      id: Math.random().toString(),
+      text,
+      color,
+      time: Date.now()
+    });
+    if (log.length > 4) {
+      log.shift();
+    }
+    stateRef.current.combatLog = log;
+  };
 
   useEffect(() => {
     if (!socket) return;
@@ -154,6 +175,8 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
 
   // Initialize raid entities and canvas loops
   const initRaidEngine = () => {
+    stateRef.current.combatLog = [];
+    stateRef.current.bossSkillAlert = undefined;
     const viewersList = lobby?.viewers || [];
 
     // 1. Build Viewer Units
@@ -302,6 +325,9 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         y: 50 + Math.random() * 500,
         maxHp: unitMaxHp,
         hp: unitMaxHp,
+        lagHp: unitMaxHp,
+        level: v.level || 1,
+        wasDeadPrev: false,
         speed: v.speed || speed,
         attackPower: unitAttackPower,
         critChance: unitCritChance,
@@ -341,6 +367,12 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
       y: 300,
       maxHp: bossHp,
       hp: bossHp,
+      lagHp: bossHp,
+      stagger: 0,
+      maxStagger: 100 + bossLevel * 15,
+      staggered: false,
+      staggerTimer: 0,
+      wasStaggeredPrev: false,
       speed: 40,
       attackPower: bossAtk,
       critChance: 0.05,
@@ -386,6 +418,7 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         y: addY,
         maxHp: addHp,
         hp: addHp,
+        lagHp: addHp,
         speed: 55 + Math.random() * 20,
         attackPower: addAtk,
         critChance: 0.05,
@@ -446,6 +479,11 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         s.shakeTimer -= dt;
       }
 
+      // Boss Special Alert Timer tick
+      if (s.bossSkillAlert && s.bossSkillAlert.life > 0) {
+        s.bossSkillAlert.life -= dt;
+      }
+
       ctx.save();
       if (s.shakeTimer > 0) {
         const dx = (Math.random() - 0.5) * s.shakeIntensity;
@@ -456,6 +494,14 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
       // Draw themed background based on boss level or raid arena config
       const arenaConfig = RAID_ARENA_CONFIGS[bossName] || getArenaConfigForLevel(bossLevel);
       drawProceduralBackground(ctx, canvas.width, canvas.height, arenaConfig);
+
+      // Draw Special Attack Ambiance Tint
+      if (s.bossSkillAlert && s.bossSkillAlert.life > 0) {
+        ctx.save();
+        ctx.fillStyle = s.bossSkillAlert.color + '15'; // 8% opacity tint
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+      }
 
       const boss = s.units.find(u => u.id === 'boss');
       const livingPlayers = s.units.filter(u => u.isPlayer && u.hp > 0);
@@ -517,10 +563,22 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
       }
 
       if (s.battleState === 'FIGHTING' && boss && boss.hp > 0) {
-        // Update unit hit flash timers
+        // Update unit hit flash timers, lagHp, and death alerts
         s.units.forEach(unit => {
           if (unit.flashTimer && unit.flashTimer > 0) {
             unit.flashTimer -= dt;
+          }
+          // Drain lagHp towards hp
+          if (unit.lagHp === undefined || unit.lagHp < unit.hp) {
+            unit.lagHp = unit.hp;
+          } else if (unit.lagHp > unit.hp) {
+            unit.lagHp -= dt * (unit.maxHp * 0.25);
+            if (unit.lagHp < unit.hp) unit.lagHp = unit.hp;
+          }
+          // Death log transition
+          if (unit.isPlayer && unit.hp <= 0 && !(unit as any).wasDeadPrev) {
+            (unit as any).wasDeadPrev = true;
+            pushCombatLog(`💀 ${unit.name} has fallen!`, '#ef4444');
           }
         });
 
@@ -641,6 +699,25 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         // 2. UPDATE ENEMIES (Boss and Adds)
         const enemies = s.units.filter(u => !u.isPlayer && u.hp > 0);
         enemies.forEach(enemy => {
+          if (enemy.id === 'boss') {
+            // Update stagger duration
+            if ((enemy as any).staggered) {
+              (enemy as any).staggerTimer -= dt;
+              if ((enemy as any).staggerTimer <= 0) {
+                (enemy as any).staggered = false;
+                (enemy as any).stagger = 0;
+                pushCombatLog('Boss recovered from stagger.', '#94a3b8');
+              }
+            }
+            
+            // Check stagger entry transition
+            const isStaggeredNow = (enemy as any).staggered || false;
+            if (isStaggeredNow && !(enemy as any).wasStaggeredPrev) {
+              pushCombatLog('⚡ BOSS STAGGERED! 2x DAMAGE! ⚡', '#facc15');
+            }
+            (enemy as any).wasStaggeredPrev = isStaggeredNow;
+          }
+
           if (enemy.stunTimer > 0) {
             enemy.stunTimer -= dt;
           } else {
@@ -735,6 +812,8 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
 
                     if (skillIndex === 0) {
                       // 1. Laser Arc
+                      s.bossSkillAlert = { name: 'LASER ARC', color: '#ff9500', life: 2.0 };
+                      pushCombatLog('BOSS: Casting Laser Arc!', '#ff9500');
                       const tx = 50;
                       const ty = enemy.y + (Math.random() * 200 - 100);
                       s.projectiles.push({
@@ -799,6 +878,8 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                       });
                     } else if (skillIndex === 1) {
                       // 2. Shockwave Slam (Cataclysm)
+                      s.bossSkillAlert = { name: 'SHOCKWAVE SLAM', color: '#ff4400', life: 2.0 };
+                      pushCombatLog('BOSS: Casting Shockwave Slam!', '#ff4400');
                       s.damageTexts.push({ x: enemy.x, y: enemy.y - 40, text: 'CATACLYSM SHOCKWAVE!', color: '#ff4400', life: 60, isCrit: true });
 
                       // Spawn radiating lines
@@ -884,6 +965,9 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                         attackName = 'METEOR SHOWER!';
                         projectileColor = '#ea580c';
                       }
+
+                      s.bossSkillAlert = { name: attackName.replace('!', ''), color: projectileColor, life: 2.0 };
+                      pushCombatLog(`BOSS: Casting ${attackName.replace('!', '')}!`, projectileColor);
 
                       s.damageTexts.push({ x: enemy.x, y: enemy.y - 45, text: attackName, color: projectileColor, life: 60, isCrit: true });
 
@@ -1005,9 +1089,26 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
         ctx.fillRect(bx, by, barW, barH);
 
+        // Lag bar (red damage trail)
+        const lagPct = Math.max(0, (unit.lagHp || unit.hp) / unit.maxHp);
+        ctx.fillStyle = '#ff453a';
+        ctx.fillRect(bx, by, barW * lagPct, barH);
+
         const hpPct = Math.max(0, unit.hp / unit.maxHp);
-        ctx.fillStyle = !isB ? '#34c759' : '#ff9500';
+        ctx.fillStyle = !isB ? '#30d158' : '#ff9f0a';
         ctx.fillRect(bx, by, barW * hpPct, barH);
+
+        // Boss Stagger Bar
+        if (isBoss) {
+          const sby = by + barH + 2;
+          const sbh = 3;
+          ctx.fillStyle = 'rgba(0,0,0,0.5)';
+          ctx.fillRect(bx, sby, barW, sbh);
+
+          const staggerPct = Math.max(0, ((unit as any).stagger || 0) / ((unit as any).maxStagger || 150));
+          ctx.fillStyle = (unit as any).staggered ? '#facc15' : '#eab308';
+          ctx.fillRect(bx, sby, barW * staggerPct, sbh);
+        }
       });
 
       // 4. UPDATE PARTICLES, PROJECTILES, AND FLOATING TEXTS WITH ENGINE
@@ -1045,6 +1146,77 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
         return ft.life > 0;
       });
 
+      // Render Boss Special Attack Banner
+      if (s.bossSkillAlert && s.bossSkillAlert.life > 0) {
+        ctx.save();
+        // Draw banner strip
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)'; // Slate 900 translucent
+        ctx.fillRect(0, 40, canvas.width, 45);
+        
+        // Draw top/bottom borders
+        ctx.strokeStyle = s.bossSkillAlert.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, 40);
+        ctx.lineTo(canvas.width, 40);
+        ctx.moveTo(0, 85);
+        ctx.lineTo(canvas.width, 85);
+        ctx.stroke();
+
+        // Write warning text
+        ctx.fillStyle = s.bossSkillAlert.color;
+        ctx.font = 'bold 15px Orbitron, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`⚡ BOSS WARNING: CASTING ${s.bossSkillAlert.name.toUpperCase()}! ⚡`, canvas.width / 2, 62.5);
+        ctx.restore();
+      }
+
+      // Draw Combat Ticker Overlay
+      if (s.combatLog && s.combatLog.length > 0) {
+        ctx.save();
+        const startX = 20;
+        const startY = canvas.height - 180;
+        const width = 340;
+        const height = 160;
+
+        // Background box
+        ctx.fillStyle = 'rgba(9, 14, 26, 0.82)'; // dark slate
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+        ctx.lineWidth = 1;
+        
+        ctx.beginPath();
+        if (ctx.roundRect) {
+          ctx.roundRect(startX, startY, width, height, 8);
+        } else {
+          ctx.rect(startX, startY, width, height);
+        }
+        ctx.fill();
+        ctx.stroke();
+
+        // Title
+        ctx.fillStyle = '#94a3b8';
+        ctx.font = 'bold 9px Orbitron, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('BATTLE LOG', startX + 15, startY + 20);
+
+        // Grid lines
+        ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+        ctx.beginPath();
+        ctx.moveTo(startX + 15, startY + 28);
+        ctx.lineTo(startX + width - 15, startY + 28);
+        ctx.stroke();
+
+        // Render log rows
+        ctx.font = 'bold 10px monospace';
+        s.combatLog.forEach((log, index) => {
+          ctx.fillStyle = log.color;
+          ctx.fillText(log.text, startX + 15, startY + 48 + index * 26);
+        });
+
+        ctx.restore();
+      }
+
       // 7. EMIT COORDINATES TO VIEWERS
       emitTimer += dt;
       if (emitTimer >= 0.05 && s.battleState === 'FIGHTING') {
@@ -1061,12 +1233,18 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
             color: u.color,
             isPlayer: u.isPlayer,
             classType: u.classType,
+            level: (u as any).level || 1,
+            stagger: (u as any).stagger || 0,
+            maxStagger: (u as any).maxStagger || 0,
+            staggered: (u as any).staggered || false,
             damageDealt: u.damageDealt,
             healingDone: u.healingDone,
             damageTaken: u.damageTaken
           })),
           projectiles: s.projectiles.map(p => ({ fx: p.fx, fy: p.fy, tx: p.tx, ty: p.ty, color: p.color })),
-          damageTexts: s.damageTexts.map(dt => ({ x: dt.x, y: dt.y, text: dt.text, color: dt.color, isCrit: dt.isCrit }))
+          damageTexts: s.damageTexts.map(dt => ({ x: dt.x, y: dt.y, text: dt.text, color: dt.color, isCrit: dt.isCrit })),
+          bossSkillAlert: s.bossSkillAlert,
+          combatLog: s.combatLog
         };
 
         socket?.emit('streamer-state-update', { streamerName, snapshot });
@@ -1128,45 +1306,107 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
 
           {/* Right Live Recap Sidebar */}
           <div className="w-80 border-l border-white/5 bg-[#090e1a]/95 flex flex-col p-4 gap-4 overflow-y-auto">
-            <h4 className="m-0 text-white font-display text-xs tracking-wider uppercase border-b border-white/5 pb-2">
-              Raid Live Stats
-            </h4>
+            <div className="flex flex-col gap-1 border-b border-white/5 pb-2">
+              <h4 className="m-0 text-white font-display text-xs tracking-wider uppercase">
+                Raid Live Stats
+              </h4>
+            </div>
+
+            {/* Tab Swappers */}
+            <div className="flex bg-black/40 p-0.5 rounded-lg border border-white/5 gap-1">
+              {(['DPS', 'HEALING', 'TANKED'] as const).map(tab => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex-1 py-1 rounded text-[9px] font-display uppercase tracking-wider font-semibold transition ${
+                    activeTab === tab 
+                      ? 'bg-purple-600 text-white shadow' 
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
 
             {/* Live Metrics List */}
             <div className="flex-grow overflow-y-auto flex flex-col gap-2 pr-1">
-              {stateRef.current.units
-                .filter(u => u.isPlayer)
-                .map(p => {
+              {(() => {
+                const topDpsId = [...stateRef.current.units]
+                  .filter(u => u.isPlayer)
+                  .sort((a, b) => (b.damageDealt || 0) - (a.damageDealt || 0))[0]?.id;
+                const topHealId = [...stateRef.current.units]
+                  .filter(u => u.isPlayer)
+                  .sort((a, b) => (b.healingDone || 0) - (a.healingDone || 0))[0]?.id;
+                const topTankId = [...stateRef.current.units]
+                  .filter(u => u.isPlayer)
+                  .sort((a, b) => (b.damageTaken || 0) - (a.damageTaken || 0))[0]?.id;
+
+                const sortedPlayers = [...stateRef.current.units]
+                  .filter(u => u.isPlayer)
+                  .sort((a, b) => {
+                    if (activeTab === 'DPS') return (b.damageDealt || 0) - (a.damageDealt || 0);
+                    if (activeTab === 'HEALING') return (b.healingDone || 0) - (a.healingDone || 0);
+                    return (b.damageTaken || 0) - (a.damageTaken || 0);
+                  });
+
+                return sortedPlayers.map(p => {
                   const dmg = p.damageDealt || 0;
                   const heal = p.healingDone || 0;
                   const taken = p.damageTaken || 0;
+
+                  let isLeader = false;
+                  let leaderBadge = '';
+                  if (activeTab === 'DPS' && p.id === topDpsId && dmg > 0) {
+                    isLeader = true;
+                    leaderBadge = '⚔️';
+                  } else if (activeTab === 'HEALING' && p.id === topHealId && heal > 0) {
+                    isLeader = true;
+                    leaderBadge = '💚';
+                  } else if (activeTab === 'TANKED' && p.id === topTankId && taken > 0) {
+                    isLeader = true;
+                    leaderBadge = '🛡️';
+                  }
+
                   return (
                     <div
                       key={p.id}
-                      className="bg-[#0b0f19]/80 border border-white/5 rounded-lg p-2.5 flex flex-col gap-1 text-[10px] font-mono animate-fadeIn"
+                      className={`bg-[#0b0f19]/80 border rounded-lg p-2.5 flex items-center gap-2.5 text-[10px] font-mono transition-all duration-300 animate-fadeIn ${
+                        isLeader ? 'border-yellow-500/25 bg-[#121622]/90' : 'border-white/5'
+                      }`}
                     >
-                      <div className="flex justify-between items-center">
-                        <span className="font-bold text-white flex items-center gap-1.5 truncate max-w-[120px]">
-                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
-                          {p.name}
-                        </span>
-                        {p.hp <= 0 && (
-                          <span className="text-[9px] bg-red-950/40 text-red-500 border border-red-950 px-1 rounded uppercase font-bold">
-                            DEAD
+                      <MiniSprite classType={p.classType || 'WARRIOR'} color={p.color} size={1.6} />
+
+                      <div className="flex-grow flex flex-col gap-0.5 min-w-0">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-white flex items-center gap-1 truncate max-w-[110px]">
+                            {p.name}
+                            {isLeader && <span className="text-[10px]" title="Leader">{leaderBadge}</span>}
                           </span>
-                        )}
-                      </div>
-                      <div className="flex justify-between text-slate-400 mt-1">
-                        <span>Dmg: <strong className="text-orange-400">{dmg}</strong></span>
-                        <span>Heal: <strong className="text-emerald-400">{heal}</strong></span>
-                        <span>Tanked: <strong className="text-blue-400">{taken}</strong></span>
+                          {p.hp <= 0 ? (
+                            <span className="text-[8px] bg-red-950/40 text-red-500 border border-red-950 px-1 rounded uppercase font-bold shrink-0">
+                              DEAD
+                            </span>
+                          ) : (
+                            <span className="text-[8px] text-slate-500 font-mono shrink-0">
+                              Lvl {p.level || 1}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex justify-between text-slate-400 mt-1">
+                          <span className={activeTab === 'DPS' ? 'text-orange-400 font-bold' : ''}>Dmg: <strong>{dmg}</strong></span>
+                          <span className={activeTab === 'HEALING' ? 'text-emerald-400 font-bold' : ''}>Heal: <strong>{heal}</strong></span>
+                          <span className={activeTab === 'TANKED' ? 'text-blue-400 font-bold' : ''}>Tank: <strong>{taken}</strong></span>
+                        </div>
                       </div>
                     </div>
                   );
-                })}
+                });
+              })()}
             </div>
 
-            <div className="flex flex-col gap-2 text-xs text-slate-400 border-t border-white/5 pt-4">
+            <div className="flex flex-col gap-2 text-xs text-slate-400 border-t border-white/5 pt-4 shrink-0">
               <div className="flex justify-between">
                 <span>Total Viewers:</span>
                 <span className="text-white font-bold">{totalPlayers}</span>
@@ -1191,6 +1431,24 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
                     className="bg-orange-500 h-full transition-all duration-100"
                     style={{
                       width: `${Math.max(0, (bossHp / stateRef.current.bossMaxHp) * 100)}%`
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Boss stagger bar */}
+              <div className="flex flex-col gap-1 mt-1">
+                <div className="flex justify-between text-[10px] font-bold text-slate-300">
+                  <span>Boss Stagger:</span>
+                  <span className="text-yellow-400 font-bold">
+                    {bossUnit?.staggered ? 'STAGGERED!' : `${Math.round((bossUnit as any)?.stagger || 0)} / ${(bossUnit as any)?.maxStagger || 150}`}
+                  </span>
+                </div>
+                <div className="w-full bg-black/60 rounded-full h-1.5 overflow-hidden border border-white/5">
+                  <div
+                    className={`h-full transition-all duration-100 ${(bossUnit as any)?.staggered ? 'bg-yellow-400 animate-pulse' : 'bg-yellow-500/80'}`}
+                    style={{
+                      width: `${Math.max(0, (((bossUnit as any)?.stagger || 0) / ((bossUnit as any)?.maxStagger || 150)) * 100)}%`
                     }}
                   />
                 </div>
@@ -1377,8 +1635,14 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
             {recapStats && recapStats.length > 0 && (
               <div className="w-full max-w-xl mb-6">
                 {/* MVP Crown Block */}
-                <div className="bg-gradient-to-r from-yellow-950/35 via-yellow-900/20 to-yellow-950/35 border border-yellow-500/30 rounded-xl p-5 mb-5 text-center relative overflow-hidden">
+                <div className="bg-gradient-to-r from-yellow-950/35 via-yellow-900/20 to-yellow-950/35 border border-yellow-500/30 rounded-xl p-5 mb-5 text-center relative overflow-hidden flex flex-col items-center justify-center">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-500/5 rounded-full blur-xl pointer-events-none" />
+                  
+                  {/* MVP Character Preview */}
+                  <div className="mb-2 shrink-0">
+                    <CharacterVisualizer charClass={recapStats[0].classType || 'WARRIOR'} equippedItems={[]} />
+                  </div>
+
                   <span className="text-yellow-400 text-3xl block mb-1">👑</span>
                   <span className="text-[10px] font-pixel text-yellow-400 uppercase tracking-widest">[ Raid MVP ]</span>
                   <h4 className="m-0 text-white font-display text-base font-extrabold uppercase mt-1">

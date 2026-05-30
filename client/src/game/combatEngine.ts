@@ -1,6 +1,25 @@
 import { seek, getDistance, getDirection } from './physics';
 import { soundManager } from './soundManager';
 
+export const accumulateStagger = (target: CombatUnit, amount: number, floatingTexts: FloatingText[]) => {
+  if (target.id === 'boss' && !(target as any).staggered) {
+    (target as any).stagger = Math.min((target as any).maxStagger || 150, ((target as any).stagger || 0) + amount);
+    if ((target as any).stagger >= ((target as any).maxStagger || 150)) {
+      (target as any).staggered = true;
+      (target as any).staggerTimer = 4.0;
+      target.stunTimer = 4.0;
+      floatingTexts.push({
+        x: target.x,
+        y: target.y - 45,
+        text: '⚡ BOSS STAGGERED! 2x DMG! ⚡',
+        color: '#facc15',
+        life: 70,
+        isCrit: true
+      });
+    }
+  }
+};
+
 export interface CombatUnit {
   id: string;
   name: string;
@@ -38,6 +57,13 @@ export interface CombatUnit {
   physRes?: number;
   spriteType?: string;
   healPower?: number;
+  lagHp?: number;
+  level?: number;
+  stagger?: number;
+  maxStagger?: number;
+  staggered?: boolean;
+  staggerTimer?: number;
+  wasStaggeredPrev?: boolean;
 }
 
 export interface FloatingText {
@@ -217,7 +243,14 @@ export const performBasicAttack = (
       finalDmg = Math.max(1, Math.round(reducedPhys + reducedFire + reducedCold + reducedPoison));
     }
 
+    if ((target as any).staggered) {
+      finalDmg *= 2;
+    }
+
     target.hp = Math.max(0, target.hp - finalDmg);
+    if (target.id === 'boss') {
+      accumulateStagger(target, isCrit ? 15 : 4, floatingTexts);
+    }
     target.flashTimer = 0.1;
     target.flashColor = target.isPlayer ? '#ffffff' : '#ff3b30';
 
@@ -329,7 +362,13 @@ export const castActiveSkill = (
     }
 
     target.stunTimer = stunDuration;
+    if ((target as any).staggered) {
+      dmg *= 2;
+    }
     target.hp = Math.max(0, target.hp - dmg);
+    if (target.id === 'boss') {
+      accumulateStagger(target, 25, floatingTexts);
+    }
     target.flashTimer = 0.1;
     target.flashColor = '#ffffff';
 
@@ -428,7 +467,10 @@ export const castActiveSkill = (
     if (talentsList.includes('t3_2')) rangeRadius += 30;
     if (talentsList.includes('t8_1')) rangeRadius += 50;
 
-    const dmg = Math.round(attacker.attackPower * dmgFactor);
+    let dmg = Math.round(attacker.attackPower * dmgFactor);
+    if ((target as any).staggered) {
+      dmg *= 2;
+    }
     
     // Ignore Defense (Meltdown)
     let ignoreDefFactor = 0.1; // default scale
@@ -437,6 +479,9 @@ export const castActiveSkill = (
     }
 
     target.hp = Math.max(0, target.hp - Math.round(dmg - (target.defense || 0) * ignoreDefFactor));
+    if (target.id === 'boss') {
+      accumulateStagger(target, 25, floatingTexts);
+    }
     target.flashTimer = 0.1;
     target.flashColor = '#ff9500';
 
@@ -597,19 +642,26 @@ export const castActiveSkill = (
 
     enemies.forEach(e => {
       if (e.hp > 0 && getDistance(attacker, e) < areaRadius) {
-        e.hp = Math.max(0, e.hp - dmg);
+        let finalDmg = dmg;
+        if ((e as any).staggered) {
+          finalDmg *= 2;
+        }
+        e.hp = Math.max(0, e.hp - finalDmg);
+        if (e.id === 'boss') {
+          accumulateStagger(e, 25, floatingTexts);
+        }
         e.flashTimer = 0.1;
         e.flashColor = '#ffcc00';
 
         if (attacker.isPlayer) {
-          attacker.damageDealt = (attacker.damageDealt || 0) + dmg;
-          recapStats.playerDamageDealt = (recapStats.playerDamageDealt || 0) + dmg;
+          attacker.damageDealt = (attacker.damageDealt || 0) + finalDmg;
+          recapStats.playerDamageDealt = (recapStats.playerDamageDealt || 0) + finalDmg;
         } else {
-          attacker.damageDealt = (attacker.damageDealt || 0) + dmg;
-          e.damageTaken = (e.damageTaken || 0) + dmg;
+          attacker.damageDealt = (attacker.damageDealt || 0) + finalDmg;
+          e.damageTaken = (e.damageTaken || 0) + finalDmg;
         }
 
-        floatingTexts.push({ x: e.x, y: e.y - 15, text: `${dmg}`, color: '#ffcc00', life: 40 });
+        floatingTexts.push({ x: e.x, y: e.y - 15, text: `${finalDmg}`, color: '#ffcc00', life: 40 });
         createExplosion(particles, e.x, e.y, '#ffcc00', 12);
 
         // Blinding Nova stun
@@ -676,7 +728,14 @@ export const castActiveSkill = (
             strikeDmg = Math.round(strikeDmg * 1.4);
           }
 
+          if ((target as any).staggered) {
+            strikeDmg *= 2;
+          }
+
           target.hp = Math.max(0, target.hp - strikeDmg);
+          if (target.id === 'boss') {
+            accumulateStagger(target, 5, floatingTexts);
+          }
           target.flashTimer = 0.08;
           target.flashColor = '#af52de';
           
@@ -765,22 +824,29 @@ export const castActiveSkill = (
           ignoreFactor = 0.075;
         }
 
-        e.hp = Math.max(0, e.hp - Math.round(eDmg - (e.defense || 0) * ignoreFactor));
+        let finalDmg = Math.max(1, Math.round(eDmg - (e.defense || 0) * ignoreFactor));
+        if ((e as any).staggered) {
+          finalDmg *= 2;
+        }
+        e.hp = Math.max(0, e.hp - finalDmg);
+        if (e.id === 'boss') {
+          accumulateStagger(e, 25, floatingTexts);
+        }
         e.flashTimer = 0.1;
         e.flashColor = '#34c759';
 
         if (attacker.isPlayer) {
-          attacker.damageDealt = (attacker.damageDealt || 0) + eDmg;
-          recapStats.playerDamageDealt = (recapStats.playerDamageDealt || 0) + eDmg;
+          attacker.damageDealt = (attacker.damageDealt || 0) + finalDmg;
+          recapStats.playerDamageDealt = (recapStats.playerDamageDealt || 0) + finalDmg;
         } else {
-          attacker.damageDealt = (attacker.damageDealt || 0) + eDmg;
-          e.damageTaken = (e.damageTaken || 0) + eDmg;
+          attacker.damageDealt = (attacker.damageDealt || 0) + finalDmg;
+          e.damageTaken = (e.damageTaken || 0) + finalDmg;
         }
 
         floatingTexts.push({
           x: e.x,
           y: e.y - 15,
-          text: `${eDmg} (Arrow Rain)`,
+          text: `${finalDmg} (Arrow Rain)`,
           color: '#34c759',
           life: 45
         });
@@ -839,7 +905,13 @@ export const castActiveSkill = (
         if (talentsList.includes('t7_1')) {
           finalDmg = Math.round(finalDmg * 1.15);
         }
+        if ((e as any).staggered) {
+          finalDmg *= 2;
+        }
         e.hp = Math.max(0, e.hp - finalDmg);
+        if (e.id === 'boss') {
+          accumulateStagger(e, 25, floatingTexts);
+        }
         e.flashTimer = 0.1;
         e.flashColor = '#ff0055';
         floatingTexts.push({ x: e.x, y: e.y - 15, text: `${finalDmg}`, color: '#ff0055', life: 40 });
@@ -886,10 +958,17 @@ export const castActiveSkill = (
     if (talentsList.includes('t10_1')) dmgFactor += 0.6;
 
     const dmg = Math.round(attacker.attackPower * dmgFactor);
-    target.hp = Math.max(0, target.hp - dmg);
+    let finalDmg = dmg;
+    if ((target as any).staggered) {
+      finalDmg *= 2;
+    }
+    target.hp = Math.max(0, target.hp - finalDmg);
+    if (target.id === 'boss') {
+      accumulateStagger(target, 25, floatingTexts);
+    }
     target.flashTimer = 0.1;
     target.flashColor = '#39ff14';
-    floatingTexts.push({ x: target.x, y: target.y - 20, text: `${dmg} (Raise Dead)`, color: '#39ff14', life: 45 });
+    floatingTexts.push({ x: target.x, y: target.y - 20, text: `${finalDmg} (Raise Dead)`, color: '#39ff14', life: 45 });
     createExplosion(particles, target.x, target.y, '#39ff14', 15);
 
     if (talentsList.includes('t7_2')) {
@@ -897,16 +976,22 @@ export const castActiveSkill = (
     }
 
     if (attacker.isPlayer) {
-      attacker.damageDealt = (attacker.damageDealt || 0) + dmg;
-      recapStats.playerDamageDealt = (recapStats.playerDamageDealt || 0) + dmg;
+      attacker.damageDealt = (attacker.damageDealt || 0) + finalDmg;
+      recapStats.playerDamageDealt = (recapStats.playerDamageDealt || 0) + finalDmg;
     } else {
-      attacker.damageDealt = (attacker.damageDealt || 0) + dmg;
+      attacker.damageDealt = (attacker.damageDealt || 0) + finalDmg;
     }
 
     enemies.forEach(e => {
       if (e.id !== target.id && e.hp > 0 && getDistance(target, e) < 80) {
-        const spl = Math.round(dmg * 0.6);
+        let spl = Math.round(dmg * 0.6);
+        if ((e as any).staggered) {
+          spl *= 2;
+        }
         e.hp = Math.max(0, e.hp - spl);
+        if (e.id === 'boss') {
+          accumulateStagger(e, 10, floatingTexts);
+        }
         floatingTexts.push({ x: e.x, y: e.y - 15, text: `${spl}`, color: '#39ff14', life: 35 });
       }
     });
@@ -934,8 +1019,14 @@ export const castActiveSkill = (
     for (let sIdx = 0; sIdx < strikes; sIdx++) {
       setTimeout(() => {
         if (target && target.hp > 0) {
-          const finalStrikeDmg = baseDmg;
+          let finalStrikeDmg = baseDmg;
+          if ((target as any).staggered) {
+            finalStrikeDmg *= 2;
+          }
           target.hp = Math.max(0, target.hp - finalStrikeDmg);
+          if (target.id === 'boss') {
+            accumulateStagger(target, 4, floatingTexts);
+          }
           target.flashTimer = 0.08;
           target.flashColor = '#ff6b00';
           floatingTexts.push({ x: target.x + (Math.random() * 30 - 15), y: target.y - 15, text: `${finalStrikeDmg}`, color: '#ff6b00', life: 30 });
@@ -975,10 +1066,17 @@ export const castActiveSkill = (
         let defDebuff = talentsList.includes('t7_1') ? 25 : (talentsList.includes('t2_2') ? 25 : 15);
         e.defense = Math.max(0, (e.defense || 0) - defDebuff);
 
-        e.hp = Math.max(0, e.hp - dmg);
+        let finalDmg = dmg;
+        if ((e as any).staggered) {
+          finalDmg *= 2;
+        }
+        e.hp = Math.max(0, e.hp - finalDmg);
+        if (e.id === 'boss') {
+          accumulateStagger(e, 25, floatingTexts);
+        }
         e.flashTimer = 0.1;
         e.flashColor = '#adff2f';
-        floatingTexts.push({ x: e.x, y: e.y - 15, text: `${dmg} (Acid Bomb)`, color: '#adff2f', life: 45 });
+        floatingTexts.push({ x: e.x, y: e.y - 15, text: `${finalDmg} (Acid Bomb)`, color: '#adff2f', life: 45 });
         createExplosion(particles, e.x, e.y, '#adff2f', 15);
 
         if (talentsList.includes('t7_2')) {
@@ -986,10 +1084,10 @@ export const castActiveSkill = (
         }
 
         if (attacker.isPlayer) {
-          attacker.damageDealt = (attacker.damageDealt || 0) + dmg;
-          recapStats.playerDamageDealt = (recapStats.playerDamageDealt || 0) + dmg;
+          attacker.damageDealt = (attacker.damageDealt || 0) + finalDmg;
+          recapStats.playerDamageDealt = (recapStats.playerDamageDealt || 0) + finalDmg;
         } else {
-          attacker.damageDealt = (attacker.damageDealt || 0) + dmg;
+          attacker.damageDealt = (attacker.damageDealt || 0) + finalDmg;
         }
 
         setTimeout(() => {
@@ -1014,10 +1112,17 @@ export const castActiveSkill = (
 
     enemies.forEach(e => {
       if (e.hp > 0 && getDistance(attacker, e) < rangeRadius) {
-        e.hp = Math.max(0, e.hp - dmg);
+        let finalDmg = dmg;
+        if ((e as any).staggered) {
+          finalDmg *= 2;
+        }
+        e.hp = Math.max(0, e.hp - finalDmg);
+        if (e.id === 'boss') {
+          accumulateStagger(e, 25, floatingTexts);
+        }
         e.flashTimer = 0.1;
         e.flashColor = '#ff007f';
-        floatingTexts.push({ x: e.x, y: e.y - 15, text: `${dmg}`, color: '#ff007f', life: 40 });
+        floatingTexts.push({ x: e.x, y: e.y - 15, text: `${finalDmg}`, color: '#ff007f', life: 40 });
         createExplosion(particles, e.x, e.y, '#ff007f', 12);
 
         if (talentsList.includes('t3_2')) {
@@ -1025,10 +1130,10 @@ export const castActiveSkill = (
         }
 
         if (attacker.isPlayer) {
-          attacker.damageDealt = (attacker.damageDealt || 0) + dmg;
-          recapStats.playerDamageDealt = (recapStats.playerDamageDealt || 0) + dmg;
+          attacker.damageDealt = (attacker.damageDealt || 0) + finalDmg;
+          recapStats.playerDamageDealt = (recapStats.playerDamageDealt || 0) + finalDmg;
         } else {
-          attacker.damageDealt = (attacker.damageDealt || 0) + dmg;
+          attacker.damageDealt = (attacker.damageDealt || 0) + finalDmg;
         }
       }
     });
