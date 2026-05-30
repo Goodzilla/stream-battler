@@ -506,60 +506,83 @@ export const StreamerLobby: React.FC<StreamerLobbyProps> = ({
       const boss = s.units.find(u => u.id === 'boss');
       const livingPlayers = s.units.filter(u => u.isPlayer && u.hp > 0);
       const allPlayers = s.units.filter(u => u.isPlayer);
+      const livingEnemies = s.units.filter(u => !u.isPlayer && u.hp > 0);
 
       // Fight checks
       if (livingPlayers.length === 0 && s.battleState === 'FIGHTING') {
-        s.battleState = 'DEFEAT';
-        const recapStats = allPlayers.map(p => {
-          const damageDealt = p.damageDealt || 0;
-          const healingDone = p.healingDone || 0;
-          const damageTaken = p.damageTaken || 0;
-          const score = damageDealt + healingDone * 1.5 + damageTaken * 0.8;
-          return {
-            userId: p.id,
-            name: p.name,
-            classType: p.classType || 'WARRIOR',
-            damageDealt,
-            healingDone,
-            damageTaken,
-            color: p.color,
-            score
-          };
-        }).sort((a, b) => b.score - a.score);
+        try {
+          s.battleState = 'DEFEAT';
+          const recapStats = allPlayers.map(p => {
+            const damageDealt = p.damageDealt || 0;
+            const healingDone = p.healingDone || 0;
+            const damageTaken = p.damageTaken || 0;
+            const score = damageDealt + healingDone * 1.5 + damageTaken * 0.8;
+            return {
+              userId: p.id,
+              name: p.name,
+              classType: p.classType || 'WARRIOR',
+              damageDealt,
+              healingDone,
+              damageTaken,
+              color: p.color,
+              score
+            };
+          }).sort((a, b) => b.score - a.score);
 
-        socket?.emit('streamer-raid-end', {
-          streamerName,
-          success: false,
-          bossName,
-          bossLevel,
-          recapStats
-        });
-      } else if (boss && boss.hp <= 0 && s.battleState === 'FIGHTING') {
-        s.battleState = 'VICTORY';
-        const recapStats = allPlayers.map(p => {
-          const damageDealt = p.damageDealt || 0;
-          const healingDone = p.healingDone || 0;
-          const damageTaken = p.damageTaken || 0;
-          const score = damageDealt + healingDone * 1.5 + damageTaken * 0.8;
-          return {
-            userId: p.id,
-            name: p.name,
-            classType: p.classType || 'WARRIOR',
-            damageDealt,
-            healingDone,
-            damageTaken,
-            color: p.color,
-            score
-          };
-        }).sort((a, b) => b.score - a.score);
+          socket?.emit('streamer-raid-end', {
+            streamerName,
+            success: false,
+            bossName,
+            bossLevel,
+            recapStats
+          });
+        } catch (err) {
+          console.error("Error ending raid defeat:", err);
+          socket?.emit('streamer-raid-end', {
+            streamerName,
+            success: false,
+            bossName,
+            bossLevel,
+            recapStats: []
+          });
+        }
+      } else if ((!boss || boss.hp <= 0 || livingEnemies.length === 0) && s.battleState === 'FIGHTING') {
+        try {
+          s.battleState = 'VICTORY';
+          const recapStats = allPlayers.map(p => {
+            const damageDealt = p.damageDealt || 0;
+            const healingDone = p.healingDone || 0;
+            const damageTaken = p.damageTaken || 0;
+            const score = damageDealt + healingDone * 1.5 + damageTaken * 0.8;
+            return {
+              userId: p.id,
+              name: p.name,
+              classType: p.classType || 'WARRIOR',
+              damageDealt,
+              healingDone,
+              damageTaken,
+              color: p.color,
+              score
+            };
+          }).sort((a, b) => b.score - a.score);
 
-        socket?.emit('streamer-raid-end', {
-          streamerName,
-          success: true,
-          bossName,
-          bossLevel,
-          recapStats
-        });
+          socket?.emit('streamer-raid-end', {
+            streamerName,
+            success: true,
+            bossName,
+            bossLevel,
+            recapStats
+          });
+        } catch (err) {
+          console.error("Error ending raid victory:", err);
+          socket?.emit('streamer-raid-end', {
+            streamerName,
+            success: true,
+            bossName,
+            bossLevel,
+            recapStats: []
+          });
+        }
       }
 
       if (s.battleState === 'FIGHTING' && boss && boss.hp > 0) {
