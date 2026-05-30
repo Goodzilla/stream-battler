@@ -16,6 +16,7 @@ import { leaderboardRouter } from './routes/leaderboard';
 import { adminRouter } from './routes/admin';
 import { shopRouter } from './routes/shop';
 import { setupSocketHandlers, activeLobbies } from './socket/lobby';
+import { setupMmoHandlers } from './socket/mmo';
 import { errorHandler } from './middlewares/errorHandler';
 
 const app = express();
@@ -73,6 +74,7 @@ if (process.env.NODE_ENV === 'production' || true) {
 
 // Bind WebSocket handlers
 setupSocketHandlers(io);
+setupMmoHandlers(io);
 
 // Ensure heikob is admin on startup
 async function ensureAdmin() {

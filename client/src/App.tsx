@@ -12,6 +12,8 @@ import { useUI } from './contexts/UIContext';
 import { CLASSES } from 'shared';
 import { Zap } from 'lucide-react';
 import { CharacterVisualizer } from './components/CharacterVisualizer';
+import { MmoSidebar } from './components/MmoSidebar';
+import { Wilderness } from './pages/Wilderness';
 
 const CLASS_UNLOCK_REQUIREMENTS: Record<string, string> = {
   VALKYRIE: 'WARRIOR',
@@ -133,6 +135,35 @@ export default function App() {
     };
   }, [socket, location.pathname]);
 
+  // Sync user location to online roster
+  useEffect(() => {
+    if (!socket || !character) return;
+
+    let loc = 'Town';
+    if (location.pathname.startsWith('/arena/play')) {
+      const match = location.pathname.match(/\/arena\/play\/(\d+)/);
+      loc = `Solo Arena (Lvl ${match ? match[1] : 1})`;
+    } else if (location.pathname.includes('/raids/streamer')) {
+      loc = 'Hosting Raid';
+    } else if (location.pathname.includes('/raids/viewer')) {
+      loc = 'Spectating Raid';
+    } else if (location.pathname.includes('/dashboard/wilderness')) {
+      loc = 'Wilderness';
+    } else if (location.pathname.includes('/leaderboard')) {
+      loc = 'Leaderboard';
+    } else if (location.pathname.includes('/dashboard')) {
+      const parts = location.pathname.split('/');
+      const tab = parts[parts.length - 1];
+      if (tab === 'stash') loc = 'Gear Stash';
+      else if (tab === 'talents') loc = 'Talent Board';
+      else if (tab === 'merchant') loc = 'Merchant Shop';
+      else if (tab === 'admin') loc = 'Admin Panel';
+      else loc = 'Dashboard';
+    }
+
+    socket.emit('update-user-location', { location: loc });
+  }, [socket, location.pathname, character]);
+
   const handleNavigate = (targetPage: string, params: any = null) => {
     const normalizedPage = targetPage.toUpperCase().replace(/-/g, '_');
     if (normalizedPage === 'LEADERBOARD') {
@@ -146,6 +177,8 @@ export default function App() {
       navigate(`/raids/streamer?${p.toString()}`);
     } else if (normalizedPage === 'VIEWER_LOBBY') {
       navigate(`/raids/viewer/${params?.streamerName}`);
+    } else if (normalizedPage === 'WILDERNESS') {
+      navigate('/dashboard/wilderness');
     }
   };
 
@@ -176,75 +209,87 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main viewport */}
-      <main className="flex-1 w-full relative">
-        <Routes>
-          {/* Public login/register page */}
-          <Route path="/auth" element={
-            <PublicRoute>
-              <Auth onLoginSuccess={(_, char) => {
-                updateCharacter(char);
-                navigate('/dashboard');
-              }} />
-            </PublicRoute>
-          } />
+      {/* Main Layout Area */}
+      <div className="flex-grow w-full flex flex-row overflow-hidden relative">
+        {/* Main viewport */}
+        <main className="flex-1 min-w-0 relative overflow-y-auto">
+          <Routes>
+            {/* Public login/register page */}
+            <Route path="/auth" element={
+              <PublicRoute>
+                <Auth onLoginSuccess={(_, char) => {
+                  updateCharacter(char);
+                  navigate('/dashboard');
+                }} />
+              </PublicRoute>
+            } />
 
-          {/* Core dashboard layouts mapped to sub-routes */}
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              {character ? <Dashboard onNavigate={handleNavigate} /> : <Navigate to="/auth" replace />}
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/dashboard/:tab" element={
-            <ProtectedRoute>
-              {character ? <Dashboard onNavigate={handleNavigate} /> : <Navigate to="/auth" replace />}
-            </ProtectedRoute>
-          } />
+            {/* Core dashboard layouts mapped to sub-routes */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                {character ? <Dashboard onNavigate={handleNavigate} /> : <Navigate to="/auth" replace />}
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/dashboard/:tab" element={
+              <ProtectedRoute>
+                {character ? <Dashboard onNavigate={handleNavigate} /> : <Navigate to="/auth" replace />}
+              </ProtectedRoute>
+            } />
 
-          <Route path="/arena" element={
-            <ProtectedRoute>
-              {character ? <Dashboard onNavigate={handleNavigate} /> : <Navigate to="/auth" replace />}
-            </ProtectedRoute>
-          } />
+            <Route path="/arena" element={
+              <ProtectedRoute>
+                {character ? <Dashboard onNavigate={handleNavigate} /> : <Navigate to="/auth" replace />}
+              </ProtectedRoute>
+            } />
 
-          <Route path="/raids" element={
-            <ProtectedRoute>
-              {character ? <Dashboard onNavigate={handleNavigate} /> : <Navigate to="/auth" replace />}
-            </ProtectedRoute>
-          } />
+            <Route path="/raids" element={
+              <ProtectedRoute>
+                {character ? <Dashboard onNavigate={handleNavigate} /> : <Navigate to="/auth" replace />}
+              </ProtectedRoute>
+            } />
 
-          {/* Active battle/raid views */}
-          <Route path="/arena/play/:level" element={
-            <ProtectedRoute>
-              <SoloMapWrapper checkAuth={checkAuth} />
-            </ProtectedRoute>
-          } />
+            {/* Active battle/raid views */}
+            <Route path="/arena/play/:level" element={
+              <ProtectedRoute>
+                <SoloMapWrapper checkAuth={checkAuth} />
+              </ProtectedRoute>
+            } />
 
-          <Route path="/raids/streamer" element={
-            <ProtectedRoute>
-              <StreamerLobbyWrapper checkAuth={checkAuth} />
-            </ProtectedRoute>
-          } />
+            <Route path="/raids/streamer" element={
+              <ProtectedRoute>
+                <StreamerLobbyWrapper checkAuth={checkAuth} />
+              </ProtectedRoute>
+            } />
 
-          <Route path="/raids/viewer/:streamerName" element={
-            <ProtectedRoute>
-              <ViewerSpectateWrapper checkAuth={checkAuth} />
-            </ProtectedRoute>
-          } />
+            <Route path="/raids/viewer/:streamerName" element={
+              <ProtectedRoute>
+                <ViewerSpectateWrapper checkAuth={checkAuth} />
+              </ProtectedRoute>
+            } />
 
-          {/* Leaderboard page */}
-          <Route path="/leaderboard" element={
-            <ProtectedRoute>
-              <Leaderboard onBackToDashboard={() => navigate('/dashboard')} />
-            </ProtectedRoute>
-          } />
+            {/* MMO Wilderness Page */}
+            <Route path="/dashboard/wilderness" element={
+              <ProtectedRoute>
+                {character ? <Wilderness onBackToDashboard={() => { checkAuth(); navigate('/dashboard'); }} /> : <Navigate to="/auth" replace />}
+              </ProtectedRoute>
+            } />
 
-          {/* Fallback redirects */}
-          <Route path="/" element={<Navigate to={user ? "/dashboard" : "/auth"} replace />} />
-          <Route path="*" element={<Navigate to={user ? "/dashboard" : "/auth"} replace />} />
-        </Routes>
-      </main>
+            {/* Leaderboard page */}
+            <Route path="/leaderboard" element={
+              <ProtectedRoute>
+                <Leaderboard onBackToDashboard={() => navigate('/dashboard')} />
+              </ProtectedRoute>
+            } />
+
+            {/* Fallback redirects */}
+            <Route path="/" element={<Navigate to={user ? "/dashboard" : "/auth"} replace />} />
+            <Route path="*" element={<Navigate to={user ? "/dashboard" : "/auth"} replace />} />
+          </Routes>
+        </main>
+        {/* MMO Sidebar */}
+        <MmoSidebar />
+      </div>
 
       {/* Footer */}
       <footer className="py-4 border-t border-white/5 text-center text-[10px] text-slate-600 font-display select-none">

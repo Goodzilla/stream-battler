@@ -6,7 +6,7 @@ import { apiFetch } from '../utils/api';
 import { CLASSES, calculateCharacterStats, xpToNextLevel } from 'shared';
 import { 
   Shield, Sparkles, Heart, Sword, Crosshair,
-  ExternalLink, Users, User
+  ExternalLink, Users, User, Flame
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useAuth } from '../contexts/AuthContext';
@@ -540,7 +540,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     <div className="max-w-7xl mx-auto py-8 px-4 flex flex-col gap-6">
       
       {/* 0. CORE GAMEPLAY MODES */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 select-none">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 select-none">
         <button
           onClick={() => setActiveSection('character')}
           className={`glass-panel p-5 border text-left flex items-center justify-between transition-all duration-300 ${
@@ -596,6 +596,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </span>
           </div>
           <Users className={`w-8 h-8 shrink-0 ${activeSection === 'raids' ? 'text-neon-magenta' : 'text-slate-500'}`} />
+        </button>
+
+        <button
+          onClick={() => onNavigate('wilderness')}
+          className="glass-panel p-5 border text-left flex items-center justify-between transition-all duration-300 border-white/5 bg-black/20 text-slate-400 hover:border-red-500/40 hover:bg-black/30 hover:text-white"
+        >
+          <div className="flex flex-col gap-1 pr-4">
+            <span className="font-display text-sm font-black uppercase tracking-wider text-slate-300">
+              Neon Wilderness
+            </span>
+            <span className="text-[11px] text-slate-400 leading-normal font-mono">
+              Fight monsters cooperatively with online players
+            </span>
+          </div>
+          <Flame className="w-8 h-8 shrink-0 text-slate-500" />
         </button>
       </div>
 
