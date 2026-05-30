@@ -3,6 +3,7 @@ import { prisma } from '../db';
 import { generateRandomItem, xpToNextLevel, calculateCharacterStats } from 'shared';
 import { resolveActiveClass, getActiveCharacter } from '../routes/auth';
 import tmi from 'tmi.js';
+import { randomUUID } from 'crypto';
 
 export interface LobbyViewer {
   userId: string;
@@ -628,11 +629,20 @@ export const setupSocketHandlers = (io: Server) => {
             const activeParticipantsCount = (recapStats || []).length;
             const averageScore = activeParticipantsCount > 0 ? totalScore / activeParticipantsCount : 1;
 
+            // 1. Batch fetch all viewers' DB profiles in a single query
+            const viewerIds = lobby.viewers.map(v => v.userId);
+            const dbUsers = await prisma.user.findMany({
+              where: { id: { in: viewerIds } },
+              include: { characters: true, items: true }
+            });
+            const userMap = new Map(dbUsers.map(u => [u.id, u]));
+
+            const prismaOps: any[] = [];
+            const socketsToEmit: Array<{ socketRoom: string; payload: any }> = [];
+            const updatedLobbyViewersMap = new Map<string, LobbyViewer>();
+
             for (const viewer of lobby.viewers) {
-              const user = await prisma.user.findUnique({
-                where: { id: viewer.userId },
-                include: { characters: true, items: true }
-              });
+              const user = userMap.get(viewer.userId);
 
               if (user) {
                 const activeClass = resolveActiveClass(user);
@@ -649,15 +659,10 @@ export const setupSocketHandlers = (io: Server) => {
                   const xpGained = Math.round(bossLevel * 200 * contributionMult);
                   const goldGained = Math.round(bossLevel * 45 * contributionMult);
 
-                  // Check inventory
-                  const unequippedCount = await prisma.item.count({
-                    where: {
-                      userId: user.id,
-                      isEquipped: false
-                    }
-                  });
+                  // Check inventory in-memory using loaded user items
+                  const unequippedCount = user.items.filter((i: any) => !i.isEquipped).length;
 
-                  let itemDropped = null;
+                  let itemDropped: any = null;
                   let inventoryFull = false;
 
                   if (unequippedCount >= 30) {
@@ -684,20 +689,38 @@ export const setupSocketHandlers = (io: Server) => {
 
                       const generated = generateRandomItem(bossLevel, rarity, slot, character.class);
 
-                      const dbItem = await prisma.item.create({
+                      // Pre-generate the item ID to build our updated object
+                      const itemId = randomUUID();
+                      const itemDroppedObj = {
+                        id: itemId,
+                        userId: user.id,
+                        equippedCharacterId: null,
+                        name: generated.name,
+                        slot: generated.slot,
+                        rarity: generated.rarity,
+                        itemLevel: generated.itemLevel,
+                        baseAttack: generated.baseAttack,
+                        baseDefense: generated.baseDefense,
+                        affixes: JSON.stringify(generated.affixes),
+                        isEquipped: false,
+                        createdAt: new Date()
+                      };
+
+                      prismaOps.push(prisma.item.create({
                         data: {
-                          userId: user.id, // Save directly to User backpack
-                          name: generated.name,
-                          slot: generated.slot,
-                          rarity: generated.rarity,
-                          itemLevel: generated.itemLevel,
-                          baseAttack: generated.baseAttack,
-                          baseDefense: generated.baseDefense,
-                          affixes: JSON.stringify(generated.affixes),
-                          isEquipped: false
+                          id: itemDroppedObj.id,
+                          userId: itemDroppedObj.userId,
+                          name: itemDroppedObj.name,
+                          slot: itemDroppedObj.slot,
+                          rarity: itemDroppedObj.rarity,
+                          itemLevel: itemDroppedObj.itemLevel,
+                          baseAttack: itemDroppedObj.baseAttack,
+                          baseDefense: itemDroppedObj.baseDefense,
+                          affixes: itemDroppedObj.affixes,
+                          isEquipped: itemDroppedObj.isEquipped
                         }
-                      });
-                      itemDropped = dbItem;
+                      }));
+                      itemDropped = itemDroppedObj;
                     }
                   }
 
@@ -716,75 +739,87 @@ export const setupSocketHandlers = (io: Server) => {
                     newXp = 0;
                   }
 
-                  await prisma.character.update({
+                  prismaOps.push(prisma.character.update({
                     where: { id: character.id },
                     data: {
                       level: newLevel,
                       xp: newXp
                     }
-                  });
+                  }));
 
                   // Add Gold to User profile
-                  await prisma.user.update({
+                  prismaOps.push(prisma.user.update({
                     where: { id: user.id },
                     data: {
                       gold: user.gold + goldGained
                     }
-                  });
+                  }));
 
-                  // Refetch full User structure
-                  const updatedUser = await prisma.user.findUnique({
-                    where: { id: user.id },
-                    include: { characters: true, items: true }
-                  });
+                  // Reconstruct user payload in memory for realtime stats sync and emitting updates
+                  const updatedCharacter = {
+                    ...character,
+                    level: newLevel,
+                    xp: newXp
+                  };
+                  const updatedCharacters = user.characters.map((c: any) => c.id === character.id ? updatedCharacter : c);
 
-                  if (updatedUser) {
-                    // Update in-memory lobby viewers for subsequent raids in the same lobby session
-                    const weapon = updatedUser.items.find((i: any) => i.slot === 'WEAPON' && i.isEquipped && i.equippedCharacterId === character.id);
-                    const armor = updatedUser.items.find((i: any) => i.slot === 'ARMOR' && i.isEquipped && i.equippedCharacterId === character.id);
-
-                    const charStats = calculateCharacterStats(
-                      character.class,
-                      newLevel,
-                      JSON.parse(character.talents || '[]'),
-                      JSON.parse(character.passives || '[]'),
-                      updatedUser.items.filter((i: any) => i.isEquipped && i.equippedCharacterId === character.id) as any
-                    );
-
-                    const updatedViewerData: LobbyViewer = {
-                      userId: updatedUser.id,
-                      username: updatedUser.username,
-                      displayName: updatedUser.displayName,
-                      charClass: character.class,
-                      level: newLevel,
-                      weaponRarity: weapon ? weapon.rarity : 'COMMON',
-                      armorRarity: armor ? armor.rarity : 'COMMON',
-                      maxHp: charStats.maxHp,
-                      attackPower: charStats.attackPower,
-                      defense: charStats.defense,
-                      critChance: charStats.critChance,
-                      critMult: charStats.critMult,
-                      atkSpeed: charStats.atkSpeed,
-                      lifesteal: charStats.lifesteal,
-                      reflect: charStats.reflect,
-                      cdr: charStats.cdr,
-                      speed: charStats.moveSpeed,
-                      selectedTalents: JSON.parse(character.talents || '[]'),
-                      fireRes: charStats.fireRes,
-                      coldRes: charStats.coldRes,
-                      poisonRes: charStats.poisonRes,
-                      physRes: charStats.physRes
-                    };
-
-                    const vIdx = lobby.viewers.findIndex(v => v.userId === viewer.userId);
-                    if (vIdx !== -1) {
-                      lobby.viewers[vIdx] = updatedViewerData;
-                    }
-
-                    // Emit to the user's private socket room to update their client state in real-time
-                    const activeChar = getActiveCharacter(updatedUser);
-                    io.to(`user_${user.id}`).emit('character-updated', activeChar);
+                  const updatedItems = [...user.items];
+                  if (itemDropped) {
+                    updatedItems.push(itemDropped);
                   }
+
+                  const updatedUser = {
+                    ...user,
+                    gold: user.gold + goldGained,
+                    characters: updatedCharacters,
+                    items: updatedItems
+                  };
+
+                  // Update in-memory lobby viewers for subsequent raids in the same lobby session
+                  const weapon = updatedUser.items.find((i: any) => i.slot === 'WEAPON' && i.isEquipped && i.equippedCharacterId === character.id);
+                  const armor = updatedUser.items.find((i: any) => i.slot === 'ARMOR' && i.isEquipped && i.equippedCharacterId === character.id);
+
+                  const charStats = calculateCharacterStats(
+                    character.class,
+                    newLevel,
+                    JSON.parse(character.talents || '[]'),
+                    JSON.parse(character.passives || '[]'),
+                    updatedUser.items.filter((i: any) => i.isEquipped && i.equippedCharacterId === character.id) as any
+                  );
+
+                  const updatedViewerData: LobbyViewer = {
+                    userId: updatedUser.id,
+                    username: updatedUser.username,
+                    displayName: updatedUser.displayName,
+                    charClass: character.class,
+                    level: newLevel,
+                    weaponRarity: weapon ? weapon.rarity : 'COMMON',
+                    armorRarity: armor ? armor.rarity : 'COMMON',
+                    maxHp: charStats.maxHp,
+                    attackPower: charStats.attackPower,
+                    defense: charStats.defense,
+                    critChance: charStats.critChance,
+                    critMult: charStats.critMult,
+                    atkSpeed: charStats.atkSpeed,
+                    lifesteal: charStats.lifesteal,
+                    reflect: charStats.reflect,
+                    cdr: charStats.cdr,
+                    speed: charStats.moveSpeed,
+                    selectedTalents: JSON.parse(character.talents || '[]'),
+                    fireRes: charStats.fireRes,
+                    coldRes: charStats.coldRes,
+                    poisonRes: charStats.poisonRes,
+                    physRes: charStats.physRes
+                  };
+
+                  updatedLobbyViewersMap.set(viewer.userId, updatedViewerData);
+
+                  // Prepare active character payload for emitting
+                  const activeChar = getActiveCharacter(updatedUser);
+                  socketsToEmit.push({
+                    socketRoom: `user_${user.id}`,
+                    payload: activeChar
+                  });
 
                   rewards[viewer.userId] = {
                     xp: xpGained,
@@ -794,6 +829,23 @@ export const setupSocketHandlers = (io: Server) => {
                   };
                 }
               }
+            }
+
+            // 2. Perform all database writes inside a single transaction
+            if (prismaOps.length > 0) {
+              await prisma.$transaction(prismaOps);
+            }
+
+            // 3. Update the lobby list in-memory and emit socket updates
+            for (const [userId, viewerData] of updatedLobbyViewersMap.entries()) {
+              const vIdx = lobby.viewers.findIndex(v => v.userId === userId);
+              if (vIdx !== -1) {
+                lobby.viewers[vIdx] = viewerData;
+              }
+            }
+
+            for (const emit of socketsToEmit) {
+              io.to(emit.socketRoom).emit('character-updated', emit.payload);
             }
           }
         } catch (err) {
